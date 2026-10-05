@@ -214,6 +214,10 @@ export async function getOrg() {
   // Returns a bare array of dept modules (consumed via the shell's queue hook).
   return (d.modules || []).map((m) => ({
     module: m.module,
+    // F4b: the backend sends the module's label (release `name`) and kind (builtin|custom),
+    // ordered by the release's position; custom modules are departments too.
+    label: m.label ?? null,
+    kind: m.kind ?? null,
     code: m.code ?? null,
     supervisors: (m.supervisors || []).map((s) => ({ ...person(s), executives: (s.executives || []).map(person) })),
     unassignedExecutives: (m.unassigned_executives || []).map(person),

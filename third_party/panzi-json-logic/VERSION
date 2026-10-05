@@ -1,0 +1,15 @@
+name: panzi-json-logic (import name: json_logic)
+version: 1.0.1
+licence: MIT (LICENSE, Copyright 2021 Mathias Panzenböck)
+upstream: https://github.com/panzi/panzi-json-logic
+commit: f55bf413e0ba1075f8eaa77bd4cadcbc8ade8901 (2021-09-12, HEAD of main = PyPI 1.0.1)
+release artefact: https://pypi.org/project/panzi-json-logic/1.0.1/  (sdist panzi-json-logic-1.0.1.tar.gz)
+sdist sha256: df80ec3902ef6b03d89f28642cf5031d8aa4fd86c17010133ca23415e6652253 (PyPI digest, verified 2026-10-04)
+wheel sha256:  3010a9b2233330d484f2b6e77a8d86f41830d33bd63c060008c4b576b5fa6076 (not used)
+files copied verbatim from the sdist: json_logic/ (incl. cert_logic/), LICENSE, README.md
+sha256 json_logic/apply.py:    081aa66ae5efee5a18cb498538b12afc682dcb39b5ea44e5fc8a4a97cf702f76
+sha256 json_logic/builtins.py: 46f2d5b208d81b5dd5fb398ce11551ceb77461329c4442700cb327340b26f354
+modifications: none (json_logic/ is identical to the sdist and to the git commit above; diff -r verified)
+requires: Python >= 3.6, stdlib only (tested here on CPython 3.13.5; the app needs >= 3.11)
+maintenance: dormant since 2021 (26 stars) — small enough (~600 lines) to own; written as a faithful port of json-logic-js
+used by: third_party/matrix-adapters/gates.py (backend gate evaluation)

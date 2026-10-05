@@ -79,6 +79,16 @@ def require_module(module_name: str) -> Callable:
     async def guard(current_user: dict = Depends(get_current_user)) -> dict:
         user_role = current_user.get("role")
         user_module = current_user.get("module")
+        # Phase 2 (configurator): a module the tenant's published configuration
+        # switched OFF is refused for EVERY role — the READ_ALL_ROLES bypass below
+        # is about module membership, not about a module that does not exist in
+        # this workspace. get_current_user supplies the tenant's disabled list
+        # (tenant_modules.enabled = false) from the same per-request read.
+        if module_name in (current_user.get("disabled_modules") or ()):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Module '{module_name}' is disabled in this workspace.",
+            )
         # Same workspace-wide bypass as require_role — neither role holds a
         # module membership, so a module comparison is meaningless for them.
         if user_module != module_name and user_role not in READ_ALL_ROLES:

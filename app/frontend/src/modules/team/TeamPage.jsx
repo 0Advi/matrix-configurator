@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useSession } from '../../state/SessionContext.jsx';
+import { useWorkspaceModules } from '../../state/useWorkspaceModules.js';
+import { isCustomModuleKey } from '../shared/workspaceModules.js';
 import {
   getMyInviteCode,
   rotateMyInviteCode,
@@ -58,6 +60,11 @@ export default function TeamPage() {
 }
 
 function SupervisorView({ module, canManageTeam }) {
+  // F4b: name the module by its label from the published release (a configurator-defined
+  // module's key reads as e.g. "vendor_onboarding"); fall back to the key.
+  // Built-ins keep showing their key exactly as before.
+  const wsLabel = useWorkspaceModules().get(module)?.label;
+  const moduleLabel = (isCustomModuleKey(module) && wsLabel) || module;
   const [invite, setInvite] = useState(null);
   const [pending, setPending] = useState([]);
   const [team, setTeam] = useState([]);
@@ -189,7 +196,7 @@ function SupervisorView({ module, canManageTeam }) {
       {error && <ErrorBanner message={error}/>}
       {actionError && <ActionBanner message={actionError}/>}
 
-      <Section title={`My invite code for ${module}`}>
+      <Section title={`My invite code for ${moduleLabel}`}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <code style={codeChip}>{invite?.code || (loading ? '…' : '— no code yet —')}</code>
           {invite?.code && (

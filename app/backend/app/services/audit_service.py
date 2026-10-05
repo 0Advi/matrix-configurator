@@ -153,3 +153,52 @@ async def diff_and_log_pipeline_fields(
 # agree on the exact strings.
 SUPERVISOR_EDIT_ACTION = "supervisor_field_edited"
 EXEC_VIEWED_ACTION = "exec_viewed_details"
+
+
+# ── Phase 2: audit rows with configuration provenance ─────────────────────────
+#
+# Migration 20261004_6 added audit_logs.config_release_id / module_key / provenance
+# (jsonb object). The ORM AuditLog model deliberately does not map them (so a
+# database without 20261004_6 keeps working for every existing writer); events
+# produced by configuration publishing and the generic module runtime are written
+# here with one raw INSERT inside the caller's transaction.
+
+async def write_provenance_audit(
+    session: AsyncSession,
+    *,
+    tenant_id: str | UUID,
+    action: str,
+    provenance: dict,
+    site_id: str | UUID | None = None,
+    actor_id: str | UUID | None = None,
+    actor_name: str | None = None,
+    entity_id: str | UUID | None = None,
+    entity_type: str | None = None,
+    detail: str | None = None,
+    from_status: str | None = None,
+    to_status: str | None = None,
+    config_release_id: str | UUID | None = None,
+    module_key: str | None = None,
+) -> None:
+    """Insert one audit_logs row carrying release/module provenance (no commit)."""
+    import json
+
+    from sqlalchemy import text
+
+    await session.execute(
+        text("""
+            INSERT INTO audit_logs
+                (tenant_id, site_id, actor_id, actor_name, action, entity_id, entity_type,
+                 from_status, to_status, detail, config_release_id, module_key, provenance)
+            VALUES
+                (:tid, :sid, :aid, :aname, :action, :eid, :etype,
+                 :from_s, :to_s, :detail, :rid, :mkey, CAST(:prov AS jsonb))
+        """),
+        {
+            "tid": tenant_id, "sid": site_id, "aid": actor_id, "aname": actor_name,
+            "action": action, "eid": entity_id, "etype": entity_type,
+            "from_s": from_status, "to_s": to_status, "detail": detail,
+            "rid": config_release_id, "mkey": module_key,
+            "prov": json.dumps(provenance, default=str),
+        },
+    )

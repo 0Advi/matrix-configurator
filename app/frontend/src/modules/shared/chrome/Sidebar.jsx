@@ -3,6 +3,32 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Icon from '../primitives/Icon.jsx';
 import { ROUTES } from '../../../router/routes.js';
 import { useSession } from '../../../state/SessionContext.jsx';
+import { useWorkspaceModules } from '../../../state/useWorkspaceModules.js';
+import { isCustomModuleKey, customModuleRoute } from '../workspaceModules.js';
+
+// F4b — a configurator-defined module's sidebar comes from its published manifest
+// (`navigation` sections of GET /workspace/modules). Its pages map onto the generic module
+// page's views; anything unknown opens the module's overview.
+const CUSTOM_PAGE_VIEW = { overview: '', queue: 'queue', review: 'review', history: 'history' };
+const CUSTOM_PAGE_ICON = { overview: 'dashboard', queue: 'document', review: 'check', history: 'archiveBox' };
+const DEFAULT_CUSTOM_NAV = [{ section: null, items: [
+  { label: 'Overview', page: 'overview' }, { label: 'Queue', page: 'queue' },
+  { label: 'Awaiting approval', page: 'review' }, { label: 'History', page: 'history' },
+] }];
+
+export function customNavItems(mod, role) {
+  const sections = Array.isArray(mod?.navigation) && mod.navigation.length ? mod.navigation : DEFAULT_CUSTOM_NAV;
+  const canon = role === 'exec' ? 'executive' : role;
+  return sections.map((sec) => ({
+    section: sec.section || null,
+    items: (sec.items || [])
+      .filter((it) => !Array.isArray(it.roles) || it.roles.length === 0 || !canon || it.roles.includes(canon))
+      .map((it) => {
+        const view = CUSTOM_PAGE_VIEW[it.page] ?? '';
+        return { label: it.label || it.page, view, icon: CUSTOM_PAGE_ICON[it.page] || 'list' };
+      }),
+  })).filter((sec) => sec.items.length > 0);
+}
 
 // Render bodies preserved exactly from Chrome.jsx Sidebar + SidebarItem components.
 // Only changes:
@@ -73,23 +99,41 @@ const SECTION_HEADING_STYLE = {
 export default function Sidebar({ counts, role, onRole, collapsed = false }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { session, effectiveModule } = useSession();
+  const { session, effectiveModule, disabledModules } = useSession();
+  const wsModules = useWorkspaceModules();
+  const isDisabled = (key) => (disabledModules || []).includes(key);
   // Prefer the JWT-borne module claim when it exists — that's the authoritative
   // signal of which module a user actually belongs to. Only fall back to the
   // current URL when the session has no module claim (mock-mode previews, where
   // we still want the right menu to render based on where the user clicked).
   const path = location.pathname;
+  // /m/<key> is a configurator-defined module's page: the URL names the module, whatever the
+  // user's primary claim is (a BD supervisor can also be a member of a custom module).
+  const pathCustom = path.startsWith('/m/') ? decodeURIComponent(path.split('/')[2] || '') : null;
   const routeModule =
+    pathCustom                             ? pathCustom           :
     path.startsWith('/legal')              ? 'legal'              :
     path.startsWith('/design')             ? 'design'             :
     path.startsWith('/project-excellence') ? 'project_excellence' :
     path.startsWith('/project')            ? 'project'            :
     path.startsWith('/nso')                ? 'nso'                :
     'bd';
-  const userModule = effectiveModule || routeModule;
+  const userModule = pathCustom || effectiveModule || routeModule;
+  const customSurface = isCustomModuleKey(userModule) ? userModule : null;
   const isModuleSurface = userModule === 'legal'
     || userModule === 'design' || userModule === 'project' || userModule === 'nso'
-    || userModule === 'project_excellence';
+    || userModule === 'project_excellence' || !!customSurface;
+  const customMod = customSurface ? (wsModules.get(customSurface) || { key: customSurface, label: customSurface, navigation: [] }) : null;
+  const customView = customSurface ? (new URLSearchParams(location.search).get('view') || '') : '';
+  // Other configurator-defined modules this user belongs to (has a role in), for quick access.
+  const otherCustom = wsModules.modules.filter((m) => m.kind === 'custom' && m.key !== customSurface && (m.my_roles || []).length > 0);
+  // On another module's page, a way back to the user's own module home.
+  const homeModule = pathCustom && effectiveModule && effectiveModule !== pathCustom ? effectiveModule : null;
+  const homeEntry = homeModule ? {
+    key: homeModule,
+    label: wsModules.get(homeModule)?.label || homeModule,
+    route: isCustomModuleKey(homeModule) ? customModuleRoute(homeModule) : (wsModules.get(homeModule)?.route || '/'),
+  } : null;
 
   // Active view derived from current URL path
   const activeView =
@@ -157,10 +201,38 @@ export default function Sidebar({ counts, role, onRole, collapsed = false }) {
           )}
           <SidebarItem icon="warning" label="DDR negative" active={activeView === 'dd-failed'} onClick={() => go(ROUTES.DD_FAILED)} collapsed={collapsed}/>
           <SidebarItem icon="route" label="Process flow" active={activeView === 'site-tracker'} onClick={() => go(ROUTES.SITE_TRACKER)} collapsed={collapsed}/>
-          {canSeePayment && (
+          {canSeePayment && !isDisabled('finance_ca') && (
             <SidebarItem icon="paymentCard" label="Payment" active={activeView === 'payment-licensing'} onClick={() => go(ROUTES.PAYMENT)} collapsed={collapsed}/>
           )}
-          <SidebarItem icon="flag" label="Launch" active={activeView === 'launch'} onClick={() => go(ROUTES.LAUNCH)} collapsed={collapsed}/>
+          {!isDisabled('launch_approval') && (
+            <SidebarItem icon="flag" label="Launch" active={activeView === 'launch'} onClick={() => go(ROUTES.LAUNCH)} collapsed={collapsed}/>
+          )}
+        </>
+      )}
+
+      {customMod && customNavItems(customMod, role).map((sec, si) => (
+        <React.Fragment key={`cm-${si}`}>
+          {!collapsed && <div style={{ ...SECTION_HEADING_STYLE, padding: si === 0 ? '4px 10px 6px' : SECTION_HEADING_STYLE.padding }}>{sec.section || customMod.label || customMod.key}</div>}
+          {sec.items.map((it) => (
+            <SidebarItem key={`${it.label}-${it.view}`} icon={it.icon} label={it.label}
+              active={customView === it.view}
+              onClick={() => go(customModuleRoute(customMod.key) + (it.view ? `?view=${it.view}` : ''))}
+              collapsed={collapsed}/>
+          ))}
+        </React.Fragment>
+      ))}
+
+      {(otherCustom.length > 0 || homeEntry) && (
+        <>
+          {!collapsed && <div style={SECTION_HEADING_STYLE}>Modules</div>}
+          {homeEntry && (
+            <SidebarItem icon="home" label={homeEntry.label} active={false}
+              onClick={() => go(homeEntry.route)} collapsed={collapsed}/>
+          )}
+          {otherCustom.map((m) => (
+            <SidebarItem key={m.key} icon="layers" label={m.label || m.key} active={false}
+              onClick={() => go(customModuleRoute(m.key))} collapsed={collapsed}/>
+          ))}
         </>
       )}
 

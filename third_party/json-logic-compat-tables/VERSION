@@ -1,0 +1,9 @@
+name: json-logic compat-tables (test suites only — no executable code)
+licence: Apache-2.0 (LICENSE). Upstream has no NOTICE file.
+upstream: https://github.com/json-logic/compat-tables
+commit: dfc0601e24d97853b349dd909704ecd048f66f97 (2026-09-28)
+files copied verbatim: suites/** (49 JSON files), LICENSE; README.md kept as README.upstream.md
+sha256 of `find suites -type f | sort | xargs cat`: 18a07bf458aaa140ea159039bb1f8529a43463059bdeb4777cc39ee9680c274a
+modifications: none
+purpose: the cross-implementation JsonLogic test corpus maintained by the json-logic community org. We run
+  `compatible.json` (the classic json-logic-js test set) and use every suite for a JS-vs-Python differential test.

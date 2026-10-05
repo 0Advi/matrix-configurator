@@ -1,0 +1,23 @@
+{
+  "name": "matrix-configurator-nocobase",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NocoBase platform layer for the Workspace Configurator: zero-dependency client, provisioning and smoke tests.",
+  "type": "module",
+  "main": "lib/client.mjs",
+  "exports": {
+    ".": "./lib/client.mjs",
+    "./client": "./lib/client.mjs",
+    "./env": "./lib/env.mjs",
+    "./schema": "./lib/schema.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "wait": "node scripts/wait-for-nocobase.mjs",
+    "provision": "node scripts/provision.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "reset": "node scripts/reset.mjs"
+  }
+}

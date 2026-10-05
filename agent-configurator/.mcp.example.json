@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "matrix-workspace-configurator": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/Users/aditya/Desktop/bd/matrix-configurator/agent-configurator/mcp-server.mjs"],
+      "env": {
+        "CFG_URL": "http://127.0.0.1:4300",
+        "MATRIX_API_URL": "http://127.0.0.1:8000/api",
+        "MATRIX_APP_URL": "http://localhost:5173",
+        "MATRIX_APP_ENV_FILE": "/Users/aditya/Desktop/bd/matrix-configurator/app/backend/.env",
+        "CFG_AGENT_NAME": "claude-code",
+        "CFG_PROTECTED_WORKSPACES": ""
+      }
+    }
+  }
+}

@@ -1,0 +1,3417 @@
+{
+ "$comment": "G2 catalogue cross-check: operaton-plat catalogue (fc65499) vs our model (matrix-bd-flow.json + module_catalog seed + v5 seed) vs the real Matrix-bd app (origin/main 3d4f277). Every claim carries evidence; [V] = read in source, [I] = inferred. Completeness is enforced by test/crosscheck.test.mjs.",
+ "provenance": {
+  "operatonPlat": {
+   "repo": "Adityashandilya555/operaton-plat",
+   "sha": "fc65499834cfa8d5e47ca2bb5266899117555d36",
+   "snapshot": "snapshot/catalogue.json"
+  },
+  "ours": {
+   "matrix-bd-flow.json": "4700783466ba99c4fc3d4e92ff30a713395475931230c0cf115158136e31ec46",
+   "20261004_2_module_catalog_and_tenant_modules.sql": "326c562d948bc9c608988b71769640dea2035715dc0f2f5a60057c77a63632ea",
+   "seed-workspaces.json": "ce180c7d28d4cfb4e57665e6a6c4546cb91b85a138a42cc31397422014998104"
+  },
+  "real": {
+   "repo": "/Users/aditya/Desktop/bd/Matrix-bd",
+   "ref": "origin/main",
+   "sha": "3d4f277beb22c5be02c2abacea61b6afaee7cdeb",
+   "readMethod": "git --no-optional-locks show/grep origin/main (read-only)"
+  },
+  "date": "2026-10-05"
+ },
+ "legend": {
+  "taskVerdicts": {
+   "match": "same step, actor and loop as the real app",
+   "partial": "same step, but actor/fields/loop differ",
+   "wrong": "contradicts the real app",
+   "wrong-role": "right step, wrong actor role",
+   "not-in-real": "the model has a step the real app does not"
+  },
+  "stageVerdicts": {
+   "match": "our stage agrees with the real app",
+   "partial": "our stage needs a correction (see discrepancies)"
+  },
+  "severity": [
+   "high",
+   "medium",
+   "low",
+   "info"
+  ],
+  "tags": {
+   "[V]": "verified by reading the cited source",
+   "[I]": "inferred"
+  }
+ },
+ "summary": {
+  "closestToReality": "ours (matrix-bd-flow.json)",
+  "operatonTasks": 55,
+  "ourStages": 36,
+  "catalogRows": 11,
+  "discrepancies": 33,
+  "operatonTaskVerdicts": {
+   "partial": 18,
+   "match": 29,
+   "wrong": 3,
+   "not-in-real": 4,
+   "wrong-role": 1
+  },
+  "ourStageVerdicts": {
+   "partial": 6,
+   "match": 30
+  },
+  "discrepanciesBySeverity": {
+   "high": 6,
+   "medium": 12,
+   "low": 11,
+   "info": 4
+  }
+ },
+ "modules": [
+  {
+   "id": "bd",
+   "operatonPlat": [
+    "bd_qualification"
+   ],
+   "ours": {
+    "flow": "bd",
+    "stages": [
+     1,
+     2,
+     3
+    ],
+    "catalog": "bd",
+    "seed": "bd"
+   },
+   "real": {
+    "kind": "module",
+    "membership": "bd",
+    "state": "sites.status draft_submitted→shortlisted→details_submitted→approved",
+    "guard": "require_role only (no require_module on BD routes)"
+   },
+   "verdict": "op-subprocess-of-real-module",
+   "notes": "operaton-plat splits BD into two 'modules'; in the real app BD qualification and LOI are one module (one membership 'bd', one status column, one sidebar). Our model (one module, 4 stages) is right.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/domain/state_machine.py:11-51 [V]",
+    "Matrix-bd@3d4f277:backend/app/routers/bd.py:58-205 [V]",
+    "Matrix-bd@3d4f277:backend/database/migrations/20260805_qa_module_site_delegation.sql:10 [V]",
+    "Matrix-bd@3d4f277:frontend/src/modules/shared/chrome/Sidebar.jsx:147-165 [V]"
+   ]
+  },
+  {
+   "id": "loi",
+   "operatonPlat": [
+    "bd_loi"
+   ],
+   "ours": {
+    "flow": "bd",
+    "stages": [
+     4
+    ],
+    "catalog": "bd",
+    "seed": "bd"
+   },
+   "real": {
+    "kind": "bd-stage",
+    "membership": null,
+    "state": "sites.status approved→loi_uploaded→legal_review (send-back → approved)",
+    "guard": "require_role (EXECUTIVE upload, SUPERVISOR send-back/timeline/push); own router prefix /loi + loi_service, but no module"
+   },
+   "verdict": "ours-right",
+   "notes": "LOI is a BD STAGE: it has its own router (/api/loi) and service, but no membership module (CHECK lists never contain 'loi'), no sidebar entry (it lives in BD 'Sites in process' = staging), its states are sites.status values in the BD state machine, and the process-flow read model titles it 'BD LOI Signed'. operaton-plat's separate bd_loi module is a harmless sub-process split but NOT a real module.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/loi.py:31 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/loi_service.py:28-129 [V]",
+    "Matrix-bd@3d4f277:backend/app/domain/state_machine.py:32-40 [V]",
+    "Matrix-bd@3d4f277:frontend/src/modules/shared/chrome/Sidebar.jsx:150-163 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/site_stage_status_service.py:309-310 [V]",
+    "Matrix-bd@3d4f277:backend/database/migrations/202606142_widen_module_checks_project_excellence.sql:10-22 [V]"
+   ]
+  },
+  {
+   "id": "legal",
+   "operatonPlat": [
+    "legal"
+   ],
+   "ours": {
+    "flow": "legal",
+    "stages": [
+     1,
+     2,
+     3
+    ],
+    "catalog": "legal",
+    "seed": "legal"
+   },
+   "real": {
+    "kind": "module",
+    "membership": "legal",
+    "state": "legal_dd_checklist / site_agreement / site_licensing → sites.legal_dd_status, agreement_status, licensing_status",
+    "guard": "require_module('legal')"
+   },
+   "verdict": "match-module",
+   "notes": "Module boundary agrees in all models; stage-level differences listed per task.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/legal_service.py:1-10 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/legal_service.py:298-326 [V]"
+   ]
+  },
+  {
+   "id": "finance",
+   "operatonPlat": [
+    "finance"
+   ],
+   "ours": {
+    "flow": "finance_ca",
+    "stages": [
+     1,
+     2,
+     3
+    ],
+    "catalog": "finance_ca",
+    "seed": "finance_ca"
+   },
+   "real": {
+    "kind": "bd-subflow+business-admin-tier",
+    "membership": null,
+    "state": "sites.finance_status pending→awaiting_supervisor→awaiting_admin→approved",
+    "guard": "require_role only; BD 'Payment' page / Site-tracker Finance tab + BA Approval Center 'Payment'"
+   },
+   "verdict": "modelled-as-module-everywhere",
+   "notes": "No module/membership in production (Finance/CA lives in BD + the business-admin portal); all three models give it a module, which is fine for a configurator as long as realModuleKey=null (ours records that). Real title: 'CA / Commercial Code'.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/finance_service.py:1-6 [V]",
+    "Matrix-bd@3d4f277:frontend/src/modules/shared/chrome/Sidebar.jsx:134-136,160-162 [V]",
+    "Matrix-bd@3d4f277:frontend/src/modules/business-admin/approval/ApprovalCenter.jsx:11-16 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/site_stage_status_service.py:312 [V]"
+   ]
+  },
+  {
+   "id": "design",
+   "operatonPlat": [
+    "design"
+   ],
+   "ours": {
+    "flow": "design",
+    "stages": [
+     1,
+     2,
+     3,
+     4
+    ],
+    "catalog": "design",
+    "seed": "design"
+   },
+   "real": {
+    "kind": "module",
+    "membership": "design",
+    "state": "design_reviews.current_stage + design_deliverables → sites.design_status",
+    "guard": "require_module('design')"
+   },
+   "verdict": "match-module",
+   "notes": "Module agrees; operaton-plat's stages are pre-retirement (BOQ).",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:73-82 [V]"
+   ]
+  },
+  {
+   "id": "pe",
+   "operatonPlat": [
+    "pe_budget"
+   ],
+   "ours": {
+    "flow": "pex",
+    "stages": [
+     1,
+     2,
+     3,
+     4
+    ],
+    "catalog": "project_excellence",
+    "seed": "pex"
+   },
+   "real": {
+    "kind": "module",
+    "membership": "project_excellence",
+    "state": "site_budgets(phase=gfc) → sites.project_excellence_status",
+    "guard": "require_module('project_excellence')"
+   },
+   "verdict": "match-module",
+   "notes": "operaton-plat lacks the quality-audit report work PE does after its budget exit.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_excellence_service.py:1-9 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:1181-1190 [V]"
+   ]
+  },
+  {
+   "id": "project",
+   "operatonPlat": [
+    "project"
+   ],
+   "ours": {
+    "flow": "project",
+    "stages": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "catalog": "project",
+    "seed": "project"
+   },
+   "real": {
+    "kind": "module",
+    "membership": "project",
+    "state": "project_reviews → sites.project_status",
+    "guard": "require_module('project')"
+   },
+   "verdict": "match-module",
+   "notes": "Ordering differs (op: after PE; real: after Design, in parallel with PE).",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:1-3,67-71 [V]"
+   ]
+  },
+  {
+   "id": "nso",
+   "operatonPlat": [
+    "nso"
+   ],
+   "ours": {
+    "flow": "nso",
+    "stages": [
+     1,
+     2,
+     3,
+     4
+    ],
+    "catalog": "nso",
+    "seed": "nso"
+   },
+   "real": {
+    "kind": "module (supervisor-only)",
+    "membership": "nso",
+    "state": "nso_reviews.current_stage stage_one…final→done; nso_status",
+    "guard": "require_role(SUPERVISOR)+require_module('nso') on every route"
+   },
+   "verdict": "match-module",
+   "notes": "Entry gate and roles wrong in operaton-plat (see D01, D13).",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/nso.py:29-33 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:1-5 [V]"
+   ]
+  },
+  {
+   "id": "launch",
+   "operatonPlat": [
+    "launch"
+   ],
+   "ours": {
+    "flow": "launch_approval",
+    "stages": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "catalog": "launch_approval",
+    "seed": "launch_approval"
+   },
+   "real": {
+    "kind": "cross-role validation loop (no module)",
+    "membership": null,
+    "state": "launch_approvals.status pending_admin_review→…→launched; sites.is_launched",
+    "guard": "require_role per step; BD 'Launch' page + BA 'Launch Approvals' tab"
+   },
+   "verdict": "match-module",
+   "notes": "Row is created by NSO final approval; no membership. All three model it as a module; fine.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/launch_service.py:1-22 [V]",
+    "Matrix-bd@3d4f277:backend/app/routers/launch_approval.py:1-16 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:757 [V]"
+   ]
+  },
+  {
+   "id": "closure",
+   "operatonPlat": [
+    "closure"
+   ],
+   "ours": {
+    "flow": "financial_closure",
+    "stages": [
+     1,
+     2,
+     3,
+     4
+    ],
+    "catalog": "financial_closure",
+    "seed": "financial_closure"
+   },
+   "real": {
+    "kind": "delegation scope run by the Project team",
+    "membership": null,
+    "state": "site_budgets(phase=closure) → sites.financial_closure_status pending/open/allocated/budgeting/closed",
+    "guard": "require_module('project') for the team; send/finalize business_admin"
+   },
+   "verdict": "match-module",
+   "notes": "Gate also needs an approved PE (GFC) budget as baseline.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/financial_closure_service.py:1-11,295-321 [V]"
+   ]
+  },
+  {
+   "id": "quality_audit_scope",
+   "operatonPlat": [],
+   "ours": {
+    "flow": "pex",
+    "stages": [
+     4
+    ],
+    "catalog": "quality_audit",
+    "seed": null
+   },
+   "real": {
+    "kind": "delegation scope",
+    "membership": null,
+    "state": "quality_audit_reports(kind before|after, pushed_at)",
+    "guard": "require_module('project_excellence')"
+   },
+   "verdict": "op-missing",
+   "notes": "Catalog surface='scope'. operaton-plat has no equivalent (it puts a qaReport file in Project).",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/database/migrations/20260805_qa_module_site_delegation.sql:10 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:1189-1190 [V]"
+   ]
+  },
+  {
+   "id": "payment_retired",
+   "operatonPlat": [],
+   "ours": {
+    "flow": null,
+    "stages": [],
+    "catalog": "payment",
+    "seed": null
+   },
+   "real": {
+    "kind": "retired module (still admitted by membership CHECK)",
+    "membership": "payment (retired)",
+    "state": null,
+    "guard": null
+   },
+   "verdict": "catalog-only",
+   "notes": "Catalog keeps it retired_at=2026-06-13 so historic rows stay valid.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/database/migrations/202606132_retire_payment_module.sql:63-75 [V]",
+    "Matrix-bd@3d4f277:backend/database/migrations/202606142_widen_module_checks_project_excellence.sql:10-22 [V]"
+   ]
+  }
+ ],
+ "operatonTasks": [
+  {
+   "module": "@start",
+   "task": "start",
+   "ours": {
+    "module": "bd",
+    "stage": 1
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "executive|supervisor (creator = sites.submitted_by)",
+    "routes": [
+     "POST /api/bd/drafts",
+     "POST /api/sites"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/bd.py:58-63 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:137-223 [V]"
+   ],
+   "notes": "Starters bdExecutive+bdSupervisor match. Fields differ: real draft = name, city, visit_date, model, spoc, maps pin/url, rent terms, area; no 'address'.",
+   "discrepancies": [
+    "D27"
+   ]
+  },
+  {
+   "module": "bd_qualification",
+   "task": "bd_review_draft",
+   "ours": {
+    "module": "bd",
+    "stage": 2
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "supervisor",
+    "routes": [
+     "POST /api/bd/drafts/{site_id}/shortlist",
+     "POST /api/bd/drafts/{site_id}/reject",
+     "POST /api/bd/drafts/{site_id}/archive"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/bd.py:99-128 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:162-166,228-242 [V]",
+    "Matrix-bd@3d4f277:backend/app/domain/state_machine.py:29 [V]"
+   ],
+   "notes": "Outcomes shortlist/reject/archive match, but skip_if supervisor-initiated is WRONG (removed 2026-07-14) and archive is revivable, not a close.",
+   "discrepancies": [
+    "D04",
+    "D06"
+   ]
+  },
+  {
+   "module": "bd_qualification",
+   "task": "bd_site_details",
+   "ours": {
+    "module": "bd",
+    "stage": 3
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "executive owner (submitted_by|assigned_to) submits; supervisor may save/edit",
+    "routes": [
+     "POST /api/bd/shortlist/{site_id}/details/save",
+     "POST /api/bd/shortlist/{site_id}/submit"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/bd.py:151-175 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:83-101,407-441 [V]"
+   ],
+   "notes": "Creator-scoped like op's assignee=initiator, but real also admits the assigned executive and lets supervisors edit; submit is EXECUTIVE-only, so a supervisor-created site must be reassigned (or the supervisor role-switches).",
+   "discrepancies": [
+    "D26",
+    "D27"
+   ]
+  },
+  {
+   "module": "bd_qualification",
+   "task": "bd_approve_details",
+   "ours": {
+    "module": "bd",
+    "stage": 3
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "supervisor (non-supervisors may not approve own drafts)",
+    "routes": [
+     "POST /api/bd/shortlist/{site_id}/approve",
+     "POST /api/bd/drafts/{site_id}/reject",
+     "POST /api/bd/drafts/{site_id}/archive"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/bd.py:181-190 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:456-471 [V]",
+    "Matrix-bd@3d4f277:backend/app/domain/state_machine.py:31 [V]"
+   ],
+   "notes": "No send-back from details_submitted in the FSM; real corrections = supervisor edits the details, or business-admin UNDO of an approval.",
+   "discrepancies": [
+    "D05",
+    "D24"
+   ]
+  },
+  {
+   "module": "bd_loi",
+   "task": "bd_upload_loi",
+   "ours": {
+    "module": "bd",
+    "stage": 4
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "executive owner (submitted_by|assigned_to)",
+    "routes": [
+     "POST /api/loi/{site_id}/upload",
+     "POST /api/sites/{site_id}/loi"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/loi.py:34-53 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/loi_service.py:44-60 [V]"
+   ],
+   "notes": "Creator-scoped upload matches. 'loiSignedOn' does not exist (upload timestamp is loi_uploaded_at).",
+   "discrepancies": [
+    "D26"
+   ]
+  },
+  {
+   "module": "bd_loi",
+   "task": "bd_send_legal",
+   "ours": {
+    "module": "bd",
+    "stage": 4
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "supervisor",
+    "routes": [
+     "POST /api/staging/{site_id}/push",
+     "POST /api/loi/{site_id}/send-back",
+     "POST /api/loi/{site_id}/set-timeline"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/staging.py:57-71 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:566-579 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/loi_service.py:170-228 [V]",
+    "Matrix-bd@3d4f277:backend/app/domain/state_machine.py:39-40 [V]"
+   ],
+   "notes": "send / send_back (comment required) / reject / archive all exist. Missing: supervisor LOI timeline (expected_loi_days). NOTE Finance already opened at upload, before this step.",
+   "discrepancies": [
+    "D03",
+    "D28"
+   ]
+  },
+  {
+   "module": "legal",
+   "task": "legal_dd_checklist",
+   "ours": {
+    "module": "legal",
+    "stage": 1
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "legal executive WITH a per-site legal delegation (draft rows only) | legal supervisor",
+    "routes": [
+     "POST /api/legal/{site_id}/dd/items",
+     "POST /api/legal/{site_id}/dd/submit-for-review"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/legal_service.py:176-240,541-611,658-680 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/change_request_service.py:43-55 [V]"
+   ],
+   "notes": "6 of 9 items (missing fire_noc + 2 optional slots; yes/no/na not boolean); real executives need a site_delegations(legal) row, not just group membership.",
+   "discrepancies": [
+    "D08",
+    "D23"
+   ]
+  },
+  {
+   "module": "legal",
+   "task": "legal_dd_verdict",
+   "ours": {
+    "module": "legal",
+    "stage": 1
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "legal supervisor",
+    "routes": [
+     "POST /api/legal/{site_id}/dd/finalize"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/legal_service.py:713-760,789,826 [V]"
+   ],
+   "notes": "Supervisor stamps positive/negative; negative → sites.status legal_rejected; positive may unlock Design.",
+   "discrepancies": []
+  },
+  {
+   "module": "legal",
+   "task": "legal_change_request",
+   "ours": {
+    "module": "legal",
+    "stage": 1
+   },
+   "verdict": "wrong",
+   "real": {
+    "actor": "BD executive (own site) | BD supervisor raises a FIELD-level request",
+    "routes": [
+     "POST /api/bd/change-requests"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/bd.py:248-262 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/change_request_service.py:146-164 [V]",
+    "Matrix-bd@3d4f277:backend/app/domain/state_machine.py:45-47 [V]"
+   ],
+   "notes": "Real CR targets one DD/legal field with a requested value; executives may raise it on their own sites. 'Accept rejection → close site' does not exist: legal_rejected can only go back to legal_review.",
+   "discrepancies": [
+    "D07"
+   ]
+  },
+  {
+   "module": "legal",
+   "task": "legal_review_cr",
+   "ours": {
+    "module": "legal",
+    "stage": 1
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "legal supervisor",
+    "routes": [
+     "POST /api/legal/change-requests/{request_id}/approve",
+     "POST /api/legal/change-requests/{request_id}/reject"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/change_request_service.py:250-301 [V]"
+   ],
+   "notes": "Approval applies the field change and AUTO-revives the site (verdict → positive) when the last failing core item flips; it does not route to a manual re-finalise step.",
+   "discrepancies": [
+    "D07"
+   ]
+  },
+  {
+   "module": "legal",
+   "task": "legal_agreement",
+   "ours": {
+    "module": "legal",
+    "stage": 2
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "legal supervisor",
+    "routes": [
+     "POST /api/legal/{site_id}/agreement"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/legal_service.py:874-910 [V]"
+   ],
+   "notes": "Gated on a published positive DDR; signed/registered.",
+   "discrepancies": []
+  },
+  {
+   "module": "legal",
+   "task": "legal_licensing",
+   "ours": {
+    "module": "legal",
+    "stage": 3
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "legal executive (delegated, draft) | supervisor publishes",
+    "routes": [
+     "POST /api/legal/{site_id}/licensing",
+     "POST /api/legal/{site_id}/licensing/submit-for-review"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/legal_service.py:924-955 [V]"
+   ],
+   "notes": "5 licences, loop until all yes/na ('na' not expressible as boolean). Completion → legal_approved. Licensing runs IN PARALLEL with Design in reality.",
+   "discrepancies": [
+    "D02",
+    "D08"
+   ]
+  },
+  {
+   "module": "finance",
+   "task": "fin_ca_entry",
+   "ours": {
+    "module": "finance_ca",
+    "stage": 1
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "executive owner (submitted_by|assigned_to) | any supervisor",
+    "routes": [
+     "PATCH /api/sites/{site_id}/finance",
+     "POST /api/sites/{site_id}/finance/request-approval"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/finance_service.py:106-235 [V]"
+   ],
+   "notes": "Creator-scoped for executives (assert_executive_owns_site) — matches assignee=initiator for the executive case. KYC is a boolean (kyc_verified); no KYC document; CA code unique per tenant.",
+   "discrepancies": [
+    "D26"
+   ]
+  },
+  {
+   "module": "finance",
+   "task": "fin_supervisor",
+   "ours": {
+    "module": "finance_ca",
+    "stage": 2
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "supervisor (route has no module check)",
+    "routes": [
+     "POST /api/sites/{site_id}/finance/approve",
+     "POST /api/sites/{site_id}/finance/reject"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/sites.py:499-545 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/finance_service.py:238-345 [V]"
+   ],
+   "notes": "Send-back → pending (fields unlock) matches.",
+   "discrepancies": [
+    "D22"
+   ]
+  },
+  {
+   "module": "finance",
+   "task": "fin_admin",
+   "ours": {
+    "module": "finance_ca",
+    "stage": 3
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "business_admin",
+    "routes": [
+     "POST /api/business-admin/finance-approvals/{site_id}/approve",
+     "POST /api/business-admin/finance-approvals/{site_id}/reject"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/finance_service.py:347-400 [V]"
+   ],
+   "notes": "Approval may unlock Design (maybe_unlock_design) and opens NSO stage 1.",
+   "discrepancies": [
+    "D01"
+   ]
+  },
+  {
+   "module": "design",
+   "task": "design_allocate",
+   "ours": {
+    "module": "design",
+    "stage": 1
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "design supervisor (delegate an executive or self)",
+    "routes": [
+     "POST /api/design/{site_id}/allocate"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:429-505 [V]"
+   ],
+   "notes": "Real allocation is a revocable site_delegations(design) row.",
+   "discrepancies": [
+    "D23"
+   ]
+  },
+  {
+   "module": "design",
+   "task": "design_recce",
+   "ours": {
+    "module": "design",
+    "stage": 1
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "delegated design executive | supervisor (self-upload auto-approves)",
+    "routes": [
+     "POST /api/design/{site_id}/deliverables/{kind}/upload"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:838-953 [V]"
+   ],
+   "notes": "",
+   "discrepancies": []
+  },
+  {
+   "module": "design",
+   "task": "design_recce_review",
+   "ours": {
+    "module": "design",
+    "stage": 1
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "design supervisor",
+    "routes": [
+     "POST /api/design/{site_id}/deliverables/{kind}/review"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:955-1060 [V]"
+   ],
+   "notes": "Reject → re-upload.",
+   "discrepancies": []
+  },
+  {
+   "module": "design",
+   "task": "design_2d",
+   "ours": {
+    "module": "design",
+    "stage": 2
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "delegated design executive | supervisor",
+    "routes": [
+     "POST /api/design/{site_id}/deliverables/{kind}/upload"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:897-953 [V]"
+   ],
+   "notes": "",
+   "discrepancies": []
+  },
+  {
+   "module": "design",
+   "task": "design_2d_review",
+   "ours": {
+    "module": "design",
+    "stage": 2
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "design supervisor",
+    "routes": [
+     "POST /api/design/{site_id}/deliverables/{kind}/review"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:955-1060 [V]"
+   ],
+   "notes": "",
+   "discrepancies": []
+  },
+  {
+   "module": "design",
+   "task": "design_2d_admin",
+   "ours": {
+    "module": "design",
+    "stage": 2
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "business_admin",
+    "routes": [
+     "POST /api/design/{site_id}/deliverables/{kind}/admin-review"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:1266-1350 [V]"
+   ],
+   "notes": "Admin send-back → re-upload; supervisor/admin decisions are undoable.",
+   "discrepancies": [
+    "D24"
+   ]
+  },
+  {
+   "module": "design",
+   "task": "design_3d",
+   "ours": {
+    "module": "design",
+    "stage": 3
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "delegated design executive | supervisor",
+    "routes": [
+     "POST /api/design/{site_id}/deliverables/{kind}/upload"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:897-953 [V]"
+   ],
+   "notes": "",
+   "discrepancies": []
+  },
+  {
+   "module": "design",
+   "task": "design_3d_review",
+   "ours": {
+    "module": "design",
+    "stage": 3
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "design supervisor, THEN business_admin (3D needs admin review too)",
+    "routes": [
+     "POST /api/design/{site_id}/deliverables/{kind}/review",
+     "POST /api/design/{site_id}/deliverables/{kind}/admin-review"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:79-82 [V]"
+   ],
+   "notes": "operaton-plat has no 3D admin review.",
+   "discrepancies": [
+    "D09"
+   ]
+  },
+  {
+   "module": "design",
+   "task": "design_gfc",
+   "ours": {
+    "module": "design",
+    "stage": 4
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "design supervisor REQUESTS GFC; business_admin decides",
+    "routes": [
+     "POST /api/design/{site_id}/gfc-request",
+     "POST /api/design/gfc/{site_id}"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:1504-1549,1619-1710 [V]"
+   ],
+   "notes": "GFC approval COMPLETES Design and opens the PE budget; reject → 3D (send_back target matches).",
+   "discrepancies": [
+    "D09"
+   ]
+  },
+  {
+   "module": "design",
+   "task": "design_boq",
+   "ours": null,
+   "verdict": "not-in-real",
+   "real": {
+    "actor": "—",
+    "routes": []
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:73-82 [V]"
+   ],
+   "notes": "BOQ retired; the 11-head budget moved to Project Excellence.",
+   "discrepancies": [
+    "D09"
+   ]
+  },
+  {
+   "module": "design",
+   "task": "design_boq_review",
+   "ours": null,
+   "verdict": "not-in-real",
+   "real": {
+    "actor": "—",
+    "routes": []
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:73-82 [V]"
+   ],
+   "notes": "Retired with BOQ.",
+   "discrepancies": [
+    "D09"
+   ]
+  },
+  {
+   "module": "design",
+   "task": "design_final",
+   "ours": null,
+   "verdict": "not-in-real",
+   "real": {
+    "actor": "—",
+    "routes": []
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:1660-1669 [V]"
+   ],
+   "notes": "No separate 'design completion' approval: GFC approval is the completion.",
+   "discrepancies": [
+    "D09"
+   ]
+  },
+  {
+   "module": "pe_budget",
+   "task": "pe_delegate",
+   "ours": {
+    "module": "pex",
+    "stage": 1
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "PE supervisor (delegate or self)",
+    "routes": [
+     "POST /api/project-excellence/{site_id}/allocate"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_excellence_service.py:322-379 [V]"
+   ],
+   "notes": "",
+   "discrepancies": [
+    "D23"
+   ]
+  },
+  {
+   "module": "pe_budget",
+   "task": "pe_fill",
+   "ours": {
+    "module": "pex",
+    "stage": 1
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "delegated PE executive | supervisor (supervisor submit goes straight to admin)",
+    "routes": [
+     "POST /api/project-excellence/{site_id}/budget"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_excellence_service.py:420-473 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/budget_service.py [V]"
+   ],
+   "notes": "11 heads match the real labels.",
+   "discrepancies": []
+  },
+  {
+   "module": "pe_budget",
+   "task": "pe_review",
+   "ours": {
+    "module": "pex",
+    "stage": 2
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "PE supervisor",
+    "routes": [
+     "POST /api/project-excellence/{site_id}/budget/review"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_excellence_service.py:479-507 [V]"
+   ],
+   "notes": "Reject → resubmit.",
+   "discrepancies": []
+  },
+  {
+   "module": "pe_budget",
+   "task": "pe_admin",
+   "ours": {
+    "module": "pex",
+    "stage": 3
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "business_admin — MUST set the project initialization date to approve",
+    "routes": [
+     "POST /api/project-excellence/{site_id}/budget/admin-review"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_excellence_service.py:546-590 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:129-149 [V]"
+   ],
+   "notes": "The admin approval is the hand-over into Project: it proposes the initialization date.",
+   "discrepancies": [
+    "D10"
+   ]
+  },
+  {
+   "module": "project",
+   "task": "prj_allocate",
+   "ours": {
+    "module": "project",
+    "stage": 1
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "project supervisor allocates (delegate|self); init date PROPOSED by the PE admin approval (supervisor propose = recovery path)",
+    "routes": [
+     "POST /api/project/{site_id}/allocate",
+     "POST /api/project/{site_id}/initialization/propose"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:555-606,738-763 [V]"
+   ],
+   "notes": "operaton-plat conflates allocation with the date proposal.",
+   "discrepancies": [
+    "D10"
+   ]
+  },
+  {
+   "module": "project",
+   "task": "prj_accept",
+   "ours": {
+    "module": "project",
+    "stage": 1
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "delegated project executive accepts/rejects; on reject the SUPERVISOR finalises",
+    "routes": [
+     "POST /api/project/{site_id}/initialization/respond",
+     "POST /api/project/{site_id}/initialization/finalize"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:776-825 [V]"
+   ],
+   "notes": "Decline does not loop back to a re-proposal for the executive.",
+   "discrepancies": [
+    "D10"
+   ]
+  },
+  {
+   "module": "project",
+   "task": "prj_expected",
+   "ours": {
+    "module": "project",
+    "stage": 2
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "executive | supervisor (supervisor submit auto-approves)",
+    "routes": [
+     "POST /api/project/{site_id}/milestone/{field}"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:655-678 [V]"
+   ],
+   "notes": "",
+   "discrepancies": []
+  },
+  {
+   "module": "project",
+   "task": "prj_expected_review",
+   "ours": {
+    "module": "project",
+    "stage": 2
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "project supervisor",
+    "routes": [
+     "POST /api/project/{site_id}/milestone/{field}/review"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:702-735 [V]"
+   ],
+   "notes": "",
+   "discrepancies": []
+  },
+  {
+   "module": "project",
+   "task": "prj_mid_visit",
+   "ours": {
+    "module": "project",
+    "stage": 3
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "project supervisor",
+    "routes": [
+     "POST /api/project/{site_id}/mid-project-visit"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:838-865 [V]"
+   ],
+   "notes": "Requires expected completion approved.",
+   "discrepancies": []
+  },
+  {
+   "module": "project",
+   "task": "prj_inspection",
+   "ours": {
+    "module": "project",
+    "stage": 4
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "executive | supervisor records the inspection DATE (no upload)",
+    "routes": [
+     "POST /api/project/{site_id}/quality-audit/inspection-date"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:867-895 [V]",
+    "Matrix-bd@3d4f277:backend/app/domain/schemas/project.py:108 [V]"
+   ],
+   "notes": "The QA report PDFs (before/after) are uploaded by Project Excellence, not by the project executive.",
+   "discrepancies": [
+    "D12",
+    "D15"
+   ]
+  },
+  {
+   "module": "project",
+   "task": "prj_qa_review",
+   "ours": {
+    "module": "project",
+    "stage": 4
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "project supervisor",
+    "routes": [
+     "POST /api/project/{site_id}/quality-audit/supervisor-approve"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:897-930 [V]"
+   ],
+   "notes": "",
+   "discrepancies": []
+  },
+  {
+   "module": "project",
+   "task": "prj_qa_signoff",
+   "ours": {
+    "module": "project",
+    "stage": 4
+   },
+   "verdict": "wrong",
+   "real": {
+    "actor": "PROJECT EXCELLENCE supervisor ('Completed'); business-admin confirm route is legacy, admin UI read-only",
+    "routes": [
+     "POST /api/project-excellence/{site_id}/quality-audit/complete",
+     "POST /api/project/{site_id}/quality-audit/admin-confirm"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:1142-1178,932-962 [V]",
+    "Matrix-bd@3d4f277:frontend/src/modules/business-admin/approval/SiteApprovalPanel.jsx:666-677 [V]"
+   ],
+   "notes": "",
+   "discrepancies": [
+    "D11"
+   ]
+  },
+  {
+   "module": "project",
+   "task": "prj_complete",
+   "ours": {
+    "module": "project",
+    "stage": 4
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "executive | supervisor sets final_completion_date (requires QA approved) — optional, project may already be done",
+    "routes": [
+     "POST /api/project/{site_id}/milestone/{field}"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:679-687 [V]"
+   ],
+   "notes": "Real completion paths: PE 'Completed', PE push of the 'before' report, admin confirm, or this milestone.",
+   "discrepancies": [
+    "D11"
+   ]
+  },
+  {
+   "module": "project",
+   "task": "prj_push_nso",
+   "ours": {
+    "module": "project",
+    "stage": 5
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "project supervisor; needs project done AND both PE QA reports pushed",
+    "routes": [
+     "POST /api/project/{site_id}/push-to-nso"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:1035-1071 [V]"
+   ],
+   "notes": "Push opens NSO directly at stage three.",
+   "discrepancies": [
+    "D12"
+   ]
+  },
+  {
+   "module": "nso",
+   "task": "nso_comms",
+   "ours": {
+    "module": "nso",
+    "stage": 1
+   },
+   "verdict": "wrong-role",
+   "real": {
+    "actor": "NSO SUPERVISOR (no NSO executives exist)",
+    "routes": [
+     "POST /api/nso/{site_id}/stage-one",
+     "PATCH /api/nso/{site_id}/stage-one"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/nso.py:32-33,85-96 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:602-632 [V]"
+   ],
+   "notes": "Stage 1 = property details + communication_floated; opens at Finance/CA approval.",
+   "discrepancies": [
+    "D01",
+    "D13"
+   ]
+  },
+  {
+   "module": "nso",
+   "task": "nso_readiness",
+   "ours": {
+    "module": "nso",
+    "stage": 3
+   },
+   "verdict": "wrong",
+   "real": {
+    "actor": "NSO supervisor",
+    "routes": [
+     "POST /api/nso/{site_id}/stage-three",
+     "PATCH /api/nso/{site_id}/stage-three"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:242-251,696-727 [V]"
+   ],
+   "notes": "Real checklist: dry_stock_order, online_delivery, handover_checklist_signed, launch_date, launch_ready (+ 2 sign-offs). staffHired/posReady/inventoryStocked do not exist. Stage 2 (licensing mirror) is missing in op.",
+   "discrepancies": [
+    "D13",
+    "D14"
+   ]
+  },
+  {
+   "module": "nso",
+   "task": "nso_signoff",
+   "ours": {
+    "module": "nso",
+    "stage": 3
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "NSO supervisor ticks final_approval_signoff_1 in the stage-three form",
+    "routes": [
+     "PATCH /api/nso/{site_id}/stage-three"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:717-718 [V]",
+    "Matrix-bd@3d4f277:frontend/src/modules/nso/NsoReviewPage.jsx:771-785 [V]"
+   ],
+   "notes": "",
+   "discrepancies": [
+    "D13"
+   ]
+  },
+  {
+   "module": "nso",
+   "task": "nso_project_signoff",
+   "ours": null,
+   "verdict": "not-in-real",
+   "real": {
+    "actor": "— (final_approval_signoff_2 is ALSO ticked by the NSO supervisor)",
+    "routes": []
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:717-718 [V]",
+    "Matrix-bd@3d4f277:backend/app/routers/nso.py:32-33 [V]"
+   ],
+   "notes": "No project-supervisor sign-off inside NSO; the Project→NSO dependency is the push (stage-3 gate).",
+   "discrepancies": [
+    "D13"
+   ]
+  },
+  {
+   "module": "nso",
+   "task": "nso_launch_ready",
+   "ours": {
+    "module": "nso",
+    "stage": 4
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "NSO supervisor",
+    "routes": [
+     "POST /api/nso/{site_id}/final-approval"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:729-757 [V]"
+   ],
+   "notes": "Final approval creates the launch_approvals row.",
+   "discrepancies": []
+  },
+  {
+   "module": "launch",
+   "task": "launch_send",
+   "ours": {
+    "module": "launch_approval",
+    "stage": 1
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "business_admin (edits rent + commercial terms)",
+    "routes": [
+     "POST /api/launch-approvals/{site_id}/send-for-review",
+     "PATCH /api/launch-approvals/{site_id}/rent-fields"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/launch_service.py:698-735 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/launch_service.py:580-586 [V]"
+   ],
+   "notes": "",
+   "discrepancies": []
+  },
+  {
+   "module": "launch",
+   "task": "launch_exec_verdict",
+   "ours": {
+    "module": "launch_approval",
+    "stage": 2
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "SITE CREATOR: submitted_by|assigned_to, role executive OR supervisor; verdict flows forward; may set rent_start_date",
+    "routes": [
+     "POST /api/launch-approvals/{site_id}/exec-review"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/launch_approval.py:47-50,115-125 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/launch_service.py:588-617,738-777 [V]"
+   ],
+   "notes": "Forward-only verdict matches (no outcomes in op). Real creator also covers assigned_to and supervisor-creators.",
+   "discrepancies": [
+    "D15"
+   ]
+  },
+  {
+   "module": "launch",
+   "task": "launch_sup_verdict",
+   "ours": {
+    "module": "launch_approval",
+    "stage": 3
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "ANY supervisor (no module check)",
+    "routes": [
+     "POST /api/launch-approvals/{site_id}/supervisor-review"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/launch_approval.py:51,128-137 [V]",
+    "Matrix-bd@3d4f277:frontend/src/modules/launch/LaunchPage.jsx:171-174 [V]"
+   ],
+   "notes": "Forward-only.",
+   "discrepancies": [
+    "D15",
+    "D22"
+   ]
+  },
+  {
+   "module": "launch",
+   "task": "launch_confirm",
+   "ours": {
+    "module": "launch_approval",
+    "stage": 4
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "business_admin (commits staged rent terms)",
+    "routes": [
+     "POST /api/launch-approvals/{site_id}/final-confirm"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/launch_service.py:861-920 [V]"
+   ],
+   "notes": "",
+   "discrepancies": []
+  },
+  {
+   "module": "launch",
+   "task": "launch_go",
+   "ours": {
+    "module": "launch_approval",
+    "stage": 5
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "business_admin",
+    "routes": [
+     "POST /api/launch-approvals/{site_id}/launch"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/launch_service.py:923-955 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:247 [V]"
+   ],
+   "notes": "launch_date is captured in NSO stage 3, not here; launch sets sites.is_launched.",
+   "discrepancies": [
+    "D16"
+   ]
+  },
+  {
+   "module": "closure",
+   "task": "fc_send",
+   "ours": {
+    "module": "financial_closure",
+    "stage": 1
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "business_admin (site launched + approved PE budget)",
+    "routes": [
+     "POST /api/financial-closure/{site_id}/send"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/financial_closure_service.py:295-321 [V]"
+   ],
+   "notes": "",
+   "discrepancies": [
+    "D17"
+   ]
+  },
+  {
+   "module": "closure",
+   "task": "fc_actuals",
+   "ours": {
+    "module": "financial_closure",
+    "stage": 2
+   },
+   "verdict": "partial",
+   "real": {
+    "actor": "project executive DELEGATED for financial_closure (separate allocation) | project supervisor",
+    "routes": [
+     "POST /api/financial-closure/{site_id}/allocate",
+     "POST /api/financial-closure/{site_id}/budget"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/financial_closure_service.py:463-567 [V]"
+   ],
+   "notes": "Real actuals = 11 heads with variation vs GFC, not a single total.",
+   "discrepancies": [
+    "D17"
+   ]
+  },
+  {
+   "module": "closure",
+   "task": "fc_review",
+   "ours": {
+    "module": "financial_closure",
+    "stage": 3
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "project supervisor",
+    "routes": [
+     "POST /api/financial-closure/{site_id}/budget/review"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/financial_closure_service.py:582-606 [V]"
+   ],
+   "notes": "",
+   "discrepancies": []
+  },
+  {
+   "module": "closure",
+   "task": "fc_admin",
+   "ours": {
+    "module": "financial_closure",
+    "stage": 4
+   },
+   "verdict": "match",
+   "real": {
+    "actor": "business_admin",
+    "routes": [
+     "POST /api/financial-closure/{site_id}/finalize"
+    ]
+   },
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/financial_closure_service.py:659-686 [V]"
+   ],
+   "notes": "",
+   "discrepancies": []
+  }
+ ],
+ "ourStages": [
+  {
+   "module": "bd",
+   "order": 1,
+   "name": "Draft capture",
+   "operatonTasks": [
+    "start"
+   ],
+   "verdict": "partial",
+   "notes": "Stage note claims supervisor drafts skip review — wrong since 2026-07-14.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:162-166 [V]",
+    "matrix-configurator:building-blocks/from-matrix-bd/matrix-bd-flow.json:146 [V]"
+   ],
+   "discrepancies": [
+    "D04"
+   ]
+  },
+  {
+   "module": "bd",
+   "order": 2,
+   "name": "Shortlist review",
+   "operatonTasks": [
+    "bd_review_draft"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:228-242 [V]"
+   ],
+   "discrepancies": []
+  },
+  {
+   "module": "bd",
+   "order": 3,
+   "name": "Details review",
+   "operatonTasks": [
+    "bd_site_details",
+    "bd_approve_details"
+   ],
+   "verdict": "match",
+   "notes": "No send-back (correct); BA undo noted.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/domain/state_machine.py:31 [V]"
+   ],
+   "discrepancies": []
+  },
+  {
+   "module": "bd",
+   "order": 4,
+   "name": "LOI",
+   "operatonTasks": [
+    "bd_upload_loi",
+    "bd_send_legal"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/loi_service.py:28-228 [V]"
+   ],
+   "discrepancies": []
+  },
+  {
+   "module": "legal",
+   "order": 1,
+   "name": "DDR (due diligence report)",
+   "operatonTasks": [
+    "legal_dd_checklist",
+    "legal_dd_verdict",
+    "legal_change_request",
+    "legal_review_cr"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/legal_service.py:713-760 [V]"
+   ],
+   "discrepancies": []
+  },
+  {
+   "module": "legal",
+   "order": 2,
+   "name": "Agreement",
+   "operatonTasks": [
+    "legal_agreement"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/legal_service.py:874-910 [V]"
+   ],
+   "discrepancies": []
+  },
+  {
+   "module": "legal",
+   "order": 3,
+   "name": "Licensing",
+   "operatonTasks": [
+    "legal_licensing"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/legal_service.py:924-955 [V]"
+   ],
+   "discrepancies": []
+  },
+  {
+   "module": "finance_ca",
+   "order": 1,
+   "name": "CA code & KYC",
+   "operatonTasks": [
+    "fin_ca_entry"
+   ],
+   "verdict": "match",
+   "notes": "Module entry gate bd:done is an approximation (real: LOI upload).",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/finance_service.py:35-38 [V]"
+   ],
+   "discrepancies": [
+    "D03"
+   ]
+  },
+  {
+   "module": "finance_ca",
+   "order": 2,
+   "name": "Supervisor review",
+   "operatonTasks": [
+    "fin_supervisor"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [],
+   "discrepancies": []
+  },
+  {
+   "module": "finance_ca",
+   "order": 3,
+   "name": "Admin approval",
+   "operatonTasks": [
+    "fin_admin"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [],
+   "discrepancies": []
+  },
+  {
+   "module": "design",
+   "order": 1,
+   "name": "Recce",
+   "operatonTasks": [
+    "design_allocate",
+    "design_recce",
+    "design_recce_review"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [],
+   "discrepancies": []
+  },
+  {
+   "module": "design",
+   "order": 2,
+   "name": "2D drawing",
+   "operatonTasks": [
+    "design_2d",
+    "design_2d_review",
+    "design_2d_admin"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [],
+   "discrepancies": []
+  },
+  {
+   "module": "design",
+   "order": 3,
+   "name": "3D render",
+   "operatonTasks": [
+    "design_3d",
+    "design_3d_review"
+   ],
+   "verdict": "match",
+   "notes": "operaton-plat lacks the 3D admin review this stage has.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:82 [V]"
+   ],
+   "discrepancies": [
+    "D09"
+   ]
+  },
+  {
+   "module": "design",
+   "order": 4,
+   "name": "GFC approval",
+   "operatonTasks": [
+    "design_gfc"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:1504-1549,1660-1669 [V]"
+   ],
+   "discrepancies": []
+  },
+  {
+   "module": "pex",
+   "order": 1,
+   "name": "GFC budget (11 heads)",
+   "operatonTasks": [
+    "pe_delegate",
+    "pe_fill"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [],
+   "discrepancies": []
+  },
+  {
+   "module": "pex",
+   "order": 2,
+   "name": "Supervisor review",
+   "operatonTasks": [
+    "pe_review"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [],
+   "discrepancies": []
+  },
+  {
+   "module": "pex",
+   "order": 3,
+   "name": "Admin review",
+   "operatonTasks": [
+    "pe_admin"
+   ],
+   "verdict": "partial",
+   "notes": "Missing the mandatory initialization-date field the admin sets on approval.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_excellence_service.py:562-577 [V]"
+   ],
+   "discrepancies": [
+    "D10"
+   ]
+  },
+  {
+   "module": "pex",
+   "order": 4,
+   "name": "Quality-audit reports",
+   "operatonTasks": [],
+   "verdict": "match",
+   "notes": "operaton-plat has no equivalent.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:1181-1344 [V]"
+   ],
+   "discrepancies": [
+    "D12"
+   ]
+  },
+  {
+   "module": "project",
+   "order": 1,
+   "name": "Initialization date",
+   "operatonTasks": [
+    "prj_allocate",
+    "prj_accept"
+   ],
+   "verdict": "partial",
+   "notes": "Actor list makes the supervisor the proposer; the primary proposer is the business admin via the PE approval.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:129-149,738-763 [V]"
+   ],
+   "discrepancies": [
+    "D10"
+   ]
+  },
+  {
+   "module": "project",
+   "order": 2,
+   "name": "Expected completion",
+   "operatonTasks": [
+    "prj_expected",
+    "prj_expected_review"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [],
+   "discrepancies": []
+  },
+  {
+   "module": "project",
+   "order": 3,
+   "name": "Mid-project visit",
+   "operatonTasks": [
+    "prj_mid_visit"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [],
+   "discrepancies": []
+  },
+  {
+   "module": "project",
+   "order": 4,
+   "name": "Quality audit",
+   "operatonTasks": [
+    "prj_inspection",
+    "prj_qa_review",
+    "prj_qa_signoff",
+    "prj_complete"
+   ],
+   "verdict": "partial",
+   "notes": "approvers [supervisor, business_admin]: tier 2 is now the PE supervisor; admin route legacy.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:1142-1168 [V]",
+    "Matrix-bd@3d4f277:frontend/src/modules/business-admin/approval/SiteApprovalPanel.jsx:666-668 [V]"
+   ],
+   "discrepancies": [
+    "D11"
+   ]
+  },
+  {
+   "module": "project",
+   "order": 5,
+   "name": "Push to NSO",
+   "operatonTasks": [
+    "prj_push_nso"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:1035-1071 [V]"
+   ],
+   "discrepancies": []
+  },
+  {
+   "module": "nso",
+   "order": 1,
+   "name": "Stage 1 · Property & communication",
+   "operatonTasks": [
+    "nso_comms"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:206-207,602-632 [V]"
+   ],
+   "discrepancies": []
+  },
+  {
+   "module": "nso",
+   "order": 2,
+   "name": "Stage 2 · Licensing (from Legal)",
+   "operatonTasks": [],
+   "verdict": "match",
+   "notes": "operaton-plat has no stage 2 (only shows licence values).",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:254-255,634-694 [V]"
+   ],
+   "discrepancies": [
+    "D13"
+   ]
+  },
+  {
+   "module": "nso",
+   "order": 3,
+   "name": "Stage 3 · Launch readiness",
+   "operatonTasks": [
+    "nso_readiness",
+    "nso_signoff"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:242-251,258-272 [V]"
+   ],
+   "discrepancies": []
+  },
+  {
+   "module": "nso",
+   "order": 4,
+   "name": "Final approval",
+   "operatonTasks": [
+    "nso_launch_ready"
+   ],
+   "verdict": "partial",
+   "notes": "final_signoff_1/2 are captured in the stage-THREE form, not here (low).",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:717-718,729-757 [V]"
+   ],
+   "discrepancies": [
+    "D30"
+   ]
+  },
+  {
+   "module": "launch_approval",
+   "order": 1,
+   "name": "Admin review",
+   "operatonTasks": [
+    "launch_send"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [],
+   "discrepancies": []
+  },
+  {
+   "module": "launch_approval",
+   "order": 2,
+   "name": "Creator review",
+   "operatonTasks": [
+    "launch_exec_verdict"
+   ],
+   "verdict": "match",
+   "notes": "approvers ['executive'] cannot say 'site creator (executive OR supervisor)'; x-matrix does.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/launch_service.py:592-617 [V]"
+   ],
+   "discrepancies": [
+    "D15"
+   ]
+  },
+  {
+   "module": "launch_approval",
+   "order": 3,
+   "name": "Supervisor review",
+   "operatonTasks": [
+    "launch_sup_verdict"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [],
+   "discrepancies": []
+  },
+  {
+   "module": "launch_approval",
+   "order": 4,
+   "name": "Admin final confirm",
+   "operatonTasks": [
+    "launch_confirm"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [],
+   "discrepancies": []
+  },
+  {
+   "module": "launch_approval",
+   "order": 5,
+   "name": "Launch",
+   "operatonTasks": [
+    "launch_go"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [],
+   "discrepancies": []
+  },
+  {
+   "module": "financial_closure",
+   "order": 1,
+   "name": "Send for closure",
+   "operatonTasks": [
+    "fc_send"
+   ],
+   "verdict": "partial",
+   "notes": "Missing the approved-PE-budget precondition.",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/financial_closure_service.py:309-311 [V]"
+   ],
+   "discrepancies": [
+    "D17"
+   ]
+  },
+  {
+   "module": "financial_closure",
+   "order": 2,
+   "name": "Actuals (11 heads)",
+   "operatonTasks": [
+    "fc_actuals"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [],
+   "discrepancies": []
+  },
+  {
+   "module": "financial_closure",
+   "order": 3,
+   "name": "Supervisor review",
+   "operatonTasks": [
+    "fc_review"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [],
+   "discrepancies": []
+  },
+  {
+   "module": "financial_closure",
+   "order": 4,
+   "name": "Closure sign-off",
+   "operatonTasks": [
+    "fc_admin"
+   ],
+   "verdict": "match",
+   "notes": "",
+   "evidence": [],
+   "discrepancies": []
+  }
+ ],
+ "catalogRows": [
+  {
+   "key": "bd",
+   "flowKey": "bd",
+   "operatonModules": [
+    "bd_qualification",
+    "bd_loi"
+   ],
+   "verdict": "partial",
+   "issues": [
+    "outcome_map loi_uploaded→'done' contradicts the flow exitSignal (send-to-legal) and the real LOI send-back (loi_uploaded→approved) (D18)",
+    "shortlisted→'in progress' while the flow's Shortlist-review stage outcome is 'allocated' (unreachable, D19)"
+   ],
+   "evidence": [
+    "matrix-configurator:app/backend/database/migrations/20261004_2_module_catalog_and_tenant_modules.sql:83-85 [V]",
+    "matrix-configurator:building-blocks/from-matrix-bd/matrix-bd-flow.json [V]",
+    "Matrix-bd@3d4f277:backend/app/domain/state_machine.py:39-40 [V]"
+   ]
+  },
+  {
+   "key": "legal",
+   "flowKey": "legal",
+   "operatonModules": [
+    "legal"
+   ],
+   "verdict": "partial",
+   "issues": [
+    "Agreement-stage outcome 'submitted' is not derivable from legal_dd_status (needs agreement_status) (D19)"
+   ],
+   "evidence": [
+    "matrix-configurator:app/backend/database/migrations/20261004_2_module_catalog_and_tenant_modules.sql:86-88 [V]"
+   ]
+  },
+  {
+   "key": "finance_ca",
+   "flowKey": "finance_ca",
+   "operatonModules": [
+    "finance"
+   ],
+   "verdict": "match",
+   "issues": [
+    "name 'Finance / CA approval' (seed) vs real/flow 'CA / Commercial Code' (D20)"
+   ],
+   "evidence": [
+    "matrix-configurator:app/backend/database/migrations/20261004_2_module_catalog_and_tenant_modules.sql:89-91 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/site_stage_status_service.py:312 [V]"
+   ]
+  },
+  {
+   "key": "design",
+   "flowKey": "design",
+   "operatonModules": [
+    "design"
+   ],
+   "verdict": "match",
+   "issues": [
+    "name 'Design' vs real/flow 'Design / Technical' (D20)"
+   ],
+   "evidence": [
+    "matrix-configurator:app/backend/database/migrations/20261004_2_module_catalog_and_tenant_modules.sql:92-94 [V]"
+   ]
+  },
+  {
+   "key": "project_excellence",
+   "flowKey": "pex",
+   "operatonModules": [
+    "pe_budget"
+   ],
+   "verdict": "partial",
+   "issues": [
+    "reached_map has a 'done' key the PE status never takes (D21)",
+    "flow outcomes 'submitted' (budget) and 'done' (QA reports) unreachable (D19)"
+   ],
+   "evidence": [
+    "matrix-configurator:app/backend/database/migrations/20261004_2_module_catalog_and_tenant_modules.sql:95-97 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/project_excellence_service.py:371,461,572 [V]"
+   ]
+  },
+  {
+   "key": "project",
+   "flowKey": "project",
+   "operatonModules": [
+    "project"
+   ],
+   "verdict": "partial",
+   "issues": [
+    "flow outcomes 'submitted' (expected completion) and 'approved' (quality audit) unreachable; 'done' implies both (D19)",
+    "name 'Project execution' vs 'Project Execution' (D20)"
+   ],
+   "evidence": [
+    "matrix-configurator:app/backend/database/migrations/20261004_2_module_catalog_and_tenant_modules.sql:98-100 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:675-686,952-959 [V]"
+   ]
+  },
+  {
+   "key": "nso",
+   "flowKey": "nso",
+   "operatonModules": [
+    "nso"
+   ],
+   "verdict": "partial",
+   "issues": [
+    "stage-1 outcome 'submitted' unreachable although nso_status in_progress implies stage one complete (D19)"
+   ],
+   "evidence": [
+    "matrix-configurator:app/backend/database/migrations/20261004_2_module_catalog_and_tenant_modules.sql:101-103 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:310-334 [V]"
+   ]
+  },
+  {
+   "key": "launch_approval",
+   "flowKey": "launch_approval",
+   "operatonModules": [
+    "launch"
+   ],
+   "verdict": "match",
+   "issues": [
+    "name 'Launch approval' vs 'Launch Approval' (D20)"
+   ],
+   "evidence": [
+    "matrix-configurator:app/backend/database/migrations/20261004_2_module_catalog_and_tenant_modules.sql:104-106 [V]"
+   ]
+  },
+  {
+   "key": "financial_closure",
+   "flowKey": "financial_closure",
+   "operatonModules": [
+    "closure"
+   ],
+   "verdict": "partial",
+   "issues": [
+    "'closed' should also imply 'submitted' (flow Actuals stage) (D19)",
+    "'open'→'pending' vs flow stage-1 outcome 'allocated' (D19)",
+    "name 'Financial closure' vs 'Financial Closure' (D20)"
+   ],
+   "evidence": [
+    "matrix-configurator:app/backend/database/migrations/20261004_2_module_catalog_and_tenant_modules.sql:107-109 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/financial_closure_service.py:316,501,567,675 [V]"
+   ]
+  },
+  {
+   "key": "quality_audit",
+   "flowKey": null,
+   "operatonModules": [],
+   "verdict": "match",
+   "issues": [],
+   "evidence": [
+    "matrix-configurator:app/backend/database/migrations/20261004_2_module_catalog_and_tenant_modules.sql:110 [V]",
+    "Matrix-bd@3d4f277:backend/database/migrations/20260805_qa_module_site_delegation.sql:10 [V]"
+   ]
+  },
+  {
+   "key": "payment",
+   "flowKey": null,
+   "operatonModules": [],
+   "verdict": "match",
+   "issues": [],
+   "evidence": [
+    "matrix-configurator:app/backend/database/migrations/20261004_2_module_catalog_and_tenant_modules.sql:111 [V]",
+    "Matrix-bd@3d4f277:backend/database/migrations/202606132_retire_payment_module.sql:63-75 [V]"
+   ]
+  }
+ ],
+ "ordering": [
+  {
+   "id": "E01",
+   "edge": "start → BD qualification",
+   "operatonPlat": "call_bd_qualification first",
+   "ours": "bd: no gate",
+   "real": "POST /api/bd/drafts → draft_submitted",
+   "verdict": "all-match",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:137-223 [V]"
+   ]
+  },
+  {
+   "id": "E02",
+   "edge": "supervisor-created site skips draft review",
+   "operatonPlat": "skip_if initiator_in bdSupervisor",
+   "ours": "stage note says it skips",
+   "real": "NO skip since cd70220 (2026-07-14); supervisor may shortlist its own draft",
+   "verdict": "op-wrong, ours-wrong",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:65-80,162-166 [V]"
+   ],
+   "discrepancy": "D04"
+  },
+  {
+   "id": "E03",
+   "edge": "LOI → Legal",
+   "operatonPlat": "legal after bd_loi (after 'send to Legal')",
+   "ours": "legal gate bd:done (= send-to-legal)",
+   "real": "BD supervisor push LOI_UPLOADED→LEGAL_REVIEW seeds the DD checklist",
+   "verdict": "all-match",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:566-590 [V]"
+   ]
+  },
+  {
+   "id": "E04",
+   "edge": "LOI → Finance/CA",
+   "operatonPlat": "finance after bd_loi (after 'send to Legal')",
+   "ours": "finance_ca gate bd:done (documented G-D approximation); catalog maps loi_uploaded→done",
+   "real": "opens at LOI UPLOAD (status ∈ loi_uploaded, legal_review, legal_approved, pushed_to_payments; NOT legal_rejected)",
+   "verdict": "op-late, ours-approximate, catalog-inconsistent",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/finance_service.py:35-38,126-130,176-180 [V]"
+   ],
+   "discrepancy": "D03"
+  },
+  {
+   "id": "E05",
+   "edge": "Legal ∥ Finance",
+   "operatonPlat": "split_bd_loi parallel gateway",
+   "ours": "both gated on bd",
+   "real": "'Finance / CA and Legal run in parallel after LOI'",
+   "verdict": "all-match",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/workflow_unlocks.py:1-11 [V]",
+    "operaton-plat@fc65499:build/matrix_site.bpmn:12,43-45 [V]"
+   ]
+  },
+  {
+   "id": "E06",
+   "edge": "join before Design",
+   "operatonPlat": "join_design waits for the WHOLE Legal module (DDR + agreement + licensing loop) and Finance",
+   "ours": "legal:approved (DDR positive) ∧ finance_ca:approved",
+   "real": "design_unlock_ready = legal_dd_status='positive' ∧ finance_status='approved'; Agreement and Licensing continue in parallel with Design",
+   "verdict": "op-over-restrictive, ours-right",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/workflow_unlocks.py:25-29 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:230-244 [V]",
+    "operaton-plat@fc65499:build/matrix_site.bpmn:19,47-50 [V]"
+   ],
+   "discrepancy": "D02"
+  },
+  {
+   "id": "E07",
+   "edge": "Design → Project Excellence",
+   "operatonPlat": "pe_budget after design",
+   "ours": "pex gate design:approved",
+   "real": "design_status='approved'",
+   "verdict": "all-match",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_excellence_service.py:56-60 [V]"
+   ]
+  },
+  {
+   "id": "E08",
+   "edge": "Design → Project",
+   "operatonPlat": "project after pe_budget (serial)",
+   "ours": "project gate design:approved (parallel with PE) + stage gate",
+   "real": "_assert_project_unlocked: design_status='approved' — Project opens in parallel with PE; milestones wait for the initialization date",
+   "verdict": "op-serial-approximation, ours-right",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:67-71,673-676 [V]"
+   ],
+   "discrepancy": "D10"
+  },
+  {
+   "id": "E09",
+   "edge": "PE budget approved → Project initialization",
+   "operatonPlat": "implicit (serial)",
+   "ours": "stageLevelGate",
+   "real": "PE admin approval seeds initialization_date as 'proposed' (supervisor propose = recovery)",
+   "verdict": "ours-right",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_excellence_service.py:562-577 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:129-149,738-763 [V]"
+   ]
+  },
+  {
+   "id": "E10",
+   "edge": "Finance/CA approved → NSO (entry)",
+   "operatonPlat": "NSO after project",
+   "ours": "nso gate finance_ca:approved",
+   "real": "_trigger_one_unlocked: finance_status='approved' ∧ ca_code set; NSO queue filters on it",
+   "verdict": "op-wrong, ours-right",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:1-5,206-207,484-485,613-614 [V]"
+   ],
+   "discrepancy": "D01"
+  },
+  {
+   "id": "E11",
+   "edge": "Project initialization approved → NSO stage 2",
+   "operatonPlat": "missing",
+   "ours": "stageLevelGate",
+   "real": "_stage_two_unlocked = stage one complete ∧ initialization approved",
+   "verdict": "op-missing, ours-right",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:210-215,254-255 [V]"
+   ],
+   "discrepancy": "D01"
+  },
+  {
+   "id": "E12",
+   "edge": "Project push ∧ Project done ∧ Legal licensing complete → NSO stage 3",
+   "operatonPlat": "NSO after project (licensing done before Design)",
+   "ours": "stageLevelGate",
+   "real": "_stage_three_unlocked = handover_pushed_at ∧ stage one ∧ licensing complete ∧ project done",
+   "verdict": "op-partial, ours-right",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:258-272 [V]"
+   ],
+   "discrepancy": "D01"
+  },
+  {
+   "id": "E13",
+   "edge": "PE QA reports (before+after pushed) → Project push to NSO",
+   "operatonPlat": "missing",
+   "ours": "stageLevelGate",
+   "real": "svc_push_to_nso refuses without both pushed reports",
+   "verdict": "op-missing, ours-right",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:1050-1058 [V]"
+   ],
+   "discrepancy": "D12"
+  },
+  {
+   "id": "E14",
+   "edge": "NSO final → Launch",
+   "operatonPlat": "launch after nso",
+   "ours": "launch gate nso:done",
+   "real": "svc_final_approval creates launch_approvals",
+   "verdict": "all-match",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:729-757 [V]"
+   ]
+  },
+  {
+   "id": "E15",
+   "edge": "Launch → Financial closure",
+   "operatonPlat": "closure after launch",
+   "ours": "fc gate launch_approval:done + admin send",
+   "real": "is_launched ∧ BA send ∧ approved PE (GFC) budget baseline",
+   "verdict": "op-match, ours-missing-baseline",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/financial_closure_service.py:56-70,295-321 [V]"
+   ],
+   "discrepancy": "D17"
+  }
+ ],
+ "discrepancies": [
+  {
+   "id": "D01",
+   "severity": "high",
+   "area": "ordering/gate",
+   "modelsAffected": [
+    "operaton-plat",
+    "v5-seed"
+   ],
+   "claims": {
+    "operatonPlat": "NSO 'after': ['project'] (catalogue.json:212)",
+    "ours": "nso entry_gate finance_ca:approved + stage gates",
+    "seed": "nso gate project:approved"
+   },
+   "real": "NSO opens when Finance/CA is approved and a CA code exists; Project only gates NSO stage 2 (initialization approved) and stage 3 (push + done + licensing). The process-flow DISPLAY (site_stage_status_service._st_nso) draws NSO after Project, which is where the linear picture comes from.",
+   "verdict": "ours-right; operaton-plat and seed wrong",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:1-5,206-207,254-272,484-485,613-614 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/site_stage_status_service.py:127-131 [V]",
+    "operaton-plat@fc65499:catalogue.json:212 [V]"
+   ],
+   "fix": "operaton-plat: nso after ['finance'] with stage-level waits (needs a stage gate construct). Ours: none.",
+   "tag": "V"
+  },
+  {
+   "id": "D02",
+   "severity": "high",
+   "area": "ordering/join",
+   "modelsAffected": [
+    "operaton-plat"
+   ],
+   "claims": {
+    "operatonPlat": "Design after ['legal','finance'] where Legal ends after agreement + licensing loop",
+    "ours": "design gate legal:approved ∧ finance_ca:approved"
+   },
+   "real": "Design opens on DDR positive ∧ finance approved; Agreement and Licensing run in parallel with Design; licensing completion is needed only for NSO stage 3.",
+   "verdict": "ours-right; operaton-plat over-restrictive (delays Design by the whole agreement + licensing time)",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/workflow_unlocks.py:1-11,25-29 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:230-244 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:270 [V]"
+   ],
+   "fix": "operaton-plat: end the Legal call-activity's gating path at legal_dd_verdict(positive) (e.g. split Legal into 'legal_dd' and 'legal_post_dd'), join Design on legal_dd ∧ finance; join licensing before NSO stage 3.",
+   "tag": "V"
+  },
+  {
+   "id": "D03",
+   "severity": "medium",
+   "area": "ordering/gate",
+   "modelsAffected": [
+    "operaton-plat",
+    "ours",
+    "catalog"
+   ],
+   "claims": {
+    "operatonPlat": "finance after bd_loi (after supervisor 'send to Legal')",
+    "ours": "finance_ca entry_gate bd:done (x-matrix G-D says real is LOI upload)",
+    "catalog": "bd loi_uploaded→'done' (so bd:done fires at upload)"
+   },
+   "real": "Finance opens at LOI upload (before send-to-legal) and is closed while the site is legal_rejected.",
+   "verdict": "all three approximate; ours documents it but the gate data is wrong; catalog makes bd:done mean 'LOI uploaded' which contradicts Legal's gate",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/finance_service.py:35-38,126-130,176-180 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:566-579 [V]",
+    "matrix-configurator:app/backend/database/migrations/20261004_2_module_catalog_and_tenant_modules.sql:84 [V]"
+   ],
+   "fix": "Ours: add x-matrix.gateTriple {source:'bd', stage:'LOI', event:'loi_uploaded'} to finance_ca and keep bd:done = send-to-legal; catalog: loi_uploaded→'submitted' (see D18); optional signal 'bd_loi_uploaded' for custom modules.",
+   "tag": "V"
+  },
+  {
+   "id": "D04",
+   "severity": "high",
+   "area": "rule/creator",
+   "modelsAffected": [
+    "operaton-plat",
+    "ours"
+   ],
+   "claims": {
+    "operatonPlat": "skip_if {initiator_in: bdSupervisor} on bd_review_draft (catalogue.json:60); README 'Sites it creates skip draft review'",
+    "ours": "bd stage 1 note 'A supervisor-created draft starts at shortlisted (skips this review)' (matrix-bd-flow.json:146, build script l.67, approvals.json bd_shortlist)"
+   },
+   "real": "Every draft, whoever creates it, enters draft_submitted; there is no supervisor auto-promote (removed by cd70220, 2026-07-14). A supervisor may shortlist its own draft (_assert_not_self_approval exempts supervisors and business admins).",
+   "verdict": "both wrong (pre-July behaviour)",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:56-80,159-167,174 [V]",
+    "Matrix-bd@3d4f277:frontend/src/services/api/adapters/mockAdapter.js:46 [V]",
+    "git log origin/main -S 'no supervisor auto-promote' → cd70220 2026-07-14 'fix(bd): un-deadlock role-switch pipeline; supervisor drafts enter pipeline' [V]"
+   ],
+   "fix": "Remove skip_if from operaton-plat; fix our note + approvals.json; G3 must NOT implement a supervisor skip.",
+   "tag": "V"
+  },
+  {
+   "id": "D05",
+   "severity": "medium",
+   "area": "send-back",
+   "modelsAffected": [
+    "operaton-plat"
+   ],
+   "claims": {
+    "operatonPlat": "bd_approve_details outcome send_back → bd_site_details",
+    "ours": "no send-back; BA undo"
+   },
+   "real": "DETAILS_SUBMITTED → APPROVED | REJECTED | ARCHIVED only. Corrections: the supervisor edits the details (tagged supervisor_field_edited) or a business admin undoes an approval.",
+   "verdict": "ours-right; operaton-plat invents a loop",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/domain/state_machine.py:31 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:342-350,456-530 [V]"
+   ],
+   "fix": "operaton-plat: drop send_back on bd_approve_details.",
+   "tag": "V"
+  },
+  {
+   "id": "D06",
+   "severity": "low",
+   "area": "outcomes",
+   "modelsAffected": [
+    "operaton-plat"
+   ],
+   "claims": {
+    "operatonPlat": "reject and archive both '@close' (terminate)",
+    "ours": "reject terminal; archive revivable"
+   },
+   "real": "Archived sites can be revived to archived_from_status by a supervisor/business admin; rejected is terminal. Archive needs a note, reject takes reasons.",
+   "verdict": "ours-right",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:654-727 [V]",
+    "Matrix-bd@3d4f277:backend/app/domain/state_machine.py:48-50 [V]"
+   ],
+   "fix": "operaton-plat: model archive as a parked state with a revive action.",
+   "tag": "V"
+  },
+  {
+   "id": "D07",
+   "severity": "medium",
+   "area": "loop",
+   "modelsAffected": [
+    "operaton-plat"
+   ],
+   "claims": {
+    "operatonPlat": "BD supervisor decides 'raise CR' (free text) or 'accept rejection → close'; Legal sup approve → manual re-finalise",
+    "ours": "changeRequestLoop + x-matrix.loops"
+   },
+   "real": "A CR is raised by a BD executive (own site) or supervisor against ONE legal field with a requested value; Legal supervisor approves/rejects; approval applies the change and auto-revives the site when the last failing core item flips. legal_rejected → legal_review is the only exit; there is no 'close'.",
+   "verdict": "ours-right; operaton-plat wrong in actor, granularity and terminal",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/bd.py:248-262 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/change_request_service.py:1-10,146-164,250-301 [V]",
+    "Matrix-bd@3d4f277:backend/app/domain/state_machine.py:45-47 [V]"
+   ],
+   "fix": "operaton-plat: CR task for bdExecutive(initiator)|bdSupervisor with field/value; remove @close.",
+   "tag": "V"
+  },
+  {
+   "id": "D08",
+   "severity": "low",
+   "area": "fields",
+   "modelsAffected": [
+    "operaton-plat",
+    "v5-seed"
+   ],
+   "claims": {
+    "operatonPlat": "6 boolean DD items; 5 boolean licences",
+    "ours": "9 DD items (yes/no/na) + 5 licences"
+   },
+   "real": "7 core DD items (incl. fire_noc) + 2 optional slots, values pending/yes/no/na; licences all yes/na to complete.",
+   "verdict": "ours-right",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/change_request_service.py:43-55 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/legal_service.py:924-955 [V]"
+   ],
+   "fix": "operaton-plat: select fields yes/no/na.",
+   "tag": "V"
+  },
+  {
+   "id": "D09",
+   "severity": "high",
+   "area": "stages",
+   "modelsAffected": [
+    "operaton-plat",
+    "v5-seed"
+   ],
+   "claims": {
+    "operatonPlat": "design_boq, design_boq_review, design_final; no 3D admin review; no GFC request",
+    "ours": "Recce, 2D, 3D, GFC (BOQ retired)"
+   },
+   "real": "Deliverables recce/2d/3d; 2D AND 3D need business-admin review; supervisor sends for GFC; GFC approval completes Design and opens the PE budget.",
+   "verdict": "ours-right",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:73-82,1504-1549,1660-1669 [V]"
+   ],
+   "fix": "operaton-plat: delete BOQ tasks + design_final; add design_3d_admin; add design_gfc_request (designSupervisor).",
+   "tag": "V"
+  },
+  {
+   "id": "D10",
+   "severity": "medium",
+   "area": "ordering/stages",
+   "modelsAffected": [
+    "operaton-plat",
+    "ours"
+   ],
+   "claims": {
+    "operatonPlat": "project after pe_budget; prj_allocate proposes; decline → re-propose",
+    "ours": "project gate design:approved ✓; stage 1 lists supervisor as proposer; PE admin stage lacks the init-date field"
+   },
+   "real": "Project opens at GFC (parallel with PE). PE admin approval REQUIRES an initialization date, which seeds Project's initialization as 'proposed'; the executive accepts/rejects; on reject the supervisor finalises. Supervisor propose is a recovery path.",
+   "verdict": "ours mostly right (field + actor note missing); operaton-plat partial",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_excellence_service.py:546-590 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:67-71,129-149,738-825 [V]"
+   ],
+   "fix": "Ours: add pex stage-3 field + fix project stage-1 actors (patch F-03/F-04).",
+   "tag": "V"
+  },
+  {
+   "id": "D11",
+   "severity": "high",
+   "area": "approver",
+   "modelsAffected": [
+    "operaton-plat",
+    "ours",
+    "v5-seed"
+   ],
+   "claims": {
+    "operatonPlat": "prj_qa_signoff role businessAdmin",
+    "ours": "project stage 4 approvers [supervisor, business_admin] (PE noted as 'alternative')",
+    "seed": "Quality audit [supervisor, business_admin]"
+   },
+   "real": "Tier-2 quality-audit sign-off moved to the Project Excellence supervisor ('Completed'); the business-admin confirm route still exists but the admin UI shows it read-only.",
+   "verdict": "all three stale; real tier 2 = PE supervisor",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:932-962,1142-1178 [V]",
+    "Matrix-bd@3d4f277:frontend/src/modules/business-admin/approval/SiteApprovalPanel.jsx:666-677 [V]"
+   ],
+   "fix": "Ours: approvers ['supervisor'] + x-matrix.coOwner PE supervisor (patch F-05).",
+   "tag": "V"
+  },
+  {
+   "id": "D12",
+   "severity": "medium",
+   "area": "cross-module",
+   "modelsAffected": [
+    "operaton-plat"
+   ],
+   "claims": {
+    "operatonPlat": "qaReport file uploaded by projectExecutive; push to NSO needs nothing else",
+    "ours": "pex stage 4 QA reports + stage gate"
+   },
+   "real": "Project Excellence (supervisor or quality_audit-delegated executive) uploads and pushes 'before' and 'after' QA PDFs after QA is supervisor-approved; pushing 'before' completes the project; push-to-NSO needs both pushed.",
+   "verdict": "ours-right",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_service.py:1181-1190,1263-1344,1050-1058 [V]"
+   ],
+   "fix": "operaton-plat: add PE QA-report tasks and a cross-module wait.",
+   "tag": "V"
+  },
+  {
+   "id": "D13",
+   "severity": "high",
+   "area": "roles",
+   "modelsAffected": [
+    "operaton-plat"
+   ],
+   "claims": {
+    "operatonPlat": "nsoExecutive does comms + readiness; parallel nso_signoff (nsoSupervisor) ∥ nso_project_signoff (projectSupervisor); no stage 2",
+    "ours": "supervisor-only, 4 stages"
+   },
+   "real": "Every NSO route is require_role(SUPERVISOR)+require_module('nso'); executives cannot join NSO. The two final sign-offs are checkboxes the NSO supervisor ticks in the stage-three form. Stage 2 mirrors Legal licensing.",
+   "verdict": "ours-right",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/nso.py:29-33 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:242-251,634-694,717-718 [V]",
+    "Matrix-bd@3d4f277:frontend/src/modules/nso/NsoReviewPage.jsx:771-785 [V]"
+   ],
+   "fix": "operaton-plat: NSO tasks → nsoSupervisor; replace parallel sign-off by two fields; add stage 2.",
+   "tag": "V"
+  },
+  {
+   "id": "D14",
+   "severity": "low",
+   "area": "fields",
+   "modelsAffected": [
+    "operaton-plat"
+   ],
+   "claims": {
+    "operatonPlat": "staffHired, posReady, inventoryStocked"
+   },
+   "real": "Stage 3: dry_stock_order_status (ordered|received), online_delivery_status (ready|active), handover_checklist_signed, launch_date, launch_ready, signoff_1/2.",
+   "verdict": "operaton-plat invented fields",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:242-251 [V]"
+   ],
+   "fix": "operaton-plat: use the real checklist.",
+   "tag": "V"
+  },
+  {
+   "id": "D15",
+   "severity": "medium",
+   "area": "rule/creator",
+   "modelsAffected": [
+    "operaton-plat",
+    "ours"
+   ],
+   "claims": {
+    "operatonPlat": "launch_exec_verdict assignee ${initiator}; launch_sup_verdict bdSupervisor",
+    "ours": "Creator review approvers ['executive'] + x-matrix 'the SITE CREATOR'"
+   },
+   "real": "Creator = submitted_by OR assigned_to, role executive OR supervisor (no role filter in the service check); verdict forward-only; creator may set rent_start_date at that stage only. Supervisor tier = any supervisor in the tenant.",
+   "verdict": "both approximately right; neither can express 'creator' structurally",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/launch_approval.py:47-52 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/launch_service.py:588-641,738-777 [V]",
+    "Matrix-bd@3d4f277:frontend/src/modules/launch/LaunchPage.jsx:163-175 [V]"
+   ],
+   "fix": "Ours: structured x-matrix.creatorRule (patch F-08); G3 implements it.",
+   "tag": "V"
+  },
+  {
+   "id": "D16",
+   "severity": "low",
+   "area": "fields",
+   "modelsAffected": [
+    "operaton-plat"
+   ],
+   "claims": {
+    "operatonPlat": "launch_go captures launchDate"
+   },
+   "real": "launch_date is captured in NSO stage 3; the Launch step only flips is_launched/launched_at.",
+   "verdict": "operaton-plat misplaced",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:247 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/launch_service.py:923-955 [V]"
+   ],
+   "fix": "Move launchDate to the NSO readiness task.",
+   "tag": "V"
+  },
+  {
+   "id": "D17",
+   "severity": "low",
+   "area": "stages/gate",
+   "modelsAffected": [
+    "operaton-plat",
+    "ours"
+   ],
+   "claims": {
+    "operatonPlat": "fc_actuals assignee projectExec (reuses project allocation), one total + sheet",
+    "ours": "no PE-baseline precondition"
+   },
+   "real": "FC needs is_launched, a BA send and an APPROVED PE (GFC) budget; the project supervisor allocates FC separately (site_delegations 'financial_closure', or self); actuals are 11 heads with variation.",
+   "verdict": "both partial",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/financial_closure_service.py:56-70,295-321,463-567 [V]"
+   ],
+   "fix": "Ours: stage-1 stageGate (patch F-07).",
+   "tag": "V"
+  },
+  {
+   "id": "D18",
+   "severity": "medium",
+   "area": "catalog",
+   "modelsAffected": [
+    "catalog"
+   ],
+   "claims": {
+    "catalog": "bd outcome_map loi_uploaded→'done', reached [submitted,in progress,approved,done]",
+    "ours": "bd exitSignal = loi_uploaded → legal_review (send to Legal)"
+   },
+   "real": "loi_uploaded can still be sent back to approved (and archived/rejected); BD's hand-off is the supervisor push to legal_review.",
+   "verdict": "catalog inconsistent with our flow and with reality: a custom module gated on bd:done would open at upload and stay open after a send-back",
+   "evidence": [
+    "matrix-configurator:app/backend/database/migrations/20261004_2_module_catalog_and_tenant_modules.sql:84-85 [V]",
+    "Matrix-bd@3d4f277:backend/app/domain/state_machine.py:39-40 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/loi_service.py:170-228 [V]"
+   ],
+   "fix": "Catalog patch C-01.",
+   "tag": "V"
+  },
+  {
+   "id": "D19",
+   "severity": "medium",
+   "area": "catalog",
+   "modelsAffected": [
+    "catalog",
+    "ours"
+   ],
+   "claims": {
+    "ours": "stage outcomes offered by the flow",
+    "catalog": "outcome_map/reached_map over the mirror columns"
+   },
+   "real": "Outcomes the flow offers but the catalog can never report: bd 'allocated'; legal 'submitted'; pex 'submitted','done'; project 'submitted','approved'; nso 'submitted'; financial_closure 'submitted'. A configurator gate on any of them would never open in the runtime (site_module_outcomes).",
+   "verdict": "inconsistency between our two models (computed by the completeness test)",
+   "evidence": [
+    "matrix-configurator:app/backend/database/migrations/20261004_2_module_catalog_and_tenant_modules.sql:83-109 [V]",
+    "matrix-configurator:app/backend/database/migrations/20261004_5_generic_module_runtime.sql:372-404 [V]",
+    "matrix-configurator:building-blocks/from-matrix-bd/matrix-bd-flow.json [V]"
+   ],
+   "fix": "Catalog patch C-02..C-05 for the derivable ones; validator warning for the rest (recommendation R4).",
+   "tag": "V"
+  },
+  {
+   "id": "D20",
+   "severity": "low",
+   "area": "naming",
+   "modelsAffected": [
+    "catalog"
+   ],
+   "claims": {
+    "catalog": "Finance / CA approval, Design, Project execution, Launch approval, Financial closure"
+   },
+   "real": "Real titles: CA / Commercial Code, Design / Technical, Project Execution, (Launch Approvals / Site Launched), Financial Closure — our flow already uses them.",
+   "verdict": "catalog uses v5-seed names",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/site_stage_status_service.py:308-318 [V]",
+    "matrix-configurator:app/backend/database/migrations/20261004_2_module_catalog_and_tenant_modules.sql:83-109 [V]"
+   ],
+   "fix": "Catalog patch C-06 (labels only; they seed tenant_modules.label for new tenants).",
+   "tag": "V"
+  },
+  {
+   "id": "D21",
+   "severity": "low",
+   "area": "catalog",
+   "modelsAffected": [
+    "catalog"
+   ],
+   "claims": {
+    "catalog": "project_excellence reached_map has 'done'"
+   },
+   "real": "project_excellence_status only takes pending/allocated/budgeting/approved.",
+   "verdict": "dead entry",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/project_excellence_service.py:371,461,572 [V]"
+   ],
+   "fix": "Catalog patch C-04 (drop or keep documented).",
+   "tag": "V"
+  },
+  {
+   "id": "D22",
+   "severity": "medium",
+   "area": "roles",
+   "modelsAffected": [
+    "operaton-plat"
+   ],
+   "claims": {
+    "operatonPlat": "14 department groups (bdSupervisor, legalExecutive, …); bdSupervisor-only BD/finance/launch tasks"
+   },
+   "real": "4 roles × module membership. BD, Finance-supervisor and Launch-supervisor routes are require_role only — any supervisor passes the API guard; the SPA restricts BD screens to the BD module surface.",
+   "verdict": "operaton-plat stricter than the real backend (arguably what the business intends)",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/rbac/roles.py:1-46 [V]",
+    "Matrix-bd@3d4f277:backend/app/rbac/guards.py:8-35,63-91 [V]",
+    "Matrix-bd@3d4f277:backend/app/routers/bd.py:99-128 [V]",
+    "Matrix-bd@3d4f277:backend/app/routers/sites.py:499-511 [V]",
+    "Matrix-bd@3d4f277:backend/app/routers/launch_approval.py:51 [V]"
+   ],
+   "fix": "Configurator: keep (role, module) pairs; flag un-moduled routes as a real-app gap, do not copy it.",
+   "tag": "V"
+  },
+  {
+   "id": "D23",
+   "severity": "medium",
+   "area": "roles/delegation",
+   "modelsAffected": [
+    "operaton-plat"
+   ],
+   "claims": {
+    "operatonPlat": "legalExecutive/nsoExecutive claim from a group queue; designExec/peExec/projectExec via user fields"
+   },
+   "real": "Module executives act only on sites delegated to them (site_delegations per module, revocable; supervisor may take a site itself). Legal executives additionally edit only draft-stage rows.",
+   "verdict": "operaton-plat partial (user fields ≈ delegation; group claim for Legal is wrong)",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/legal_service.py:176-240 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/delegation_service.py:449-479 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:429-505 [V]"
+   ],
+   "fix": "operaton-plat: user-field assignment for Legal too.",
+   "tag": "V"
+  },
+  {
+   "id": "D24",
+   "severity": "medium",
+   "area": "roles",
+   "modelsAffected": [
+    "operaton-plat"
+   ],
+   "claims": {
+    "operatonPlat": "businessAdmin completes only businessAdmin-candidate tasks; no undo"
+   },
+   "real": "Business admin bypasses role/module guards, may act as any role/module via X-Override-Role/Module (real_role kept), and can UNDO selected approvals (reversible_actions).",
+   "verdict": "operaton-plat missing",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/core/deps.py:74-113 [V]",
+    "Matrix-bd@3d4f277:backend/app/rbac/roles.py:36-46 [V]",
+    "Matrix-bd@3d4f277:backend/app/routers/sites.py:66-68 [V]"
+   ],
+   "fix": "Configurator/G3: business_admin override + undo as platform capabilities.",
+   "tag": "V"
+  },
+  {
+   "id": "D25",
+   "severity": "low",
+   "area": "views",
+   "modelsAffected": [
+    "operaton-plat"
+   ],
+   "claims": {
+    "operatonPlat": "Tasklist filters My tasks / Team queue (unclaimed) / Admin approvals"
+   },
+   "real": "No saved views in the real app; role-specific pages: executive = own sites; supervisor = tenant-wide module queues; business admin = Approval Center (Design/Payment/Budget/Quality/Closure) + Launch Approvals + Financial Closure + Departments + Sites; observer = Sites + Departments.",
+   "verdict": "different mechanism; feeds G3 saved views",
+   "evidence": [
+    "Matrix-bd@3d4f277:frontend/src/modules/business-admin/TeamDashboard.jsx:79-83 [V]",
+    "Matrix-bd@3d4f277:frontend/src/modules/business-admin/approval/ApprovalCenter.jsx:11-16 [V]",
+    "Matrix-bd@3d4f277:frontend/src/modules/business-admin/ObserverDashboard.jsx:42-43 [V]",
+    "Matrix-bd@3d4f277:frontend/src/rbac/scope.js:11-39 [V]"
+   ],
+   "fix": "See for-G3.md §2.",
+   "tag": "V"
+  },
+  {
+   "id": "D26",
+   "severity": "medium",
+   "area": "rule/creator",
+   "modelsAffected": [
+    "operaton-plat"
+   ],
+   "claims": {
+    "operatonPlat": "'only for sites they created' = userTask operaton:assignee=${initiator} (replaces candidateGroups)"
+   },
+   "real": "Creator rule = (sites.submitted_by = me OR sites.assigned_to = me) for role executive, applied to LISTS, READS and WRITES (not only tasks); assigned_to is mutable (supervisor reassign); Launch creator check applies to any role.",
+   "verdict": "operaton-plat partial: immutable initiator, task-only, no reassignment, role not enforced on assignee tasks",
+   "evidence": [
+    "operaton-plat@fc65499:matrix.py:240-242,389-392 [V]",
+    "operaton-plat@fc65499:docs/PLATFORM.md:160 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/_common.py:131-141,180-194 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:741-771 [V]"
+   ],
+   "fix": "for-G3.md §1.",
+   "tag": "V"
+  },
+  {
+   "id": "D27",
+   "severity": "low",
+   "area": "fields",
+   "modelsAffected": [
+    "operaton-plat"
+   ],
+   "claims": {
+    "operatonPlat": "address, storeModel, frontageFt, nearestCompetitorM, loiSignedOn, kycFile, actualTotal…"
+   },
+   "real": "Real BD draft/details: rent model (rent_type variants, staggered escalation), score 1–5, est. sales, nearest Starbucks/TWC, carpet, CAM, deposit, capex, brokerage, lock-in, tenure, rent-free days, expected LOI days.",
+   "verdict": "operaton-plat sample fields",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:137-158 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/_common.py:207-230 [V]"
+   ],
+   "fix": "Use our flow's 113 fields.",
+   "tag": "V"
+  },
+  {
+   "id": "D28",
+   "severity": "low",
+   "area": "stages",
+   "modelsAffected": [
+    "operaton-plat"
+   ],
+   "claims": {
+    "operatonPlat": "no LOI timeline, no reject reasons / archive notes, no reassign"
+   },
+   "real": "Supervisor sets expected_loi_days; reject carries reasons; archive requires a note; supervisor reassigns a site to an executive.",
+   "verdict": "operaton-plat missing",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/loi.py:96-111 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:621-683,741-771 [V]"
+   ],
+   "fix": "",
+   "tag": "V"
+  },
+  {
+   "id": "D29",
+   "severity": "info",
+   "area": "insight",
+   "modelsAffected": [
+    "operaton-plat",
+    "v5-seed"
+   ],
+   "claims": {},
+   "real": "The real app's read-only process-flow projection is LINEAR (CA 'active' only after Legal complete; Design only after pushed_to_payments; NSO only after project done) while the enforced service gates are parallel. operaton-plat and the v5 seed follow the projection.",
+   "verdict": "explains D01/D02/D03",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/site_stage_status_service.py:97-138 [V]"
+   ],
+   "fix": "Model the enforced gates, not the display.",
+   "tag": "V"
+  },
+  {
+   "id": "D30",
+   "severity": "low",
+   "area": "fields",
+   "modelsAffected": [
+    "ours"
+   ],
+   "claims": {
+    "ours": "final_signoff_1/2 in nso stage 4"
+   },
+   "real": "They are saved by the stage-three form; final approval only checks them.",
+   "verdict": "ours slightly misplaced",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:696-757 [V]"
+   ],
+   "fix": "Optional move (patch F-06 annotates).",
+   "tag": "V"
+  },
+  {
+   "id": "D31",
+   "severity": "info",
+   "area": "real-app-inconsistency",
+   "modelsAffected": [],
+   "claims": {},
+   "real": "Project push opens NSO at stage three and stamps stages 1–2 complete, yet stage-3 saves still require communication_floated (stage one).",
+   "verdict": "real-app quirk, not a model error",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/nso_service.py:185-194,267-272,710-711 [V]"
+   ],
+   "fix": "Report upstream if it bites.",
+   "tag": "V"
+  },
+  {
+   "id": "D32",
+   "severity": "info",
+   "area": "real-app-inconsistency",
+   "modelsAffected": [],
+   "claims": {},
+   "real": "Launch 'Review' tab matches the creator by submitted_by only; the backend also accepts assigned_to (so an assigned executive can review via API but does not see the item).",
+   "verdict": "real-app quirk; G3 should follow the backend",
+   "evidence": [
+    "Matrix-bd@3d4f277:frontend/src/modules/launch/LaunchPage.jsx:163-170 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/launch_service.py:607-617 [V]"
+   ],
+   "fix": "for-G3.md edge case E5.",
+   "tag": "V"
+  },
+  {
+   "id": "D33",
+   "severity": "info",
+   "area": "rule",
+   "modelsAffected": [
+    "ours"
+   ],
+   "claims": {
+    "ours": "runtime separation_of_duties on by default"
+   },
+   "real": "Real app lets supervisors approve their own drafts and a supervisor's self-upload auto-approves (design); SoD only blocks non-supervisors approving their own submission.",
+   "verdict": "our runtime is stricter than production",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:56-80 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/design_service.py:838-853 [V]",
+    "matrix-configurator:app/backend/app/services/module_runtime/runtime.py:135-136 [V]"
+   ],
+   "fix": "for-G3.md edge case E8.",
+   "tag": "V"
+  }
+ ],
+ "creatorRule": {
+  "definition": "An EXECUTIVE may see and act on a BD site only if sites.submitted_by = me OR sites.assigned_to = me ('owns or is assigned'). Supervisors, business admins and observers are tenant-wide. Module executives (legal, design, project_excellence, project, financial_closure, quality_audit) are scoped by per-site delegation instead. The Launch 'creator review' applies the same identity test to ANY role.",
+  "backend": [
+   {
+    "where": "_common.apply_role_scope (lists)",
+    "ref": "Matrix-bd@3d4f277:backend/app/services/_common.py:180-194 [V]",
+    "role": "effective role == executive",
+    "match": "submitted_by|assigned_to",
+    "usedBy": [
+     "Matrix-bd@3d4f277:backend/app/services/query_service.py:136-150 [V]",
+     "Matrix-bd@3d4f277:backend/app/services/bd_status_service.py:79-90 [V]",
+     "Matrix-bd@3d4f277:backend/app/routers/staging.py:24-54 [V]",
+     "Matrix-bd@3d4f277:backend/app/routers/bd.py:90-148 [V]"
+    ]
+   },
+   {
+    "where": "_common.assert_executive_owns_site (object 403)",
+    "ref": "Matrix-bd@3d4f277:backend/app/services/_common.py:131-141 [V]",
+    "role": "effective role == executive",
+    "match": "submitted_by|assigned_to",
+    "usedBy": [
+     "Matrix-bd@3d4f277:backend/app/services/finance_service.py:124,174 [V]",
+     "Matrix-bd@3d4f277:backend/app/services/change_request_service.py:164 [V]",
+     "Matrix-bd@3d4f277:backend/app/routers/sites.py:110-113 [V]",
+     "Matrix-bd@3d4f277:backend/app/routers/bd.py:224-229 [V]",
+     "Matrix-bd@3d4f277:backend/app/routers/audit.py:48-53 [V] (only when caller module is bd/none)",
+     "Matrix-bd@3d4f277:backend/app/services/site_stage_status_service.py:338-340 [V] (only when caller module is bd/none)",
+     "Matrix-bd@3d4f277:backend/app/services/site_tracker_service.py:60 [V]",
+     "Matrix-bd@3d4f277:backend/app/services/site_documents_service.py:27-34 [V]"
+    ]
+   },
+   {
+    "where": "query_service._assert_can_read_site (GET /api/sites/{id})",
+    "ref": "Matrix-bd@3d4f277:backend/app/services/query_service.py:173-183 [V]",
+    "role": "executive",
+    "match": "submitted_by|assigned_to"
+   },
+   {
+    "where": "bd_service._assert_can_edit_details",
+    "ref": "Matrix-bd@3d4f277:backend/app/services/bd_service.py:83-101 [V]",
+    "role": "executive",
+    "match": "submitted_by|assigned_to AND status == shortlisted"
+   },
+   {
+    "where": "loi_service.svc_upload_loi",
+    "ref": "Matrix-bd@3d4f277:backend/app/services/loi_service.py:44-59 [V]",
+    "role": "executive",
+    "match": "submitted_by|assigned_to"
+   },
+   {
+    "where": "routers/loi.view_loi",
+    "ref": "Matrix-bd@3d4f277:backend/app/routers/loi.py:69-74 [V]",
+    "role": "executive",
+    "match": "submitted_by|assigned_to (404 not 403)"
+   },
+   {
+    "where": "routers/delegations.list_site_delegations",
+    "ref": "Matrix-bd@3d4f277:backend/app/routers/delegations.py:70-82 [V]",
+    "role": "executive",
+    "match": "submitted_by|assigned_to OR active delegate"
+   },
+   {
+    "where": "launch_service._assert_is_site_creator",
+    "ref": "Matrix-bd@3d4f277:backend/app/services/launch_service.py:607-617,639-641,758-759 [V]",
+    "role": "ANY role reaching the route (executive|supervisor; BA via bypass)",
+    "match": "submitted_by|assigned_to"
+   },
+   {
+    "where": "bd_service._assert_not_self_approval (segregation)",
+    "ref": "Matrix-bd@3d4f277:backend/app/services/bd_service.py:56-80 [V]",
+    "role": "non-supervisors",
+    "match": "submitted_by == me → 403 on approve/reject"
+   },
+   {
+    "where": "notification_service.recipients_for_site_owner",
+    "ref": "Matrix-bd@3d4f277:backend/app/services/notification_service.py:122-134 [V]",
+    "role": "—",
+    "match": "assigned_to + submitted_by receive owner notifications"
+   }
+  ],
+  "frontend": [
+   {
+    "where": "rbac/scope.filterByScope",
+    "ref": "Matrix-bd@3d4f277:frontend/src/rbac/scope.js:11-39 [V]",
+    "match": "createdBy name|id, submittedBy, assignedTo id|name (name match is looser than backend)",
+    "usedBy": [
+     "Matrix-bd@3d4f277:frontend/src/App.jsx:105-112 [V]",
+     "Matrix-bd@3d4f277:frontend/src/modules/bd/overview/OverviewPage.jsx:398-411 [V]",
+     "Matrix-bd@3d4f277:frontend/src/modules/launch/LaunchPage.jsx:151 [V]",
+     "Matrix-bd@3d4f277:frontend/src/modules/payment/PaymentStubPage.jsx:360 [V]",
+     "Matrix-bd@3d4f277:frontend/src/modules/staging/exec/ExecStagingPage.jsx:112 [V]"
+    ]
+   },
+   {
+    "where": "LaunchPage creatorItems",
+    "ref": "Matrix-bd@3d4f277:frontend/src/modules/launch/LaunchPage.jsx:163-170 [V]",
+    "match": "submitted_by == me only (diverges from backend)"
+   }
+  ],
+  "handoff": {
+   "how": "POST /api/bd/shortlist/{site_id}/reassign (supervisor) sets sites.assigned_to; the new assignee gains the creator rights, the original submitter KEEPS them",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/routers/bd.py:196-205 [V]",
+    "Matrix-bd@3d4f277:backend/app/services/bd_service.py:741-771 [V]"
+   ]
+  },
+  "notApplied": [
+   "legal/design/project/PE/FC/QA executives (delegation-scoped)",
+   "NSO (supervisor-only)",
+   "supervisors, business_admin, observer (tenant-wide)",
+   "shortlist_delegations rows (not read by any BD guard)"
+  ],
+  "operatonPlat": {
+   "expression": "assignee: 'initiator' → operaton:assignee=\"${initiator}\" (candidateGroups dropped); start event operaton:initiator=\"initiator\"",
+   "tasks": [
+    "bd_site_details",
+    "bd_upload_loi",
+    "fin_ca_entry",
+    "launch_exec_verdict"
+   ],
+   "evidence": [
+    "operaton-plat@fc65499:catalogue.json:62,78,127,233 [V]",
+    "operaton-plat@fc65499:matrix.py:240-242,389-392,411-412 [V]",
+    "operaton-plat@fc65499:docs/PLATFORM.md:160 [V]",
+    "operaton-plat@fc65499:README.md:68-70 [V]"
+   ],
+   "gaps": [
+    "no assigned_to handoff",
+    "task-only (no list/read scoping)",
+    "role not enforced on assignee tasks",
+    "skip_if supervisor rule is obsolete"
+   ]
+  }
+ },
+ "rolesAndViews": {
+  "realRoles": {
+   "roles": [
+    "business_admin",
+    "observer",
+    "supervisor",
+    "executive"
+   ],
+   "scoping": "supervisor/executive belong to module(s) via user_module_memberships; business_admin + observer are workspace-wide (READ_ALL_ROLES); observer writes refused by real_role",
+   "evidence": [
+    "Matrix-bd@3d4f277:backend/app/rbac/roles.py:1-46 [V]",
+    "Matrix-bd@3d4f277:backend/app/core/deps.py:48-113 [V]"
+   ]
+  },
+  "groupMapping": [
+   {
+    "operaton": "businessAdmin",
+    "real": "role business_admin"
+   },
+   {
+    "operaton": "observer",
+    "real": "role observer"
+   },
+   {
+    "operaton": "bdExecutive",
+    "real": "executive @ bd"
+   },
+   {
+    "operaton": "bdSupervisor",
+    "real": "supervisor @ bd (BD routes do not check the module)"
+   },
+   {
+    "operaton": "legalExecutive",
+    "real": "executive @ legal + per-site legal delegation"
+   },
+   {
+    "operaton": "legalSupervisor",
+    "real": "supervisor @ legal"
+   },
+   {
+    "operaton": "designExecutive",
+    "real": "executive @ design + design delegation"
+   },
+   {
+    "operaton": "designSupervisor",
+    "real": "supervisor @ design"
+   },
+   {
+    "operaton": "peExecutive",
+    "real": "executive @ project_excellence + PE delegation"
+   },
+   {
+    "operaton": "peSupervisor",
+    "real": "supervisor @ project_excellence"
+   },
+   {
+    "operaton": "projectExecutive",
+    "real": "executive @ project + project / financial_closure delegation"
+   },
+   {
+    "operaton": "projectSupervisor",
+    "real": "supervisor @ project (also runs Financial Closure)"
+   },
+   {
+    "operaton": "nsoExecutive",
+    "real": "DOES NOT EXIST (NSO supervisor-only)"
+   },
+   {
+    "operaton": "nsoSupervisor",
+    "real": "supervisor @ nso"
+   }
+  ],
+  "realOnly": [
+   "supervisor has_executive_access (drop to executive in own module)",
+   "business_admin X-Override-Role/Module workspace access",
+   "observer module switching (read-only)",
+   "join codes / onboarding approvals",
+   "undo (reversible_actions)"
+  ],
+  "operatonViews": [
+   {
+    "name": "My tasks",
+    "query": "assignee = currentUser",
+    "audience": "*"
+   },
+   {
+    "name": "Team queue (unclaimed)",
+    "query": "candidateGroups ∈ currentUserGroups",
+    "audience": "*"
+   },
+   {
+    "name": "Admin approvals",
+    "query": "candidateGroups=businessAdmin incl. assigned",
+    "audience": [
+     "businessAdmin"
+    ]
+   }
+  ],
+  "realViews": [
+   {
+    "role": "executive (BD)",
+    "pages": "Sites, Pipeline, Shortlisted, Sites in process, DDR negative, Process flow, Payment, Launch — all filtered to own sites",
+    "evidence": [
+     "Matrix-bd@3d4f277:frontend/src/modules/shared/chrome/Sidebar.jsx:147-163 [V]",
+     "Matrix-bd@3d4f277:frontend/src/rbac/scope.js:11-39 [V]"
+    ]
+   },
+   {
+    "role": "supervisor (BD)",
+    "pages": "same pages tenant-wide + Archived/Rejected; Launch Review tab = creator items + under_supervisor_review + Financial Closure tab",
+    "evidence": [
+     "Matrix-bd@3d4f277:frontend/src/modules/shared/chrome/Sidebar.jsx:155-157 [V]",
+     "Matrix-bd@3d4f277:frontend/src/modules/launch/LaunchPage.jsx:163-201 [V]"
+    ]
+   },
+   {
+    "role": "module member (legal/design/PE/project/NSO)",
+    "pages": "Overview, Sites/Pipeline queue, module extras (Change requests, Quality Audit, NSO Handover, Financial Closure), Process flow, History; executives see delegated sites",
+    "evidence": [
+     "Matrix-bd@3d4f277:frontend/src/modules/shared/chrome/Sidebar.jsx:167-200 [V]"
+    ]
+   },
+   {
+    "role": "business_admin",
+    "pages": "Approval Center (All/Design/Payment/Budget/Quality/Closure), Launch Approvals, Financial Closure, Departments, Sites",
+    "evidence": [
+     "Matrix-bd@3d4f277:frontend/src/modules/business-admin/TeamDashboard.jsx:79-83 [V]",
+     "Matrix-bd@3d4f277:frontend/src/modules/business-admin/approval/ApprovalCenter.jsx:11-16 [V]"
+    ]
+   },
+   {
+    "role": "observer",
+    "pages": "Sites, Departments (read-only portal)",
+    "evidence": [
+     "Matrix-bd@3d4f277:frontend/src/modules/business-admin/ObserverDashboard.jsx:42-43 [V]"
+    ]
+   }
+  ],
+  "savedViewsInReal": false
+ }
+}

@@ -1,0 +1,5 @@
+# Local secrets and runtime state — never commit.
+.env
+.env.*
+!.env.example
+run/

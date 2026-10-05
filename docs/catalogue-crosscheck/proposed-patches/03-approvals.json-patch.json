@@ -1,0 +1,13 @@
+[
+ {
+  "op": "test",
+  "path": "/flows/0/steps/0/to",
+  "value": "draft_submitted (executive) / shortlisted (supervisor-created drafts skip review)"
+ },
+ {
+  "op": "replace",
+  "path": "/flows/0/steps/0/to",
+  "value": "draft_submitted (every creator; no supervisor auto-shortlist since Matrix-bd cd70220, 2026-07-14)",
+  "x-g2": "D04"
+ }
+]

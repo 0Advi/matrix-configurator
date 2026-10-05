@@ -60,7 +60,16 @@ export const ROUTES = {
   SITE_TRACKER:           '/staging-flow',
   SITE_TRACKER_DETAIL:    '/staging-flow/:siteId',
   DASHBOARD_MINIMAL_PREVIEW: '/dashboard-minimal-preview',
+  // F4b: configurator-defined modules (generic runtime; docs/F4-API.md §3)
+  CUSTOM_MODULE:          '/m/:moduleKey',
+  CUSTOM_MODULE_RECORD:   '/m/:moduleKey/records/:recordId',
 };
+
+export function customModuleRecordRoute(moduleKey, recordId) {
+  return ROUTES.CUSTOM_MODULE_RECORD
+    .replace(':moduleKey', encodeURIComponent(moduleKey))
+    .replace(':recordId', encodeURIComponent(recordId));
+}
 
 export function loiTimelineRoute(code) {
   return ROUTES.LOI_TIMELINE.replace(':code', code);

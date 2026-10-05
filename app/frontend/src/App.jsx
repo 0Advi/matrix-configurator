@@ -17,6 +17,8 @@ import { INDIAN_CITIES_DATA } from './constants/indianCities.js';
 import CitySelect from './modules/shared/primitives/CitySelect.jsx';
 import RentTermsFormV2 from './modules/shared/rent/RentTermsFormV2.jsx';
 import { ZM_TOKENS } from './modules/shared/rent/RentTermsForm.jsx';
+import { useWorkspaceModules } from './state/useWorkspaceModules.js';
+import { switcherModules, workspaceModuleRoute } from './modules/shared/workspaceModules.js';
 
 // Configurable rent-type UI (FEATURE_RENT_V2). Inlined per the USE_MOCK
 // convention (a shared import.meta module trips DeepSource JS-0833). No PROD
@@ -33,6 +35,10 @@ export default function App() {
   const { drafts, shortlist, staging, archive, createDraft, error: sitesError, refresh } = useSites();
   const navigate = useNavigate();
   const location = useLocation();
+  // F4b: the business-admin simulation bar offers the tenant's enabled modules (custom ones
+  // included) from its published release.
+  const { modules: apiModules } = useWorkspaceModules();
+  const simModules = switcherModules(apiModules);
 
   // Drop the module override and go back to the observer portal. RequireAuth
   // would bounce there on its own once `role` falls back to 'observer', but
@@ -279,8 +285,7 @@ export default function App() {
             value={adminOverride.module}
             onChange={(e) => {
               switchAs(adminOverride.role, e.target.value);
-              const routes = { bd: '/', legal: '/legal', design: '/design', project_excellence: '/project-excellence', project: '/project', nso: '/nso' };
-              navigate(routes[e.target.value] || '/');
+              navigate(workspaceModuleRoute(e.target.value, simModules));
             }}
             style={{
               height: 28, padding: '0 6px', borderRadius: 6, fontSize: 11.5, fontWeight: 600,
@@ -290,12 +295,7 @@ export default function App() {
               fontFamily: 'var(--zm-font-body)', cursor: 'pointer',
             }}
           >
-            <option value="bd">BD</option>
-            <option value="legal">Legal</option>
-            <option value="design">Design</option>
-            <option value="project_excellence">Project Excellence</option>
-            <option value="project">Project</option>
-            <option value="nso">NSO</option>
+            {simModules.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
           </select>
           <button
             type="button"

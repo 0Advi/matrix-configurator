@@ -1,0 +1,81 @@
+# Matrix Configurator — local NocoBase platform layer (Workstream B).
+#
+#   docker compose up -d          # first boot installs NocoBase + runs migrations (a few minutes)
+#   node nocobase/scripts/wait-for-nocobase.mjs
+#   node nocobase/scripts/provision.mjs
+#
+# All values come from ./.env (gitignored; template in ./.env.example).
+# NocoBase community edition only — see nocobase/README.md for the licence note.
+
+name: matrix-configurator
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    # wal_level=logical mirrors NocoBase's reference compose file.
+    command: postgres -c wal_level=logical
+    environment:
+      POSTGRES_DB: ${NB_DB_NAME:?set NB_DB_NAME in .env}
+      POSTGRES_USER: ${NB_DB_USER:?set NB_DB_USER in .env}
+      POSTGRES_PASSWORD: ${NB_DB_PASSWORD:?set NB_DB_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Deliberately NOT published to the host (no `ports:`); reachable only as `postgres:5432`
+    # on the compose network. Use `docker compose exec postgres psql -U <user> <db>` to inspect.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - nocobase
+
+  nocobase:
+    # Pinned 2.x release (slim image, bundles nginx on container port 80).
+    image: nocobase/nocobase:2.2.20
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_KEY: ${NOCOBASE_APP_KEY:?set NOCOBASE_APP_KEY in .env}
+      TZ: ${NOCOBASE_TZ:-UTC}
+      DB_DIALECT: postgres
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: ${NB_DB_NAME}
+      DB_USER: ${NB_DB_USER}
+      DB_PASSWORD: ${NB_DB_PASSWORD}
+      # Root user — only applied on the very first install.
+      INIT_APP_LANG: en-US
+      INIT_ROOT_EMAIL: ${NOCOBASE_ROOT_EMAIL:?set NOCOBASE_ROOT_EMAIL in .env}
+      INIT_ROOT_PASSWORD: ${NOCOBASE_ROOT_PASSWORD:?set NOCOBASE_ROOT_PASSWORD in .env}
+      INIT_ROOT_NICKNAME: ${NOCOBASE_ROOT_NICKNAME:-Admin}
+      INIT_ROOT_USERNAME: ${NOCOBASE_ROOT_USERNAME:-admin}
+    volumes:
+      - nocobase_storage:/app/nocobase/storage
+    ports:
+      # nginx inside the image listens on 80 and proxies /api to the Node app on 13000.
+      - "127.0.0.1:${NOCOBASE_HTTP_PORT:-13000}:80"
+    healthcheck:
+      # The image has no curl/wget; use Node's global fetch. 200 only once the app is "running".
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1/api/__health_check').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 600s
+    networks:
+      - nocobase
+
+volumes:
+  postgres_data:
+  nocobase_storage:
+
+networks:
+  nocobase:
+    driver: bridge

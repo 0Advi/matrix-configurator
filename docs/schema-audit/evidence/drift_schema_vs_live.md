@@ -1,0 +1,422 @@
+### `m_schema` (A) vs `m_live` (B)
+
+- **columns**: A=491 B=520 · only-A 13 · only-B 42 · differ 29
+  - only A `project_reviews.budget_admin_comments`: text null=YES default=-
+  - only A `project_reviews.budget_status`: text null=NO default='draft'::text
+  - only A `project_reviews.budget_supervisor_comments`: text null=YES default=-
+  - only A `project_reviews.budget_total`: numeric(14,2) null=YES default=-
+  - only A `project_reviews.covers`: integer null=YES default=-
+  - only A `project_reviews.total_area_sqft`: numeric(12,2) null=YES default=-
+  - only A `project_reviews.total_indoor_area_sqft`: numeric(12,2) null=YES default=-
+  - only A `site_files.onedrive_item_id`: text null=YES default=-
+  - only A `site_files.onedrive_synced_at`: timestamp with time zone null=YES default=-
+  - only A `sites.address`: text null=YES default=-
+  - only A `sites.notes`: text null=YES default=-
+  - only A `sites.spoc_email`: text null=YES default=-
+  - only A `sites.spoc_phone`: text null=YES default=-
+  - only B `password_reset_requests.reset_token_hash`: text null=YES default=-
+  - only B `password_reset_requests.token_expires_at`: timestamp with time zone null=YES default=-
+  - only B `project_excellence_items.amount`: numeric(14,2) null=YES default=-
+  - only B `project_excellence_items.created_at`: timestamp with time zone null=NO default=now()
+  - only B `project_excellence_items.id`: uuid null=NO default=uuid_generate_v4()
+  - only B `project_excellence_items.idx`: integer null=NO default=-
+  - only B `project_excellence_items.label`: text null=YES default=-
+  - only B `project_excellence_items.site_id`: uuid null=NO default=-
+  - only B `project_excellence_items.tenant_id`: uuid null=NO default=-
+  - only B `project_excellence_items.updated_at`: timestamp with time zone null=NO default=now()
+  - only B `project_excellence_reviews.allocated_to`: uuid null=YES default=-
+  - only B `project_excellence_reviews.budget_admin_comments`: text null=YES default=-
+  - only B `project_excellence_reviews.budget_status`: text null=NO default='draft'::text
+  - only B `project_excellence_reviews.budget_supervisor_comments`: text null=YES default=-
+  - only B `project_excellence_reviews.budget_total`: numeric(14,2) null=YES default=-
+  - only B `project_excellence_reviews.covers`: integer null=YES default=-
+  - only B `project_excellence_reviews.created_at`: timestamp with time zone null=NO default=now()
+  - only B `project_excellence_reviews.current_stage`: text null=NO default='budget'::text
+  - only B `project_excellence_reviews.excellence_status`: text null=NO default='pending'::text
+  - only B `project_excellence_reviews.site_id`: uuid null=NO default=-
+  - only B `project_excellence_reviews.tenant_id`: uuid null=NO default=-
+  - only B `project_excellence_reviews.total_area_sqft`: numeric(12,2) null=YES default=-
+  - only B `project_excellence_reviews.total_indoor_area_sqft`: numeric(12,2) null=YES default=-
+  - only B `project_excellence_reviews.updated_at`: timestamp with time zone null=NO default=now()
+  - only B `project_reviews.qa_reports_viewed_by_project_at`: timestamp with time zone null=YES default=-
+  - only B `quality_audit_reports.created_at`: timestamp with time zone null=NO default=now()
+  - only B `quality_audit_reports.file_key`: text null=NO default=-
+  - only B `quality_audit_reports.file_name`: text null=YES default=-
+  - only B `quality_audit_reports.id`: uuid null=NO default=gen_random_uuid()
+  - only B `quality_audit_reports.kind`: text null=NO default=-
+  - only B `quality_audit_reports.pushed_at`: timestamp with time zone null=YES default=-
+  - only B `quality_audit_reports.site_id`: uuid null=NO default=-
+  - only B `quality_audit_reports.tenant_id`: uuid null=NO default=-
+  - only B `quality_audit_reports.updated_at`: timestamp with time zone null=NO default=now()
+  - only B `quality_audit_reports.uploaded_at`: timestamp with time zone null=NO default=now()
+  - only B `quality_audit_reports.uploaded_by`: uuid null=YES default=-
+  - only B `schema_migrations.applied_at`: timestamp with time zone null=NO default=now()
+  - only B `schema_migrations.checksum`: text null=NO default=-
+  - only B `schema_migrations.filename`: text null=NO default=-
+  - only B `site_details.completion_pct`: integer null=YES default=- GENERATED(((((((((((
+CASE
+    WHEN (carpet_area_sq…)
+  - only B `sites.financial_closure_status`: text null=NO default='pending'::text
+  - only B `sites.project_excellence_status`: text null=NO default='pending'::text
+  - differ `design_deliverables.estimated_amount`:
+    - A: numeric(14,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `design_deliverables.id`:
+    - A: uuid null=NO default=uuid_generate_v4()
+    - B: uuid null=NO default=gen_random_uuid()
+  - differ `launch_approvals.brokerage`:
+    - A: numeric(14,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `launch_approvals.cam_charges`:
+    - A: numeric(14,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `launch_approvals.capex`:
+    - A: numeric(14,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `launch_approvals.carpet_area_sqft`:
+    - A: numeric(10,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `launch_approvals.escalation_pct`:
+    - A: numeric(6,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `launch_approvals.estimated_monthly_sales`:
+    - A: numeric(14,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `launch_approvals.expected_rent`:
+    - A: numeric(14,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `launch_approvals.fixed_rent_amt`:
+    - A: numeric(14,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `launch_approvals.rev_share_pct`:
+    - A: numeric(6,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `launch_approvals.score`:
+    - A: numeric(6,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `launch_approvals.security_deposit`:
+    - A: numeric(14,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `notification_outbox.tenant_id`:
+    - A: uuid null=NO default=-
+    - B: uuid null=YES default=-
+  - differ `project_reviews.current_stage`:
+    - A: text null=NO default='budget'::text
+    - B: text null=NO default='execution'::text
+  - differ `site_budget_items.amount`:
+    - A: numeric(14,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `site_budget_items.id`:
+    - A: uuid null=NO default=uuid_generate_v4()
+    - B: uuid null=NO default=gen_random_uuid()
+  - differ `site_budgets.budget_total`:
+    - A: numeric(14,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `site_budgets.id`:
+    - A: uuid null=NO default=uuid_generate_v4()
+    - B: uuid null=NO default=gen_random_uuid()
+  - differ `site_budgets.total_area_sqft`:
+    - A: numeric(12,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `site_budgets.total_indoor_area_sqft`:
+    - A: numeric(12,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `site_delegations.id`:
+    - A: uuid null=NO default=uuid_generate_v4()
+    - B: uuid null=NO default=gen_random_uuid()
+  - differ `sites.area_sqft`:
+    - A: integer null=NO default=0
+    - B: numeric(12,2) null=NO default=0
+  - differ `sites.expected_escalation_pct`:
+    - A: numeric(6,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `sites.expected_escalation_years`:
+    - A: integer null=YES default=-
+    - B: smallint null=YES default=-
+  - differ `sites.expected_rent`:
+    - A: numeric(12,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `sites.expected_revshare_pct`:
+    - A: numeric(6,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `sites.finance_amount`:
+    - A: numeric(14,2) null=YES default=-
+    - B: numeric null=YES default=-
+  - differ `workspace_requests.status`:
+    - A: text null=NO default='pending'::text
+    - B: USER-DEFINED null=NO default='pending'::workspace_request_status
+- **constraints**: A=218 B=240 · only-A 23 · only-B 45 · differ 38
+  - only A `launch_approvals.launch_approvals_exec_verdict_check`: [c] CHECK (((exec_verdict IS NULL) OR (exec_verdict = ANY (ARRAY['approved'::text, 'rejected'::text]))))
+  - only A `launch_approvals.launch_approvals_status_check`: [c] CHECK ((status = ANY (ARRAY['pending_admin_review'::text, 'under_exec_review'::text, 'under_supervisor_review'::text, 'pending_admin_final'::text, 'ready_to_launch'::text, 'launched'::text])))
+  - only A `launch_approvals.launch_approvals_supervisor_verdict_check`: [c] CHECK (((supervisor_verdict IS NULL) OR (supervisor_verdict = ANY (ARRAY['approved'::text, 'rejected'::text]))))
+  - only A `launch_review_events.lre_launch_approval_id_fkey`: [f] FOREIGN KEY (launch_approval_id) REFERENCES launch_approvals(id) ON DELETE CASCADE
+  - only A `launch_review_events.lre_site_id_fkey`: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+  - only A `launch_review_events.lre_tenant_id_fkey`: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+  - only A `legal_change_requests.lcr_requested_by_fkey`: [f] FOREIGN KEY (requested_by) REFERENCES users(id)
+  - only A `legal_change_requests.lcr_site_id_fkey`: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+  - only A `legal_change_requests.lcr_tenant_id_fkey`: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+  - only A `module_codes.module_codes_tenant_module_key`: [u] UNIQUE (tenant_id, module)
+  - only A `password_reset_requests.password_reset_requests_status_check`: [c] CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'completed'::text, 'rejected'::text])))
+  - only A `project_reviews.project_reviews_budget_status_check`: [c] CHECK ((budget_status = ANY (ARRAY['draft'::text, 'pending_supervisor'::text, 'pending_admin'::text, 'approved'::text, 'rejected'::text])))
+  - only A `project_reviews.project_reviews_current_stage_check`: [c] CHECK ((current_stage = ANY (ARRAY['budget'::text, 'execution'::text, 'done'::text])))
+  - only A `project_reviews.project_reviews_expected_completion_status_check`: [c] CHECK ((expected_completion_status = ANY (ARRAY['pending'::text, 'submitted'::text, 'approved'::text, 'rejected'::text])))
+  - only A `project_reviews.project_reviews_initialization_status_check`: [c] CHECK ((initialization_status = ANY (ARRAY['pending'::text, 'proposed'::text, 'submitted'::text, 'approved'::text, 'rejected'::text])))
+  - only A `project_reviews.project_reviews_nso_status_check`: [c] CHECK ((nso_status = ANY (ARRAY['pending'::text, 'pushed'::text])))
+  - only A `project_reviews.project_reviews_project_status_check`: [c] CHECK ((project_status = ANY (ARRAY['pending'::text, 'allocated'::text, 'budgeting'::text, 'in_progress'::text, 'done'::text])))
+  - only A `project_reviews.project_reviews_quality_audit_status_check`: [c] CHECK ((quality_audit_status = ANY (ARRAY['pending'::text, 'submitted'::text, 'supervisor_approved'::text, 'approved'::text, 'rejected'::text])))
+  - only A `site_delegations.site_delegations_module_check`: [c] CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'project_excellence'::text, 'financial_closure'::text])))
+  - only A `supervisor_invite_codes.supervisor_invite_codes_module_check`: [c] CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'project_excellence'::text])))
+  - only A `supervisor_invite_codes.supervisor_invite_codes_supervisor_module_key`: [u] UNIQUE (supervisor_id, module)
+  - only A `user_module_memberships.user_module_memberships_module_check`: [c] CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'project_excellence'::text])))
+  - only A `workspace_requests.workspace_requests_status_check`: [c] CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))
+  - only B `launch_approvals.chk_la_revshare_delivery_range`: [c] CHECK (((revshare_delivery_pct IS NULL) OR ((revshare_delivery_pct >= (0)::numeric) AND (revshare_delivery_pct <= (100)::numeric))))
+  - only B `launch_approvals.chk_la_revshare_dinein_range`: [c] CHECK (((revshare_dinein_pct IS NULL) OR ((revshare_dinein_pct >= (0)::numeric) AND (revshare_dinein_pct <= (100)::numeric))))
+  - only B `launch_approvals.chk_la_staggered_escalation`: [c] CHECK (is_valid_staggered_escalation(staggered_escalation))
+  - only B `launch_approvals.chk_launch_approval_status`: [c] CHECK ((status = ANY (ARRAY['pending_admin_review'::text, 'under_exec_review'::text, 'under_supervisor_review'::text, 'pending_admin_final'::text, 'ready_to_launch'::text, 'launched'::text])))
+  - only B `launch_approvals.chk_launch_exec_verdict`: [c] CHECK (((exec_verdict IS NULL) OR (exec_verdict = ANY (ARRAY['approved'::text, 'rejected'::text]))))
+  - only B `launch_approvals.chk_launch_supervisor_verdict`: [c] CHECK (((supervisor_verdict IS NULL) OR (supervisor_verdict = ANY (ARRAY['approved'::text, 'rejected'::text]))))
+  - only B `launch_review_events.launch_review_events_launch_approval_id_fkey`: [f] FOREIGN KEY (launch_approval_id) REFERENCES launch_approvals(id)
+  - only B `launch_review_events.launch_review_events_site_id_fkey`: [f] FOREIGN KEY (site_id) REFERENCES sites(id)
+  - only B `launch_review_events.launch_review_events_tenant_id_fkey`: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - only B `legal_change_requests.legal_change_requests_requested_by_fkey`: [f] FOREIGN KEY (requested_by) REFERENCES users(id)
+  - only B `legal_change_requests.legal_change_requests_site_id_fkey`: [f] FOREIGN KEY (site_id) REFERENCES sites(id)
+  - only B `legal_change_requests.legal_change_requests_tenant_id_fkey`: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - only B `module_codes.module_codes_tenant_id_module_key`: [u] UNIQUE (tenant_id, module)
+  - only B `password_reset_requests.password_reset_status_chk`: [c] CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'completed'::text, 'rejected'::text])))
+  - only B `project_excellence_items.chk_pe_item_idx`: [c] CHECK (((idx >= 1) AND (idx <= 11)))
+  - only B `project_excellence_items.project_excellence_items_pkey`: [p] PRIMARY KEY (id)
+  - only B `project_excellence_items.project_excellence_items_site_id_fkey`: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+  - only B `project_excellence_items.project_excellence_items_tenant_id_fkey`: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+  - only B `project_excellence_items.uq_pe_item_site_idx`: [u] UNIQUE (site_id, idx)
+  - only B `project_excellence_reviews.chk_pe_budget_status`: [c] CHECK ((budget_status = ANY (ARRAY['draft'::text, 'pending_supervisor'::text, 'pending_admin'::text, 'approved'::text, 'rejected'::text])))
+  - only B `project_excellence_reviews.chk_pe_current_stage`: [c] CHECK ((current_stage = ANY (ARRAY['budget'::text, 'done'::text])))
+  - only B `project_excellence_reviews.chk_pe_excellence_status`: [c] CHECK ((excellence_status = ANY (ARRAY['pending'::text, 'allocated'::text, 'budgeting'::text, 'approved'::text, 'done'::text])))
+  - only B `project_excellence_reviews.project_excellence_reviews_allocated_to_fkey`: [f] FOREIGN KEY (allocated_to) REFERENCES users(id)
+  - only B `project_excellence_reviews.project_excellence_reviews_pkey`: [p] PRIMARY KEY (site_id)
+  - only B `project_excellence_reviews.project_excellence_reviews_site_id_fkey`: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+  - only B `project_excellence_reviews.project_excellence_reviews_tenant_id_fkey`: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+  - only B `project_reviews.chk_project_current_stage`: [c] CHECK ((current_stage = ANY (ARRAY['execution'::text, 'done'::text])))
+  - only B `project_reviews.chk_project_expected_completion_status`: [c] CHECK ((expected_completion_status = ANY (ARRAY['pending'::text, 'submitted'::text, 'approved'::text, 'rejected'::text])))
+  - only B `project_reviews.chk_project_initialization_status`: [c] CHECK ((initialization_status = ANY (ARRAY['pending'::text, 'proposed'::text, 'submitted'::text, 'approved'::text, 'rejected'::text])))
+  - only B `project_reviews.chk_project_nso_status`: [c] CHECK ((nso_status = ANY (ARRAY['pending'::text, 'pushed'::text])))
+  - only B `project_reviews.chk_project_quality_status`: [c] CHECK ((quality_audit_status = ANY (ARRAY['pending'::text, 'submitted'::text, 'supervisor_approved'::text, 'approved'::text, 'rejected'::text])))
+  - only B `project_reviews.chk_project_status`: [c] CHECK ((project_status = ANY (ARRAY['pending'::text, 'allocated'::text, 'budgeting'::text, 'in_progress'::text, 'done'::text])))
+  - only B `quality_audit_reports.chk_qa_report_kind`: [c] CHECK ((kind = ANY (ARRAY['before'::text, 'after'::text])))
+  - only B `quality_audit_reports.quality_audit_reports_pkey`: [p] PRIMARY KEY (id)
+  - only B `quality_audit_reports.quality_audit_reports_site_id_fkey`: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+  - only B `quality_audit_reports.quality_audit_reports_tenant_id_fkey`: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+  - only B `quality_audit_reports.quality_audit_reports_uploaded_by_fkey`: [f] FOREIGN KEY (uploaded_by) REFERENCES users(id)
+  - only B `quality_audit_reports.uq_qa_report_site_kind`: [u] UNIQUE (site_id, kind)
+  - only B `schema_migrations.schema_migrations_pkey`: [p] PRIMARY KEY (filename)
+  - only B `site_delegations.chk_site_delegations_module`: [c] CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'project_excellence'::text, 'financial_closure'::text, 'quality_audit'::text])))
+  - only B `sites.sites_design_status_check`: [c] CHECK ((design_status = ANY (ARRAY['pending'::text, 'allocated'::text, 'in_progress'::text, 'gfc_pending'::text, 'approved'::text, 'rejected'::text])))
+  - only B `sites.sites_finance_status_check`: [c] CHECK ((finance_status = ANY (ARRAY['pending'::text, 'awaiting_supervisor'::text, 'awaiting_admin'::text, 'approved'::text])))
+  - only B `supervisor_invite_codes.chk_supervisor_invite_codes_module`: [c] CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'payment'::text, 'project_excellence'::text])))
+  - only B `supervisor_invite_codes.supervisor_invite_codes_supervisor_id_module_key`: [u] UNIQUE (supervisor_id, module)
+  - only B `user_module_memberships.chk_user_module_memberships_module`: [c] CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'payment'::text, 'project_excellence'::text])))
+  - differ `audit_logs.audit_logs_site_id_fkey`:
+    - A: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (site_id) REFERENCES sites(id)
+  - differ `business_admins.business_admins_tenant_id_fkey`:
+    - A: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - differ `business_admins.business_admins_user_id_fkey`:
+    - A: [f] FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (user_id) REFERENCES users(id)
+  - differ `design_deliverables.design_deliverables_site_id_fkey`:
+    - A: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (site_id) REFERENCES sites(id)
+  - differ `design_deliverables.design_deliverables_tenant_id_fkey`:
+    - A: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - differ `design_reviews.design_reviews_site_id_fkey`:
+    - A: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (site_id) REFERENCES sites(id)
+  - differ `design_reviews.design_reviews_tenant_id_fkey`:
+    - A: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - differ `launch_approvals.launch_approvals_site_id_fkey`:
+    - A: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (site_id) REFERENCES sites(id)
+  - differ `launch_approvals.launch_approvals_tenant_id_fkey`:
+    - A: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - differ `legal_dd_checklist.legal_dd_checklist_site_id_fkey`:
+    - A: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (site_id) REFERENCES sites(id)
+  - differ `module_codes.module_codes_tenant_id_fkey`:
+    - A: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - differ `nso_reviews.nso_reviews_site_id_fkey`:
+    - A: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (site_id) REFERENCES sites(id)
+  - differ `nso_reviews.nso_reviews_tenant_id_fkey`:
+    - A: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - differ `password_reset_requests.password_reset_requests_tenant_id_fkey`:
+    - A: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - differ `password_reset_requests.password_reset_requests_user_id_fkey`:
+    - A: [f] FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (user_id) REFERENCES users(id)
+  - differ `project_reviews.project_reviews_site_id_fkey`:
+    - A: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (site_id) REFERENCES sites(id)
+  - differ `project_reviews.project_reviews_tenant_id_fkey`:
+    - A: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - differ `shortlist_delegations.shortlist_delegations_delegate_user_id_fkey`:
+    - A: [f] FOREIGN KEY (delegate_user_id) REFERENCES users(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (delegate_user_id) REFERENCES users(id)
+  - differ `shortlist_delegations.shortlist_delegations_site_id_fkey`:
+    - A: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (site_id) REFERENCES sites(id)
+  - differ `shortlist_delegations.shortlist_delegations_tenant_id_fkey`:
+    - A: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - differ `site_agreement.site_agreement_site_id_fkey`:
+    - A: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (site_id) REFERENCES sites(id)
+  - differ `site_budget_items.site_budget_items_budget_id_fkey`:
+    - A: [f] FOREIGN KEY (budget_id) REFERENCES site_budgets(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (budget_id) REFERENCES site_budgets(id)
+  - differ `site_budget_items.site_budget_items_site_id_fkey`:
+    - A: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (site_id) REFERENCES sites(id)
+  - differ `site_budget_items.site_budget_items_tenant_id_fkey`:
+    - A: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - differ `site_budgets.site_budgets_site_id_fkey`:
+    - A: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (site_id) REFERENCES sites(id)
+  - differ `site_budgets.site_budgets_tenant_id_fkey`:
+    - A: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - differ `site_delegations.site_delegations_delegate_user_id_fkey`:
+    - A: [f] FOREIGN KEY (delegate_user_id) REFERENCES users(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (delegate_user_id) REFERENCES users(id)
+  - differ `site_delegations.site_delegations_site_id_fkey`:
+    - A: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (site_id) REFERENCES sites(id)
+  - differ `site_delegations.site_delegations_tenant_id_fkey`:
+    - A: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - differ `site_licensing.site_licensing_site_id_fkey`:
+    - A: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (site_id) REFERENCES sites(id)
+  - differ `sites.chk_area_sqft_positive`:
+    - A: [c] CHECK ((area_sqft >= 0))
+    - B: [c] CHECK ((area_sqft >= (0)::numeric))
+  - differ `sites.chk_sites_status`:
+    - A: [c] CHECK ((status = ANY (ARRAY['draft_submitted'::text, 'shortlisted'::text, 'details_submitted'::text, 'approved'::text, 'loi_uploaded'::text, 'rejected'::text, 'archived'::text])))
+    - B: [c] CHECK ((status = ANY (ARRAY['draft_submitted'::text, 'shortlisted'::text, 'details_submitted'::text, 'approved'::text, 'loi_uploaded'::text, 'legal_review'::text, 'legal_approved'::text, 'legal_rejected'::text, 'pushed_to_payments'::text, 'rejected'::text, 'archived'::text, 'launched'::text]))) NOT VALID (NOT VALID)
+  - differ `stage_events.chk_stage_events_actor_role`:
+    - A: [c] CHECK (((actor_role = ANY (ARRAY['business_admin'::text, 'supervisor'::text, 'executive'::text, 'system'::text])) OR (actor_role IS NULL)))
+    - B: [c] CHECK (((actor_role = ANY (ARRAY['business_admin'::text, 'supervisor'::text, 'executive'::text, 'system'::text])) OR (actor_role IS NULL))) NOT VALID (NOT VALID)
+  - differ `supervisor_invite_codes.supervisor_invite_codes_supervisor_id_fkey`:
+    - A: [f] FOREIGN KEY (supervisor_id) REFERENCES users(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (supervisor_id) REFERENCES users(id)
+  - differ `supervisor_invite_codes.supervisor_invite_codes_tenant_id_fkey`:
+    - A: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - differ `user_module_memberships.user_module_memberships_supervisor_id_fkey`:
+    - A: [f] FOREIGN KEY (supervisor_id) REFERENCES users(id) ON DELETE SET NULL
+    - B: [f] FOREIGN KEY (supervisor_id) REFERENCES users(id)
+  - differ `user_module_memberships.user_module_memberships_tenant_id_fkey`:
+    - A: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+  - differ `user_module_memberships.user_module_memberships_user_id_fkey`:
+    - A: [f] FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    - B: [f] FOREIGN KEY (user_id) REFERENCES users(id)
+- **indexes**: A=83 B=94 · only-A 14 · only-B 25 · differ 0
+  - only A `approvals.idx_approvals_approver_id`: CREATE INDEX idx_approvals_approver_id ON public.approvals USING btree (approver_id)
+  - only A `audit_logs.idx_audit_logs_site_id_created_at`: CREATE INDEX idx_audit_logs_site_id_created_at ON public.audit_logs USING btree (site_id, created_at)
+  - only A `audit_logs.idx_audit_logs_tenant_id_created_at`: CREATE INDEX idx_audit_logs_tenant_id_created_at ON public.audit_logs USING btree (tenant_id, created_at)
+  - only A `design_deliverables.idx_design_deliverables_site`: CREATE INDEX idx_design_deliverables_site ON public.design_deliverables USING btree (site_id)
+  - only A `design_reviews.idx_design_reviews_tenant`: CREATE INDEX idx_design_reviews_tenant ON public.design_reviews USING btree (tenant_id)
+  - only A `module_codes.module_codes_tenant_module_key`: CREATE UNIQUE INDEX module_codes_tenant_module_key ON public.module_codes USING btree (tenant_id, module)
+  - only A `notification_outbox.idx_notification_outbox_status`: CREATE INDEX idx_notification_outbox_status ON public.notification_outbox USING btree (status)
+  - only A `project_reviews.idx_project_reviews_budget_status`: CREATE INDEX idx_project_reviews_budget_status ON public.project_reviews USING btree (tenant_id, budget_status)
+  - only A `site_files.idx_site_files_site_id_type`: CREATE INDEX idx_site_files_site_id_type ON public.site_files USING btree (site_id, file_type)
+  - only A `sites.idx_sites_assigned_to`: CREATE INDEX idx_sites_assigned_to ON public.sites USING btree (assigned_to)
+  - only A `sites.idx_sites_submitted_by`: CREATE INDEX idx_sites_submitted_by ON public.sites USING btree (submitted_by)
+  - only A `sites.idx_sites_supervisor_id`: CREATE INDEX idx_sites_supervisor_id ON public.sites USING btree (supervisor_id)
+  - only A `sites.idx_sites_tenant_id_status`: CREATE INDEX idx_sites_tenant_id_status ON public.sites USING btree (tenant_id, status)
+  - only A `supervisor_invite_codes.supervisor_invite_codes_supervisor_module_key`: CREATE UNIQUE INDEX supervisor_invite_codes_supervisor_module_key ON public.supervisor_invite_codes USING btree (supervisor_id, module)
+  - only B `business_admins.idx_business_admins_tenant`: CREATE INDEX idx_business_admins_tenant ON public.business_admins USING btree (tenant_id)
+  - only B `launch_review_events.idx_launch_review_events_site`: CREATE INDEX idx_launch_review_events_site ON public.launch_review_events USING btree (site_id, created_at)
+  - only B `module_codes.module_codes_tenant_id_module_key`: CREATE UNIQUE INDEX module_codes_tenant_id_module_key ON public.module_codes USING btree (tenant_id, module)
+  - only B `notification_outbox.idx_notification_outbox_email_pending`: CREATE INDEX idx_notification_outbox_email_pending ON public.notification_outbox USING btree (created_at) WHERE ((channel = 'email'::text) AND (status = 'pending'::text))
+  - only B `project_excellence_items.idx_pe_items_site`: CREATE INDEX idx_pe_items_site ON public.project_excellence_items USING btree (site_id)
+  - only B `project_excellence_items.idx_pe_items_tenant`: CREATE INDEX idx_pe_items_tenant ON public.project_excellence_items USING btree (tenant_id)
+  - only B `project_excellence_items.project_excellence_items_pkey`: CREATE UNIQUE INDEX project_excellence_items_pkey ON public.project_excellence_items USING btree (id)
+  - only B `project_excellence_items.uq_pe_item_site_idx`: CREATE UNIQUE INDEX uq_pe_item_site_idx ON public.project_excellence_items USING btree (site_id, idx)
+  - only B `project_excellence_reviews.idx_pe_reviews_budget_status`: CREATE INDEX idx_pe_reviews_budget_status ON public.project_excellence_reviews USING btree (tenant_id, budget_status)
+  - only B `project_excellence_reviews.idx_pe_reviews_tenant_status`: CREATE INDEX idx_pe_reviews_tenant_status ON public.project_excellence_reviews USING btree (tenant_id, excellence_status)
+  - only B `project_excellence_reviews.project_excellence_reviews_pkey`: CREATE UNIQUE INDEX project_excellence_reviews_pkey ON public.project_excellence_reviews USING btree (site_id)
+  - only B `quality_audit_reports.idx_qa_reports_site`: CREATE INDEX idx_qa_reports_site ON public.quality_audit_reports USING btree (site_id)
+  - only B `quality_audit_reports.quality_audit_reports_pkey`: CREATE UNIQUE INDEX quality_audit_reports_pkey ON public.quality_audit_reports USING btree (id)
+  - only B `quality_audit_reports.uq_qa_report_site_kind`: CREATE UNIQUE INDEX uq_qa_report_site_kind ON public.quality_audit_reports USING btree (site_id, kind)
+  - only B `schema_migrations.schema_migrations_pkey`: CREATE UNIQUE INDEX schema_migrations_pkey ON public.schema_migrations USING btree (filename)
+  - only B `shortlist_delegations.shortlist_delegations_active_uidx`: CREATE UNIQUE INDEX shortlist_delegations_active_uidx ON public.shortlist_delegations USING btree (site_id, delegate_user_id) WHERE (revoked_at IS NULL)
+  - only B `shortlist_delegations.shortlist_delegations_delegate_active_idx`: CREATE INDEX shortlist_delegations_delegate_active_idx ON public.shortlist_delegations USING btree (delegate_user_id) WHERE (revoked_at IS NULL)
+  - only B `shortlist_delegations.shortlist_delegations_tenant_site_idx`: CREATE INDEX shortlist_delegations_tenant_site_idx ON public.shortlist_delegations USING btree (tenant_id, site_id)
+  - only B `site_delegations.site_delegations_by_module`: CREATE INDEX site_delegations_by_module ON public.site_delegations USING btree (tenant_id, module, delegate_user_id) WHERE (revoked_at IS NULL)
+  - only B `site_delegations.site_delegations_unique_active`: CREATE UNIQUE INDEX site_delegations_unique_active ON public.site_delegations USING btree (site_id, module, delegate_user_id) WHERE (revoked_at IS NULL)
+  - only B `supervisor_invite_codes.idx_supinvite_supervisor`: CREATE INDEX idx_supinvite_supervisor ON public.supervisor_invite_codes USING btree (supervisor_id)
+  - only B `supervisor_invite_codes.supervisor_invite_codes_supervisor_id_module_key`: CREATE UNIQUE INDEX supervisor_invite_codes_supervisor_id_module_key ON public.supervisor_invite_codes USING btree (supervisor_id, module)
+  - only B `tenants.tenants_workspace_code_uidx`: CREATE UNIQUE INDEX tenants_workspace_code_uidx ON public.tenants USING btree (upper(workspace_code))
+  - only B `user_module_memberships.idx_umm_supervisor`: CREATE INDEX idx_umm_supervisor ON public.user_module_memberships USING btree (supervisor_id)
+  - only B `user_module_memberships.idx_umm_tenant_module`: CREATE INDEX idx_umm_tenant_module ON public.user_module_memberships USING btree (tenant_id, module)
+- **rls**: A=32 B=36 · only-A 0 · only-B 4 · differ 9
+  - only B `project_excellence_items`: rls=False
+  - only B `project_excellence_reviews`: rls=True
+  - only B `quality_audit_reports`: rls=True
+  - only B `schema_migrations`: rls=False
+  - differ `launch_approvals`:
+    - A: rls=False
+    - B: rls=True
+  - differ `launch_review_events`:
+    - A: rls=False
+    - B: rls=True
+  - differ `nso_reviews`:
+    - A: rls=False
+    - B: rls=True
+  - differ `password_reset_requests`:
+    - A: rls=False
+    - B: rls=True
+  - differ `shortlist_delegations`:
+    - A: rls=False
+    - B: rls=True
+  - differ `site_budget_items`:
+    - A: rls=False
+    - B: rls=True
+  - differ `site_budgets`:
+    - A: rls=False
+    - B: rls=True
+  - differ `supervisor_executive_requests`:
+    - A: rls=False
+    - B: rls=True
+  - differ `workspace_requests`:
+    - A: rls=False
+    - B: rls=True
+- **policies**: A=0 B=5 · only-A 0 · only-B 5 · differ 0
+  - only B `project_excellence_reviews.tenant_isolation`: ALL {public} USING((tenant_id = current_tenant_id())) CHECK((tenant_id = current_tenant_id()))
+  - only B `quality_audit_reports.tenant_isolation`: ALL {public} USING((tenant_id = current_tenant_id())) CHECK()
+  - only B `shortlist_delegations.tenant_isolation_shortlist_delegations`: ALL {public} USING((tenant_id = get_current_tenant_id())) CHECK()
+  - only B `site_budget_items.tenant_isolation`: ALL {public} USING((tenant_id = current_tenant_id())) CHECK((tenant_id = current_tenant_id()))
+  - only B `site_budgets.tenant_isolation`: ALL {public} USING((tenant_id = current_tenant_id())) CHECK((tenant_id = current_tenant_id()))
+- **functions**: A=1 B=4 · only-A 0 · only-B 3 · differ 1
+  - only B `current_tenant_id.`: 059c8f30d66064e584f4953024bd207b
+  - only B `get_current_tenant_id.`: 64b0b96f69a3c43291cc23b36f3d7bf7
+  - only B `handle_new_auth_user.`: f567a059a3eb8f920b98fc285d5890e4
+  - differ `is_valid_staggered_escalation.arr jsonb`:
+    - A: 9e846a0e1c72c6f195d1af35890156ab
+    - B: 5e72c8513c8f085107f0722c60473a39
+- **views**: A=0 B=2 · only-A 0 · only-B 2 · differ 0
+  - only B `pipeline_summary`: view
+  - only B `stuck_sites`: view
+- **types**: A=0 B=1 · only-A 0 · only-B 1 · differ 0
+  - only B `workspace_request_status`: pending,approved,rejected
+- **triggers**: identical (0)
+

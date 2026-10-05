@@ -2,12 +2,26 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Annotated, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, model_validator
 
 
-Module = Literal["bd", "legal", "design", "project", "nso", "project_excellence"]  # 'payment' retired (202606132); 'project_excellence' added (202606134)
+def _module_key(value: str) -> str:
+    """Shape check only (mirror of public.is_valid_module_key). Whether the key is
+    registered and ENABLED for the caller's tenant is decided by the service layer
+    against tenant_modules (services/module_registry_service.py)."""
+    from app.services.module_registry_service import is_valid_module_key
+    if not is_valid_module_key(value):
+        raise ValueError(f"'{value}' is not a valid module key")
+    return value
+
+
+# Was Literal["bd","legal","design","project","nso","project_excellence"]. Modules
+# are per-tenant data now (tenant_modules, 20261004_2): built-ins can be switched
+# off and custom modules (e.g. vendor_onboarding) exist only in the tenant that
+# published them, so a fixed Literal can no longer describe the vocabulary.
+Module = Annotated[str, AfterValidator(_module_key)]
 
 
 class ModuleCodeOut(BaseModel):
@@ -180,6 +194,9 @@ class OrgSupervisorOut(BaseModel):
 
 class OrgModuleOut(BaseModel):
     module: Module
+    # Registry data (tenant_modules) so the UI needs no hard-coded label map.
+    label: Optional[str] = None
+    kind: str = "builtin"
     code: Optional[str] = None
     supervisors: list[OrgSupervisorOut] = []
     unassigned_executives: list[OrgExecutiveOut] = []

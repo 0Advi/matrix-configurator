@@ -7,9 +7,13 @@ module talks to them via raw `text()` queries.
 Pending supervisors are encoded in the existing `users` table as
 `role='supervisor' AND is_active=false`. The module they applied for is
 stashed in `users.notes` as the marker
-`pending_module:<bd|legal|payment|design|project>`.
+`pending_module:<module key>`.
 On approval we activate the user, drop the marker, and register the module
 membership; on rejection we delete the row.
+
+Phase 2 (configurator): which modules exist, are enabled, support teams and are
+supervisor-only is per-tenant data read from tenant_modules
+(services/module_registry_service.py) — no fixed module list lives here any more.
 """
 from __future__ import annotations
 
@@ -26,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import models
 from app.db.session import transaction
 from app.domain.schemas.business_admin import Module
+from app.services import module_registry_service as registry
 from app.services import storage_service
 from app.services._common import display_code, fetch_site_for_update_or_404, fetch_user_names
 from app.services.audit_service import write_audit_event
@@ -37,7 +42,6 @@ from app.services.finance_service import svc_finance_approve, svc_finance_reject
 
 
 _PENDING_MODULE_PREFIX = "pending_module:"
-_VALID_MODULES: frozenset[str] = frozenset(("bd", "legal", "payment", "design", "project", "nso", "project_excellence"))
 
 
 def _new_dept_code() -> str:
@@ -46,21 +50,28 @@ def _new_dept_code() -> str:
 
 def _parse_pending_module(notes: Optional[str]) -> Optional[str]:
     """Return the module a pending supervisor applied for, or None if the
-    marker is missing/malformed."""
+    marker is missing/malformed. Shape only — the caller filters by the tenant's
+    registry (it used to be a fixed _VALID_MODULES set)."""
     if not notes or not notes.startswith(_PENDING_MODULE_PREFIX):
         return None
     candidate = notes[len(_PENDING_MODULE_PREFIX):].strip().lower()
-    return candidate if candidate in _VALID_MODULES else None
+    return candidate if registry.is_valid_module_key(candidate) else None
 
 
 async def list_dept_codes(session: AsyncSession, tenant_id: str | UUID) -> list[dict]:
-    """Return every per-module department code for the tenant, ordered by module."""
+    """Return every per-module department code for the tenant, ordered by module.
+
+    Phase 2: codes of a module the tenant has DISABLED are left out — they no
+    longer admit anyone (auth_repo.get_module_code refuses them)."""
     rows = (await session.execute(
         text("""
-            SELECT id, module, code, created_at, rotated_at
-              FROM module_codes
-             WHERE tenant_id = :tid
-             ORDER BY module
+            SELECT mc.id, mc.module, mc.code, mc.created_at, mc.rotated_at
+              FROM module_codes mc
+              JOIN tenant_modules tm
+                ON tm.tenant_id = mc.tenant_id AND tm.module_key = mc.module
+               AND tm.enabled
+             WHERE mc.tenant_id = :tid
+             ORDER BY mc.module
         """),
         {"tid": tenant_id},
     )).mappings().all()
@@ -82,8 +93,12 @@ async def rotate_dept_code(
     module: Module,
     created_by: str | UUID,
 ) -> dict:
-    """Mint and upsert a fresh join code for the module, returning the new code."""
+    """Mint and upsert a fresh join code for the module, returning the new code.
+
+    Refuses (404/403) a module the tenant has not registered, has disabled, or
+    that has no supervisor teams — a disabled module mints no new codes."""
     async with transaction(session):
+        await registry.require_membership_module(session, tenant_id, module)
         row = (await session.execute(
             text("""
                 INSERT INTO module_codes (tenant_id, module, code, created_by)
@@ -286,7 +301,11 @@ async def list_pending_supervisors(
     tenant_id: str | UUID,
     module: Optional[Module] = None,
 ) -> list[dict]:
-    """List inactive supervisor rows awaiting approval, optionally filtered by module."""
+    """List inactive supervisor rows awaiting approval, optionally filtered by module.
+
+    Only applicants for an ENABLED membership module of the tenant are listed
+    (a disabled module is hidden, exactly like the org view)."""
+    allowed = await registry.membership_module_keys(session, tenant_id)
     rows = (await session.execute(
         text("""
             SELECT id, email, notes, created_at
@@ -302,7 +321,7 @@ async def list_pending_supervisors(
     items: list[dict] = []
     for r in rows:
         parsed = _parse_pending_module(r["notes"])
-        if parsed is None:
+        if parsed is None or parsed not in allowed:
             continue
         if module is not None and parsed != module:
             continue
@@ -338,6 +357,8 @@ async def approve_supervisor(
     breaks, not the boundary.
     """
     async with transaction(session):
+        # A disabled / unregistered / team-less module grants no new membership.
+        await registry.require_membership_module(session, tenant_id, module)
         # Only act on a genuinely PENDING candidate in this tenant. Without this
         # guard a re-submit (double-click) re-activates the row and tries to
         # inject a second membership — which the UNIQUE(user_id, module) then
@@ -1024,14 +1045,16 @@ async def reject_finance(
 
 # ── Department org tree (supervisors + the executives under them) ─────────────
 
-# Departments shown in the org view. Payment is an approval sub-workflow, not a
-# dept onboarded via a code, so it is intentionally omitted here.
-_ORG_MODULES: tuple[str, ...] = ("bd", "legal", "design", "project", "nso", "project_excellence")
-
-# Modules that have NO executive role — supervisors only. NSO is reviewed by a
-# supervisor; executives are not part of its flow, so the org view never surfaces
-# executive slots / invite-codes for them and executive sign-ups are refused.
-_SUPERVISOR_ONLY_MODULES: frozenset[str] = frozenset({"nso"})
+# Departments shown in the org view = the tenant's ENABLED, membership-capable
+# modules in registry order (registry.org_modules). This replaced the fixed
+# _ORG_MODULES tuple ("bd","legal","design","project","nso","project_excellence");
+# payment (retired) and the team-less built-ins stay out exactly as before.
+#
+# Supervisor-only modules (NO executive role) come from
+# tenant_modules.supervisor_only — seeded true for NSO, set from the published
+# manifest's tiers.executive=false — replacing _SUPERVISOR_ONLY_MODULES={"nso"}.
+# The org view never surfaces executive slots for them and executive approvals
+# are refused (supervisor_code_service.approve_my_pending_exec).
 
 
 def _place_executives(execs: list[dict], index: dict[str, dict]) -> list[dict]:
@@ -1109,12 +1132,13 @@ async def list_org(
         {"tid": tenant_id},
     )).mappings().all()
 
-    sups_by_mod: dict[str, list[dict]] = {m: [] for m in _ORG_MODULES}
-    execs_by_mod: dict[str, list[dict]] = {m: [] for m in _ORG_MODULES}
+    org = await registry.org_modules(session, tenant_id)
+    sups_by_mod: dict[str, list[dict]] = {m["module_key"]: [] for m in org}
+    execs_by_mod: dict[str, list[dict]] = {m["module_key"]: [] for m in org}
     for r in rows:
         mod = r["module"]
         if mod not in sups_by_mod:
-            continue  # skip payment / any non-dept module
+            continue  # skip payment / disabled / any non-team module
         person = {
             "id": str(r["id"]),
             "email": r["email"],
@@ -1130,8 +1154,9 @@ async def list_org(
             })
 
     modules: list[dict] = []
-    for m in _ORG_MODULES:
-        exec_enabled = m not in _SUPERVISOR_ONLY_MODULES
+    for reg in org:
+        m = reg["module_key"]
+        exec_enabled = not reg["supervisor_only"]
         supervisors = sups_by_mod[m]
         index = {s["id"]: s for s in supervisors}
         unassigned: list[dict] = []
@@ -1141,6 +1166,8 @@ async def list_org(
             unassigned = _place_executives(execs_by_mod[m], index)
         modules.append({
             "module": m,
+            "label": reg["label"],
+            "kind": reg["kind"],
             "code": codes.get(m),
             "supervisors": supervisors,
             "unassigned_executives": unassigned,

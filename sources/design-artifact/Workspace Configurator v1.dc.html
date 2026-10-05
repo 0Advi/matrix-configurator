@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eeeeea; --panel:#ffffff; --panel2:#f7f7f4; --chip:#f2f2ee;
+  --line:#e2e2db; --line2:#cfcfc6; --fg:#1b1c1a; --fg2:#55564f; --fg3:#8b8c83;
+  --dot:#d3d3c9; --edge:#a9aa9f; --edge-hi:#3c5fc4;
+  --accent:#3c5fc4; --accent-soft:#eaeefb;
+  --warnbg:#fdf2e3; --warnfg:#8a5a12; --warnline:#eddcbd;
+  --badbg:#fdecec; --badfg:#98322b; --badline:#f0d2d0;
+  --shadow:0 1px 2px rgba(20,20,15,.06),0 6px 18px rgba(20,20,15,.07);
+}
+:root[data-theme="dark"]{
+  --bg:#141513; --panel:#1c1e1b; --panel2:#212320; --chip:#262824;
+  --line:#2c2f2a; --line2:#3b3e38; --fg:#e9e9e2; --fg2:#a9aa9f; --fg3:#7b7d73;
+  --dot:#2a2c28; --edge:#5a5d54; --edge-hi:#8aa2f0;
+  --accent:#7f9cf5; --accent-soft:#232a3d;
+  --warnbg:#2e2515; --warnfg:#e2b96a; --warnline:#4a3c1e;
+  --badbg:#2f1c1a; --badfg:#eda49c; --badline:#4c2b27;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 22px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+a:hover{color:var(--fg)}
+input,select,button,textarea{font-family:inherit;color:inherit}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:8px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+<div style="position:relative;height:100vh;width:100%;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)">
+
+  <header style="flex:0 0 54px;display:flex;align-items:center;gap:16px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--line);z-index:30">
+    <div style="display:flex;align-items:center;gap:10px;flex:1 1 auto;min-width:0;overflow:hidden">
+      <div style="width:27px;height:27px;flex:0 0 27px;border-radius:8px;background:var(--fg);color:var(--panel);display:grid;place-items:center;font-size:10px;font-weight:600;letter-spacing:.06em">OPS</div>
+      <div style="display:flex;flex-direction:column;line-height:1.2;min-width:0;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:7px;min-width:0">
+          <span style="font-size:13px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ workspaceName }}</span>
+          <span style="font-size:9.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:var(--warnbg);color:var(--warnfg);border:1px solid var(--warnline);flex:0 0 auto">Platform admin</span>
+        </div>
+        <span style="font-size:10.5px;color:var(--fg3);font-family:'IBM Plex Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">/admin/workspaces/{{ workspaceSlug }}/configuration</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto">
+      <div style="display:flex;padding:2px;gap:2px;background:var(--chip);border:1px solid var(--line);border-radius:8px">
+        <sc-for list="{{ presets }}" as="p" hint-placeholder-count="3">
+          <button onClick="{{ p.onClick }}" style="{{ p.style }}">{{ p.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:7px;flex:0 0 auto">
+      <button onClick="{{ onNewModule }}" style="height:30px;padding:0 12px;border-radius:7px;border:1px solid transparent;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex:0 0 auto" style-hover="filter:brightness(1.08)">+ New module</button>
+      <button onClick="{{ onTogglePeople }}" style="{{ peopleBtnStyle }}">People model</button>
+      <button onClick="{{ onToggleJson }}" style="{{ jsonBtnStyle }}">Config JSON</button>
+      <button onClick="{{ onToggleTheme }}" title="Toggle light / dark" style="height:30px;width:34px;border-radius:7px;border:1px solid var(--line2);background:var(--panel);font-size:11px;font-weight:600;cursor:pointer" style-hover="background:var(--chip)">{{ themeLabel }}</button>
+    </div>
+  </header>
+
+  <div style="flex:1;display:flex;min-height:0">
+
+    <div ref="{{ canvasRef }}" onPointerDown="{{ onCanvasDown }}" style="position:relative;flex:1;min-width:0;overflow:hidden;background:var(--bg);cursor:grab;touch-action:none;user-select:none">
+      <div style="{{ gridStyle }}"></div>
+
+      <div style="{{ viewportStyle }}">
+        <svg width="5200" height="3200" style="position:absolute;left:0;top:0;overflow:visible;pointer-events:none">
+          <defs>
+            <marker id="arw" markerWidth="8" markerHeight="8" refX="7.2" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--edge)"></path></marker>
+            <marker id="arwhi" markerWidth="8" markerHeight="8" refX="7.2" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--edge-hi)"></path></marker>
+          </defs>
+          <sc-for list="{{ peopleEdges }}" as="pe" hint-placeholder-count="0">
+            <path d="{{ pe.d }}" fill="none" stroke="var(--line2)" stroke-width="1.3" stroke-dasharray="{{ pe.dash }}"></path>
+          </sc-for>
+          <sc-for list="{{ edges }}" as="e" hint-placeholder-count="6">
+            <g>
+              <path d="{{ e.d }}" fill="none" stroke="{{ e.stroke }}" stroke-width="{{ e.width }}" marker-end="{{ e.marker }}" stroke-opacity="{{ e.opacity }}"></path>
+              <path d="{{ e.d }}" fill="none" stroke="transparent" stroke-width="18" onClick="{{ e.onClick }}" onMouseEnter="{{ e.onEnter }}" onMouseLeave="{{ e.onLeave }}" style="pointer-events:stroke;cursor:pointer"></path>
+            </g>
+          </sc-for>
+          <sc-if value="{{ linkPath }}" hint-placeholder-val="{{ false }}">
+            <path d="{{ linkPath }}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 5"></path>
+          </sc-if>
+        </svg>
+
+        <sc-for list="{{ edgeBadges }}" as="b" hint-placeholder-count="0">
+          <div onMouseEnter="{{ b.onEnter }}" onMouseLeave="{{ b.onLeave }}" onClick="{{ b.onClick }}" style="{{ b.style }}">{{ b.label }}</div>
+        </sc-for>
+
+        <sc-for list="{{ peopleNodes }}" as="pn" hint-placeholder-count="0">
+          <div style="{{ pn.style }}">
+            <span style="font-size:8.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--fg3);font-weight:600">{{ pn.role }}</span>
+            <span style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pn.name }}</span>
+          </div>
+        </sc-for>
+
+        <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="7">
+          <div data-node="{{ n.id }}" onPointerDown="{{ n.onDown }}" style="{{ n.wrap }}">
+            <div style="{{ n.accentStyle }}"></div>
+            <div style="display:flex;align-items:flex-start;gap:9px;padding:11px 12px 0 17px">
+              <div style="{{ n.iconStyle }}">{{ n.mono }}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12.5px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.name }}</div>
+                <div style="font-size:10px;color:var(--fg3);font-family:'IBM Plex Mono',monospace;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.key }}</div>
+              </div>
+              <sc-if value="{{ n.locked }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 5px;border-radius:4px;background:var(--chip);color:var(--fg3);border:1px solid var(--line)">Locked</span>
+              </sc-if>
+            </div>
+            <div style="display:flex;gap:5px;padding:8px 12px 0 17px;flex-wrap:nowrap;overflow:hidden">
+              <span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;padding:2px 6px;border-radius:5px;background:var(--chip);color:var(--fg2);border:1px solid var(--line);white-space:nowrap">{{ n.fieldLabel }}</span>
+              <span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;padding:2px 6px;border-radius:5px;background:var(--chip);color:var(--fg2);border:1px solid var(--line);white-space:nowrap">{{ n.levelLabel }}</span>
+              <span style="{{ n.execChipStyle }}">{{ n.execLabel }}</span>
+            </div>
+            <div data-port="in" data-node="{{ n.id }}" style="position:absolute;left:-6px;top:50%;margin-top:-6px;width:12px;height:12px;border-radius:50%;background:var(--panel);border:2px solid var(--line2)"></div>
+            <div data-port="out" data-node="{{ n.id }}" onPointerDown="{{ n.onPortDown }}" style="position:absolute;right:-6px;top:50%;margin-top:-6px;width:12px;height:12px;border-radius:50%;background:var(--panel);border:2px solid var(--edge);cursor:crosshair" style-hover="border-color:var(--accent);background:var(--accent)"></div>
+          </div>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ tip }}" hint-placeholder-val="{{ false }}">
+        <div style="{{ tipStyle }}">{{ tip }}</div>
+      </sc-if>
+
+      <div data-nopan="1" style="position:absolute;left:14px;bottom:14px;display:flex;align-items:center;gap:4px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow)">
+        <button onClick="{{ onZoomOut }}" style="width:26px;height:26px;border-radius:6px;border:none;background:transparent;font-size:14px;cursor:pointer" style-hover="background:var(--chip)">−</button>
+        <span style="min-width:40px;text-align:center;font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--fg2)">{{ zoomLabel }}</span>
+        <button onClick="{{ onZoomIn }}" style="width:26px;height:26px;border-radius:6px;border:none;background:transparent;font-size:14px;cursor:pointer" style-hover="background:var(--chip)">+</button>
+        <div style="width:1px;height:18px;background:var(--line)"></div>
+        <button onClick="{{ onFit }}" style="height:26px;padding:0 9px;border-radius:6px;border:none;background:transparent;font-size:11px;font-weight:500;cursor:pointer" style-hover="background:var(--chip)">Fit</button>
+      </div>
+
+      <div data-nopan="1" style="position:absolute;right:14px;bottom:14px;left:190px;display:flex;justify-content:flex-end;pointer-events:none">
+        <div style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px 14px;padding:6px 11px;background:var(--panel);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow);font-size:10.5px;color:var(--fg3);pointer-events:auto">
+          <span>Drag a right-hand port onto another node to connect</span>
+          <span>Click an edge to delete</span>
+          <span>Scroll to zoom · drag background to pan</span>
+        </div>
+      </div>
+    </div>
+
+    <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+      <aside style="flex:0 0 396px;width:396px;display:flex;flex-direction:column;min-height:0;background:var(--panel);border-left:1px solid var(--line);z-index:20">
+        <div style="padding:14px 16px 0;border-bottom:1px solid var(--line)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="{{ selIconStyle }}">{{ selMono }}</div>
+            <input value="{{ selName }}" onChange="{{ onSelName }}" style="flex:1;min-width:0;font-size:15px;font-weight:600;letter-spacing:-.01em;border:1px solid transparent;background:transparent;border-radius:6px;padding:3px 6px" style-hover="border-color:var(--line2)">
+            <button onClick="{{ onDeleteModule }}" title="Delete module" style="width:28px;height:28px;border-radius:7px;border:1px solid var(--line2);background:var(--panel);font-size:13px;color:var(--fg3);cursor:pointer" style-hover="background:var(--badbg);color:var(--badfg);border-color:var(--badline)">×</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin:9px 0 12px">
+            <input value="{{ selKey }}" onChange="{{ onSelKey }}" style="width:150px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--fg2);border:1px solid var(--line);background:var(--panel2);border-radius:6px;padding:4px 7px">
+            <button onClick="{{ onToggleExec }}" style="{{ execToggleStyle }}">{{ execToggleLabel }}</button>
+            <span style="font-size:10.5px;color:var(--fg3)">{{ selSupervisorNote }}</span>
+          </div>
+          <div style="display:flex;gap:2px">
+            <button onClick="{{ onTabFields }}" style="{{ tabFieldsStyle }}">Fields</button>
+            <button onClick="{{ onTabChain }}" style="{{ tabChainStyle }}">Approval chain</button>
+            <button onClick="{{ onTabGate }}" style="{{ tabGateStyle }}">Gate condition</button>
+          </div>
+        </div>
+
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:14px 16px 28px">
+
+          <sc-if value="{{ isFields }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px">
+                <span style="font-size:11px;color:var(--fg3)">{{ fieldSummary }}</span>
+                <button onClick="{{ onAddField }}" style="height:26px;padding:0 10px;border-radius:6px;border:1px solid var(--line2);background:var(--panel);font-size:11px;font-weight:600;cursor:pointer" style-hover="background:var(--chip)">+ Add field</button>
+              </div>
+              <sc-for list="{{ fields }}" as="f" hint-placeholder-count="6">
+                <div style="border:1px solid var(--line);border-radius:9px;background:var(--panel2);padding:9px">
+                  <div style="display:flex;gap:6px;align-items:center">
+                    <span style="font-size:9.5px;font-family:'IBM Plex Mono',monospace;color:var(--fg3);width:16px;flex:0 0 16px">{{ f.num }}</span>
+                    <input value="{{ f.label }}" onChange="{{ f.onLabel }}" style="flex:1;min-width:0;font-size:12px;font-weight:500;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--panel)">
+                    <button onClick="{{ f.onDel }}" title="Delete field" style="width:24px;height:24px;flex:0 0 24px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--fg3);font-size:12px;cursor:pointer" style-hover="background:var(--badbg);color:var(--badfg);border-color:var(--badline)">×</button>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;padding-left:22px">
+                    <input value="{{ f.key }}" onChange="{{ f.onKey }}" style="min-width:0;font-size:11px;font-family:'IBM Plex Mono',monospace;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--fg2)">
+                    <select value="{{ f.type }}" onChange="{{ f.onType }}" style="min-width:0;font-size:11px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel)">
+                      <sc-for list="{{ fieldTypes }}" as="t" hint-placeholder-count="10">
+                        <option value="{{ t.v }}">{{ t.l }}</option>
+                      </sc-for>
+                    </select>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:7px;margin-top:6px;padding-left:22px">
+                    <button onClick="{{ f.onReq }}" style="{{ f.reqStyle }}">{{ f.reqLabel }}</button>
+                    <sc-if value="{{ f.hasOptions }}" hint-placeholder-val="{{ false }}">
+                      <input value="{{ f.optionsText }}" onChange="{{ f.onOptions }}" placeholder="comma-separated options" style="flex:1;min-width:0;font-size:11px;font-family:'IBM Plex Mono',monospace;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--fg2)">
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-for>
+              <button onClick="{{ onAddField }}" style="margin-top:2px;height:32px;border-radius:8px;border:1px dashed var(--line2);background:transparent;color:var(--fg2);font-size:11.5px;font-weight:500;cursor:pointer" style-hover="border-color:var(--accent);color:var(--accent)">+ Add field</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isChain }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <p style="margin:0 0 4px;font-size:11px;line-height:1.5;color:var(--fg3)">Levels run top to bottom. Drag the handle to reorder — the node badge on the canvas updates as you do.</p>
+              <sc-for list="{{ chain }}" as="l" hint-placeholder-count="3">
+                <div data-chainrow="{{ l.idx }}" style="{{ l.rowStyle }}">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <div onPointerDown="{{ l.onDown }}" title="Drag to reorder" style="flex:0 0 18px;height:22px;display:grid;place-items:center;cursor:grab;color:var(--fg3);font-size:11px;letter-spacing:1px">⋮⋮</div>
+                    <span style="{{ l.numStyle }}">{{ l.num }}</span>
+                    <input value="{{ l.name }}" onChange="{{ l.onName }}" style="flex:1;min-width:0;font-size:12px;font-weight:500;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--panel)">
+                    <button onClick="{{ l.onDel }}" title="Delete level" style="width:24px;height:24px;flex:0 0 24px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--fg3);font-size:12px;cursor:pointer" style-hover="background:var(--badbg);color:var(--badfg);border-color:var(--badline)">×</button>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;padding-left:26px">
+                    <select value="{{ l.assignee }}" onChange="{{ l.onAssignee }}" style="min-width:0;font-size:11px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel)">
+                      <sc-for list="{{ assigneeOptions }}" as="a" hint-placeholder-count="5">
+                        <option value="{{ a }}">{{ a }}</option>
+                      </sc-for>
+                    </select>
+                    <input value="{{ l.status }}" onChange="{{ l.onStatus }}" style="min-width:0;font-size:11px;font-family:'IBM Plex Mono',monospace;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--fg2)">
+                  </div>
+                  <sc-if value="{{ l.invalid }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin:7px 0 0 26px;padding:6px 8px;border-radius:6px;background:var(--badbg);border:1px solid var(--badline);color:var(--badfg);font-size:10.5px;line-height:1.45">Invalid assignee — an Observer is read-only workspace-wide and can never complete an approval step. This level would deadlock the record.</div>
+                  </sc-if>
+                  <sc-if value="{{ l.confirming }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin:7px 0 0 26px;padding:7px 8px;border-radius:6px;background:var(--warnbg);border:1px solid var(--warnline);color:var(--warnfg);font-size:10.5px;line-height:1.45">
+                      <div>This is the last level. Deleting it leaves the module with no approval step — records would auto-approve on submit.</div>
+                      <div style="display:flex;gap:6px;margin-top:7px">
+                        <button onClick="{{ l.onConfirmDel }}" style="height:24px;padding:0 9px;border-radius:6px;border:1px solid var(--badline);background:var(--badbg);color:var(--badfg);font-size:10.5px;font-weight:600;cursor:pointer">Delete anyway</button>
+                        <button onClick="{{ l.onCancelDel }}" style="height:24px;padding:0 9px;border-radius:6px;border:1px solid var(--line2);background:var(--panel);font-size:10.5px;font-weight:500;cursor:pointer">Keep it</button>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <button onClick="{{ onAddLevel }}" style="margin-top:2px;height:32px;border-radius:8px;border:1px dashed var(--line2);background:transparent;color:var(--fg2);font-size:11.5px;font-weight:500;cursor:pointer" style-hover="border-color:var(--accent);color:var(--accent)">+ Add level</button>
+              <div style="margin-top:8px;padding:10px 11px;border-radius:8px;background:var(--panel2);border:1px solid var(--line)">
+                <div style="font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--fg3);font-weight:600;margin-bottom:6px">Resulting state machine</div>
+                <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--fg2);line-height:1.7;word-break:break-word">{{ chainStates }}</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isGate }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <p style="margin:0 0 2px;font-size:11px;line-height:1.5;color:var(--fg3)">{{ gateIntro }}</p>
+              <sc-if value="{{ gateHasRows }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+                  <span style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--fg3);font-weight:600">Combine with</span>
+                  <div style="display:flex;padding:2px;gap:2px;background:var(--chip);border:1px solid var(--line);border-radius:7px">
+                    <button onClick="{{ onCombAnd }}" style="{{ combAndStyle }}">AND</button>
+                    <button onClick="{{ onCombOr }}" style="{{ combOrStyle }}">OR</button>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-for list="{{ gateRows }}" as="g" hint-placeholder-count="2">
+                <div style="border:1px solid var(--line);border-radius:9px;background:var(--panel2);padding:9px">
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+                    <span style="{{ g.joinStyle }}">{{ g.join }}</span>
+                    <span style="flex:1;font-size:10px;color:var(--fg3)">from {{ g.srcLabel }}</span>
+                    <button onClick="{{ g.onDel }}" style="width:22px;height:22px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--fg3);font-size:11px;cursor:pointer" style-hover="background:var(--badbg);color:var(--badfg);border-color:var(--badline)">×</button>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1.5fr .7fr 1fr;gap:6px">
+                    <select value="{{ g.var }}" onChange="{{ g.onVar }}" style="min-width:0;font-size:11px;font-family:'IBM Plex Mono',monospace;padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel)">
+                      <sc-for list="{{ varOptions }}" as="v" hint-placeholder-count="8">
+                        <option value="{{ v }}">{{ v }}</option>
+                      </sc-for>
+                    </select>
+                    <select value="{{ g.op }}" onChange="{{ g.onOp }}" style="min-width:0;font-size:11px;font-family:'IBM Plex Mono',monospace;padding:5px 4px;border:1px solid var(--line);border-radius:6px;background:var(--panel)">
+                      <sc-for list="{{ opOptions }}" as="o" hint-placeholder-count="6">
+                        <option value="{{ o }}">{{ o }}</option>
+                      </sc-for>
+                    </select>
+                    <input value="{{ g.value }}" onChange="{{ g.onValue }}" style="min-width:0;font-size:11px;font-family:'IBM Plex Mono',monospace;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--panel)">
+                  </div>
+                </div>
+              </sc-for>
+              <button onClick="{{ onAddGateRow }}" style="height:32px;border-radius:8px;border:1px dashed var(--line2);background:transparent;color:var(--fg2);font-size:11.5px;font-weight:500;cursor:pointer" style-hover="border-color:var(--accent);color:var(--accent)">+ Add condition</button>
+              <div style="margin-top:8px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                  <span style="font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--fg3);font-weight:600">JsonLogic · read-only · live</span>
+                  <span style="font-size:10px;color:var(--fg3)">{{ gateStatus }}</span>
+                </div>
+                <pre style="margin:0;padding:11px 12px;border-radius:9px;background:var(--panel2);border:1px solid var(--line);font-family:'IBM Plex Mono',monospace;font-size:10.5px;line-height:1.6;color:var(--fg2);overflow-x:auto;white-space:pre">{{ gateJson }}</pre>
+              </div>
+            </div>
+          </sc-if>
+
+        </div>
+      </aside>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ showJson }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;top:54px;right:0;bottom:0;width:600px;max-width:80vw;background:var(--panel);border-left:1px solid var(--line);z-index:50;display:flex;flex-direction:column;box-shadow:-20px 0 44px rgba(0,0,0,.13)">
+      <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600">Workspace configuration</div>
+          <div style="font-size:10.5px;color:var(--fg3);font-family:'IBM Plex Mono',monospace">{{ jsonMeta }}</div>
+        </div>
+        <button onClick="{{ onToggleJson }}" style="width:28px;height:28px;border-radius:7px;border:1px solid var(--line2);background:var(--panel);font-size:13px;cursor:pointer" style-hover="background:var(--chip)">×</button>
+      </div>
+      <pre style="flex:1;min-height:0;overflow:auto;margin:0;padding:14px 16px 40px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;line-height:1.62;color:var(--fg2);white-space:pre">{{ configJson }}</pre>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:12px;padding:9px 14px;border-radius:9px;background:var(--fg);color:var(--bg);font-size:11.5px;font-weight:500;box-shadow:0 10px 30px rgba(0,0,0,.25)">
+      <span>{{ toast }}</span>
+      <sc-if value="{{ canUndo }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ onUndo }}" style="border:none;background:transparent;color:var(--bg);font-size:11.5px;font-weight:600;text-decoration:underline;cursor:pointer;padding:0">Undo</button>
+      </sc-if>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;defaultPreset&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;coffee&quot;,&quot;qsr&quot;,&quot;franchise&quot;],&quot;default&quot;:&quot;coffee&quot;,&quot;tsType&quot;:&quot;'coffee' | 'qsr' | 'franchise'&quot;,&quot;section&quot;:&quot;Seed data&quot;},&quot;peopleLayer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Canvas&quot;},&quot;showDotGrid&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Canvas&quot;}}">
+class Component extends DCLogic {
+  static _c = 0;
+
+  constructor(props) {
+    super(props);
+    this.W = 234; this.H = 90;
+    this.canvasRef = React.createRef();
+    const preset = (props && props.defaultPreset) || 'coffee';
+    this.state = Object.assign({
+      preset,
+      selected: 'design', tab: 'gate',
+      view: { x: 60, y: 90, z: 0.78 },
+      showPeople: !!(props && props.peopleLayer),
+      showJson: false,
+      theme: (props && props.theme) || 'light',
+      hoverEdge: null, link: null, chainDrag: null, confirmDel: null,
+      toast: null, undo: null
+    }, this.buildPreset(preset));
+  }
+
+  /* ---------- helpers ---------- */
+  uid(p) { return p + '_' + (++Component._c); }
+  F(label, key, type, required, options) { return { id: this.uid('f'), label, key, type, required: !!required, options: options || null }; }
+  L(name, assignee, status) { return { id: this.uid('l'), name, assignee, status }; }
+  G(v, op, value, src) { return { id: this.uid('g'), var: v, op: op, value: value, src: src }; }
+  E(from, to) { return { id: this.uid('e'), from, to }; }
+  mod(id) { return this.state.modules.find(m => m.id === id); }
+  short(a) {
+    return { 'Module Supervisor': 'Supervisor', 'Business Admin': 'Admin', "Site's assigned executive": 'Executive', 'Per-site delegate': 'Delegate', 'Observer': 'Observer' }[a] || a;
+  }
+  slug(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''); }
+
+  /* ---------- seed field sets ---------- */
+  bdFields() { const f = (a, b, c, d, e) => this.F(a, b, c, d, e); return [
+    f('Carpet area (sqft)', 'carpet_area_sqft', 'number', true),
+    f('Estimated monthly sales', 'est_monthly_sales', 'currency', true),
+    f('Score', 'score', 'number'),
+    f('Rent type', 'rent_type', 'dropdown', true, ['fixed', 'revshare', 'mg_revshare', 'staggered']),
+    f('Fixed rent amount', 'fixed_rent_amount', 'currency'),
+    f('Escalation %', 'escalation_pct', 'percent'),
+    f('Escalation date', 'escalation_date', 'date'),
+    f('Brokerage', 'brokerage', 'currency'),
+    f('Revenue share %', 'revenue_share_pct', 'percent'),
+    f('CAM charges', 'cam_charges', 'currency'),
+    f('Security deposit', 'security_deposit', 'currency', true),
+    f('Capex', 'capex', 'currency'),
+    f('Lock-in (months)', 'lock_in_months', 'number'),
+    f('Tenure (months)', 'tenure_months', 'number', true),
+    f('Rent-free days', 'rent_free_days', 'number'),
+    f('Nearest competitor cafe (m)', 'nearest_competitor_m', 'number'),
+    f('Nearest own store (m)', 'nearest_own_store_m', 'number'),
+    f('LOI uploaded', 'loi_uploaded', 'file', true),
+    f('BD status', 'bd_status', 'dropdown', true, ['draft', 'pending_review', 'approved', 'rejected'])
+  ]; }
+
+  legalFields() { const f = (a, b, c, d, e) => this.F(a, b, c, d, e); return [
+    f('DD — Title document', 'dd_title_document', 'ynna', true),
+    f('DD — Sanctioned plan', 'dd_sanctioned_plan', 'ynna', true),
+    f('DD — OC / CC', 'dd_oc_cc', 'ynna', true),
+    f('DD — Commercial use permitted', 'dd_commercial_use', 'ynna', true),
+    f('DD — Property tax', 'dd_property_tax', 'ynna'),
+    f('DD — Electricity', 'dd_electricity', 'ynna'),
+    f('DD — Fire NOC', 'dd_fire_noc', 'ynna'),
+    f('DD — Free-form check 1', 'dd_custom_1', 'ynna'),
+    f('DD — Free-form check 2', 'dd_custom_2', 'ynna'),
+    f('DD final verdict', 'legal_dd_status', 'dropdown', true, ['pending', 'positive', 'negative']),
+    f('Rejection reason', 'dd_rejection_reason', 'text'),
+    f('Agreement signed', 'agreement_signed', 'dropdown', true, ['yes', 'no']),
+    f('Agreement registered', 'agreement_registered', 'dropdown', true, ['yes', 'no']),
+    f('Agreement document', 'agreement_document', 'file'),
+    f('Licence — FSSAI', 'lic_fssai', 'ynna'),
+    f('Licence — Health and trade', 'lic_health_trade', 'ynna'),
+    f('Licence — Shops and establishment', 'lic_shops_est', 'ynna'),
+    f('Licence — Fire NOC', 'lic_fire_noc', 'ynna'),
+    f('Licence — Storage licence', 'lic_storage', 'ynna')
+  ]; }
+
+  designFields() { const f = (a, b, c, d, e) => this.F(a, b, c, d, e); return [
+    f('Stage', 'design_stage', 'dropdown', true, ['recce', '2d', '3d', 'boq', 'gfc']),
+    f('Deliverable file', 'deliverable_file', 'file', true),
+    f('Estimated amount', 'deliverable_estimate', 'currency'),
+    f('Supervisor comments', 'supervisor_comments', 'text'),
+    f('Admin comments', 'admin_comments', 'text'),
+    f('Deliverable status', 'design_status', 'dropdown', true, ['draft', 'pending_supervisor', 'pending_admin', 'approved', 'rejected'])
+  ]; }
+
+  budgetFields(prefix) { const f = (a, b, c, d, e) => this.F(a, b, c, d, e); return [
+    f('Budget total', prefix + '_budget_total', 'currency', true),
+    f('Total indoor area (sqft)', prefix + '_indoor_area_sqft', 'number'),
+    f('Total area (sqft)', prefix + '_total_area_sqft', 'number'),
+    f('Covers', prefix + '_covers', 'number'),
+    f('Initialization date', prefix + '_init_date', 'date'),
+    f('Expected completion date', prefix + '_expected_completion', 'date'),
+    f('Supervisor comments', prefix + '_supervisor_comments', 'text'),
+    f('Admin comments', prefix + '_admin_comments', 'text'),
+    f('Budget line items', prefix + '_budget_line_items', 'repeater', true)
+  ]; }
+
+  projectFields() { return this.budgetFields('project').concat([
+    this.F('Project status', 'project_status', 'dropdown', true, ['draft', 'pending_supervisor', 'pending_admin', 'approved', 'rejected'])
+  ]); }
+
+  pexFields() { return this.budgetFields('pex').concat([
+    this.F('Quality audit — before report', 'qa_before_report', 'file'),
+    this.F('Quality audit — after report', 'qa_after_report', 'file')
+  ]); }
+
+  nsoFields() { const f = (a, b, c, d, e) => this.F(a, b, c, d, e); return [
+    f('Property details', 'nso_property_details', 'text', true),
+    f('Communication floated', 'nso_communication_floated', 'dropdown', true, ['yes', 'no']),
+    f('FSSAI', 'nso_fssai', 'dropdown', true, ['pending', 'done']),
+    f('Health and trade', 'nso_health_trade', 'dropdown', true, ['pending', 'done']),
+    f('Shops and establishment', 'nso_shops_est', 'dropdown', true, ['pending', 'done']),
+    f('Fire NOC', 'nso_fire_noc', 'dropdown', true, ['pending', 'done']),
+    f('Storage licence', 'nso_storage_licence', 'dropdown', true, ['pending', 'done']),
+    f('Dry stock order', 'nso_dry_stock', 'dropdown', true, ['pending', 'ordered', 'received']),
+    f('Online delivery', 'nso_online_delivery', 'dropdown', true, ['pending', 'ready', 'active']),
+    f('Handover checklist signed', 'nso_handover_signed', 'dropdown', true, ['yes', 'no']),
+    f('Launch date', 'nso_launch_date', 'date', true),
+    f('Launch ready', 'nso_launch_ready', 'dropdown', true, ['yes', 'no']),
+    f('Sign-off — operations accepted', 'nso_signoff_ops', 'checkbox'),
+    f('Sign-off — finance accepted', 'nso_signoff_finance', 'checkbox')
+  ]; }
+
+  launchFields() { const f = (a, b, c, d, e) => this.F(a, b, c, d, e); return [
+    f('Rent type', 'la_rent_type', 'dropdown', true, ['fixed', 'revshare', 'mg_revshare', 'staggered']),
+    f('Fixed rent', 'la_fixed_rent', 'currency'),
+    f('Expected rent', 'la_expected_rent', 'currency'),
+    f('Revenue share % — dine-in', 'la_revshare_dinein_pct', 'percent'),
+    f('Revenue share % — delivery', 'la_revshare_delivery_pct', 'percent'),
+    f('Escalation %', 'la_escalation_pct', 'percent'),
+    f('Escalation date', 'la_escalation_date', 'date'),
+    f('Staggered escalation schedule', 'la_staggered_schedule', 'repeater'),
+    f('CAM charges', 'la_cam_charges', 'currency'),
+    f('Security deposit', 'la_security_deposit', 'currency'),
+    f('Brokerage', 'la_brokerage', 'currency'),
+    f('Lock-in (months)', 'la_lock_in_months', 'number'),
+    f('Tenure (months)', 'la_tenure_months', 'number'),
+    f('Rent-free days', 'la_rent_free_days', 'number'),
+    f('Carpet area (sqft)', 'la_carpet_area_sqft', 'number'),
+    f('Estimated monthly sales', 'la_est_monthly_sales', 'currency')
+  ]; }
+
+  financeFields() { const f = (a, b, c, d, e) => this.F(a, b, c, d, e); return [
+    f('Funding source', 'fin_funding_source', 'dropdown', true, ['internal', 'debt', 'partner']),
+    f('Approved capex', 'fin_approved_capex', 'currency', true),
+    f('IRR %', 'fin_irr_pct', 'percent'),
+    f('Payback (months)', 'fin_payback_months', 'number'),
+    f('Sanction letter', 'fin_sanction_letter', 'file'),
+    f('Finance verdict', 'finance_status', 'dropdown', true, ['pending', 'approved', 'rejected'])
+  ]; }
+
+  complianceFields() { const f = (a, b, c, d, e) => this.F(a, b, c, d, e); return [
+    f('Franchisee entity', 'fc_entity_name', 'text', true),
+    f('Franchise agreement', 'fc_agreement_doc', 'file', true),
+    f('Royalty %', 'fc_royalty_pct', 'percent', true),
+    f('Brand standards audit', 'fc_brand_audit', 'ynna'),
+    f('Training completed', 'fc_training_done', 'dropdown', true, ['yes', 'no']),
+    f('Compliance verdict', 'fc_compliance_status', 'dropdown', true, ['pending', 'cleared', 'blocked'])
+  ]; }
+
+  /* ---------- module factory ---------- */
+  M(o) {
+    return {
+      id: o.key, key: o.key, name: o.name, mono: o.mono, color: o.color,
+      x: o.x, y: o.y,
+      fields: o.fields || [], chain: o.chain || [],
+      gate: o.gate || { combinator: 'and', rows: [] },
+      executives: o.executives !== false,
+      supervisorOnly: !!o.supervisorOnly,
+      intake: !!o.intake,
+      supervisors: o.supervisors || (o.supervisorNames ? o.supervisorNames.length : 1),
+      supervisorNames: o.supervisorNames || [],
+      execs: o.execs || []
+    };
+  }
+
+  /* ---------- presets ---------- */
+  buildPreset(key) {
+    if (key === 'qsr') return this.presetQsr();
+    if (key === 'franchise') return this.presetFranchise();
+    return this.presetCoffee();
+  }
+
+  presetCoffee() {
+    const M = o => this.M(o), L = (a, b, c) => this.L(a, b, c), G = (a, b, c, d) => this.G(a, b, c, d);
+    const modules = [
+      M({ key: 'bd', name: 'BD — Business Development', mono: 'BD', color: '#b0722c', x: 40, y: 250, intake: true, fields: this.bdFields(),
+        chain: [L('Supervisor review', 'Module Supervisor', 'pending_review')],
+        supervisorNames: ['R. Menon'], execs: [{ name: 'P. Desai', sups: [0] }] }),
+      M({ key: 'legal', name: 'Legal', mono: 'LG', color: '#5566bd', x: 348, y: 100, fields: this.legalFields(),
+        chain: [L('DD review', 'Module Supervisor', 'pending_review')],
+        gate: { combinator: 'and', rows: [G('bd_status', '==', 'approved', 'bd'), G('loi_uploaded', '==', 'true', 'bd')] },
+        supervisorNames: ['A. Iyer', 'S. Rao'], execs: [{ name: 'V. Kulkarni', sups: [0, 1] }] }),
+      M({ key: 'design', name: 'Design', mono: 'DS', color: '#2f8a80', x: 690, y: 250, fields: this.designFields(),
+        chain: [L('Supervisor review', 'Module Supervisor', 'pending_supervisor'), L('Final GFC approval', 'Business Admin', 'pending_admin')],
+        gate: { combinator: 'and', rows: [G('legal_dd_status', '==', 'positive', 'legal'), G('finance_status', '==', 'approved', 'bd')] },
+        supervisorNames: ['K. Nair'], execs: [{ name: 'H. Bhatt', sups: [0] }] }),
+      M({ key: 'project', name: 'Project', mono: 'PJ', color: '#3a6fb0', x: 1032, y: 100, fields: this.projectFields(),
+        chain: [L('Draft submitted', "Site's assigned executive", 'draft'), L('Supervisor review', 'Module Supervisor', 'pending_supervisor'), L('Admin approval', 'Business Admin', 'pending_admin')],
+        gate: { combinator: 'and', rows: [G('design_status', '==', 'approved', 'design')] },
+        supervisorNames: ['D. Shah'], execs: [{ name: 'N. Fernandes', sups: [0] }] }),
+      M({ key: 'pex', name: 'Project Excellence', mono: 'PX', color: '#8060b4', x: 1032, y: 400, fields: this.pexFields(),
+        chain: [L('Supervisor review', 'Module Supervisor', 'pending_supervisor'), L('Admin approval', 'Business Admin', 'pending_admin')],
+        gate: { combinator: 'and', rows: [G('design_status', '==', 'approved', 'design')] },
+        supervisorNames: ['M. Bose'], execs: [] }),
+      M({ key: 'nso', name: 'NSO — New Store Opening', mono: 'NS', color: '#4c8b48', x: 1374, y: 250, fields: this.nsoFields(),
+        chain: [L('Supervisor sign-off', 'Module Supervisor', 'pending_review')],
+        gate: { combinator: 'and', rows: [G('project_status', '==', 'approved', 'project')] },
+        executives: false, supervisorOnly: true, supervisorNames: ['T. Grewal'], execs: [] }),
+      M({ key: 'launch', name: 'Launch Approval', mono: 'LA', color: '#b45248', x: 1716, y: 250, fields: this.launchFields(),
+        chain: [L('Admin review', 'Business Admin', 'pending_admin_review'), L('Executive review', "Site's assigned executive", 'under_exec_review'), L('Supervisor review', 'Module Supervisor', 'under_supervisor_review'), L('Admin final', 'Business Admin', 'pending_admin_final')],
+        gate: { combinator: 'and', rows: [G('nso_launch_ready', '==', 'yes', 'nso')] },
+        supervisorNames: ['T. Grewal'], execs: [] })
+    ];
+    const edges = [this.E('bd', 'legal'), this.E('bd', 'design'), this.E('legal', 'design'), this.E('design', 'project'), this.E('design', 'pex'), this.E('project', 'nso'), this.E('nso', 'launch')];
+    return { modules, edges, workspaceName: 'Northwind Coffee Co.', workspaceSlug: 'northwind-coffee' };
+  }
+
+  presetQsr() {
+    const M = o => this.M(o), L = (a, b, c) => this.L(a, b, c), G = (a, b, c, d) => this.G(a, b, c, d);
+    const modules = [
+      M({ key: 'bd', name: 'BD — Site Sourcing', mono: 'BD', color: '#b0722c', x: 40, y: 250, intake: true, fields: this.bdFields(),
+        chain: [L('Supervisor review', 'Module Supervisor', 'pending_review')], supervisorNames: ['J. Varma'], execs: [{ name: 'A. Qureshi', sups: [0] }] }),
+      M({ key: 'design', name: 'Design', mono: 'DS', color: '#2f8a80', x: 348, y: 250, fields: this.designFields(),
+        chain: [L('Supervisor review', 'Module Supervisor', 'pending_supervisor'), L('Final GFC approval', 'Business Admin', 'pending_admin')],
+        gate: { combinator: 'and', rows: [G('bd_status', '==', 'approved', 'bd')] },
+        supervisorNames: ['L. Kapoor'], execs: [{ name: 'S. Menon', sups: [0] }] }),
+      M({ key: 'finance', name: 'Finance', mono: 'FN', color: '#8a7a35', x: 690, y: 250, fields: this.financeFields(),
+        chain: [L('Analyst review', 'Module Supervisor', 'pending_review'), L('Admin sanction', 'Business Admin', 'pending_admin')],
+        gate: { combinator: 'and', rows: [G('design_status', '==', 'approved', 'design')] },
+        supervisorNames: ['R. Pillai'], execs: [] }),
+      M({ key: 'legal', name: 'Legal', mono: 'LG', color: '#5566bd', x: 1032, y: 250, fields: this.legalFields(),
+        chain: [L('DD review', 'Module Supervisor', 'pending_review')],
+        gate: { combinator: 'and', rows: [G('finance_status', '==', 'approved', 'finance')] },
+        supervisorNames: ['A. Iyer', 'S. Rao'], execs: [{ name: 'V. Kulkarni', sups: [0, 1] }] }),
+      M({ key: 'project', name: 'Project', mono: 'PJ', color: '#3a6fb0', x: 1374, y: 100, fields: this.projectFields(),
+        chain: [L('Draft submitted', "Site's assigned executive", 'draft'), L('Supervisor review', 'Module Supervisor', 'pending_supervisor'), L('Regional ops review', 'Per-site delegate', 'pending_regional'), L('Admin approval', 'Business Admin', 'pending_admin')],
+        gate: { combinator: 'and', rows: [G('legal_dd_status', '==', 'positive', 'legal')] },
+        supervisorNames: ['D. Shah'], execs: [{ name: 'N. Fernandes', sups: [0] }] }),
+      M({ key: 'nso', name: 'NSO — Store Opening', mono: 'NS', color: '#4c8b48', x: 1374, y: 400, fields: this.nsoFields(),
+        chain: [L('Supervisor sign-off', 'Module Supervisor', 'pending_review')],
+        gate: { combinator: 'and', rows: [G('project_status', '==', 'approved', 'project')] },
+        executives: false, supervisorOnly: true, supervisorNames: ['T. Grewal'], execs: [] }),
+      M({ key: 'launch', name: 'Launch Approval', mono: 'LA', color: '#b45248', x: 1716, y: 250, fields: this.launchFields(),
+        chain: [L('Admin review', 'Business Admin', 'pending_admin_review'), L('Executive review', "Site's assigned executive", 'under_exec_review'), L('Supervisor review', 'Module Supervisor', 'under_supervisor_review'), L('Admin final', 'Business Admin', 'pending_admin_final')],
+        gate: { combinator: 'and', rows: [G('nso_launch_ready', '==', 'yes', 'nso')] },
+        supervisorNames: ['T. Grewal'], execs: [] })
+    ];
+    const edges = [this.E('bd', 'design'), this.E('design', 'finance'), this.E('finance', 'legal'), this.E('legal', 'project'), this.E('project', 'nso'), this.E('nso', 'launch')];
+    return { modules, edges, workspaceName: 'Skyline QSR Brands', workspaceSlug: 'skyline-qsr' };
+  }
+
+  presetFranchise() {
+    const M = o => this.M(o), L = (a, b, c) => this.L(a, b, c), G = (a, b, c, d) => this.G(a, b, c, d);
+    const modules = [
+      M({ key: 'bd', name: 'BD — Partner Intake', mono: 'BD', color: '#b0722c', x: 40, y: 250, intake: true, fields: this.bdFields(),
+        chain: [L('Supervisor review', 'Module Supervisor', 'pending_review')], supervisorNames: ['R. Menon'], execs: [] }),
+      M({ key: 'compliance', name: 'Franchise Compliance', mono: 'FC', color: '#8a5f9e', x: 348, y: 250, fields: this.complianceFields(),
+        chain: [L('Compliance review', 'Module Supervisor', 'pending_review'), L('Admin clearance', 'Business Admin', 'pending_admin')],
+        gate: { combinator: 'and', rows: [G('bd_status', '==', 'approved', 'bd')] },
+        supervisorNames: ['G. Sethi'], execs: [{ name: 'K. Rane', sups: [0] }] }),
+      M({ key: 'legal', name: 'Legal', mono: 'LG', color: '#5566bd', x: 690, y: 100, fields: this.legalFields(),
+        chain: [L('DD review', 'Module Supervisor', 'pending_review')],
+        gate: { combinator: 'and', rows: [G('fc_compliance_status', '==', 'cleared', 'compliance')] },
+        supervisorNames: ['A. Iyer', 'S. Rao'], execs: [{ name: 'V. Kulkarni', sups: [0, 1] }] }),
+      M({ key: 'design', name: 'Design', mono: 'DS', color: '#2f8a80', x: 690, y: 400, fields: this.designFields(),
+        chain: [L('Supervisor review', 'Module Supervisor', 'pending_supervisor'), L('Final GFC approval', 'Business Admin', 'pending_admin')],
+        gate: { combinator: 'or', rows: [G('fc_compliance_status', '==', 'cleared', 'compliance')] },
+        supervisorNames: ['K. Nair'], execs: [] }),
+      M({ key: 'nso', name: 'NSO — Store Opening', mono: 'NS', color: '#4c8b48', x: 1032, y: 250, fields: this.nsoFields(),
+        chain: [L('Supervisor sign-off', 'Module Supervisor', 'pending_review')],
+        gate: { combinator: 'and', rows: [G('design_status', '==', 'approved', 'design')] },
+        executives: false, supervisorOnly: true, supervisorNames: ['T. Grewal'], execs: [] }),
+      M({ key: 'launch', name: 'Launch Approval', mono: 'LA', color: '#b45248', x: 1374, y: 250, fields: this.launchFields(),
+        chain: [L('Admin review', 'Business Admin', 'pending_admin_review'), L('Admin final', 'Business Admin', 'pending_admin_final')],
+        gate: { combinator: 'and', rows: [G('nso_launch_ready', '==', 'yes', 'nso')] },
+        supervisorNames: ['T. Grewal'], execs: [] })
+    ];
+    const edges = [this.E('bd', 'compliance'), this.E('compliance', 'legal'), this.E('compliance', 'design'), this.E('legal', 'nso'), this.E('design', 'nso'), this.E('nso', 'launch')];
+    return { modules, edges, workspaceName: 'Meridian Franchise Partners', workspaceSlug: 'meridian-franchise' };
+  }
+
+  /* ---------- lifecycle ---------- */
+  componentDidMount() {
+    document.documentElement.setAttribute('data-theme', this.state.theme);
+    const el = this.canvasRef.current;
+    if (el) { this._wheel = e => this.onWheel(e); el.addEventListener('wheel', this._wheel, { passive: false }); }
+    setTimeout(() => this.fit(), 60);
+  }
+  componentDidUpdate(prev) {
+    if (this.state.theme !== document.documentElement.getAttribute('data-theme')) document.documentElement.setAttribute('data-theme', this.state.theme);
+    if (prev.theme !== this.props.theme && this.props.theme) this.setState({ theme: this.props.theme });
+  }
+  componentWillUnmount() { const el = this.canvasRef.current; if (el && this._wheel) el.removeEventListener('wheel', this._wheel); }
+
+  /* ---------- canvas ---------- */
+  toGraph(cx, cy) {
+    const r = this.canvasRef.current.getBoundingClientRect(), v = this.state.view;
+    return { x: (cx - r.left - v.x) / v.z, y: (cy - r.top - v.y) / v.z };
+  }
+  onWheel(e) {
+    e.preventDefault();
+    const r = this.canvasRef.current.getBoundingClientRect(), v = this.state.view;
+    const z = Math.min(1.8, Math.max(0.22, v.z * Math.exp(-e.deltaY * 0.0016)));
+    const k = z / v.z, px = e.clientX - r.left, py = e.clientY - r.top;
+    this.setState({ view: { x: px - (px - v.x) * k, y: py - (py - v.y) * k, z } });
+  }
+  zoomBy(f) {
+    const r = this.canvasRef.current.getBoundingClientRect(), v = this.state.view;
+    const z = Math.min(1.8, Math.max(0.22, v.z * f)), k = z / v.z, px = r.width / 2, py = r.height / 2;
+    this.setState({ view: { x: px - (px - v.x) * k, y: py - (py - v.y) * k, z } });
+  }
+  fit() {
+    const el = this.canvasRef.current; if (!el) return;
+    const r = el.getBoundingClientRect(), ms = this.state.modules; if (!ms.length) return;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    ms.forEach(m => { x0 = Math.min(x0, m.x); y0 = Math.min(y0, m.y); x1 = Math.max(x1, m.x + this.W); y1 = Math.max(y1, m.y + this.H); });
+    if (this.state.showPeople) { y0 -= 210; y1 += 230; }
+    const pad = 70, w = x1 - x0, h = y1 - y0;
+    const z = Math.min(1.1, Math.max(0.48, Math.min((r.width - pad * 2) / w, (r.height - pad * 2) / h)));
+    this.setState({ view: { z, x: Math.min(pad, (r.width - w * z) / 2 - x0 * z), y: Math.min(pad, (r.height - h * z) / 2 - y0 * z) } });
+  }
+  onCanvasDown(ev) {
+    const t = ev.target;
+    if (t.closest && (t.closest('[data-node]') || t.closest('[data-port]') || t.closest('[data-nopan]'))) return;
+    const st = { x: ev.clientX, y: ev.clientY, vx: this.state.view.x, vy: this.state.view.y };
+    let moved = false;
+    const move = e => {
+      if (Math.abs(e.clientX - st.x) + Math.abs(e.clientY - st.y) > 3) moved = true;
+      this.setState(s => ({ view: { z: s.view.z, x: st.vx + (e.clientX - st.x), y: st.vy + (e.clientY - st.y) } }));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+      if (!moved) this.setState({ selected: null, confirmDel: null });
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+  onNodeDown(id, ev) {
+    if (ev.target.closest && ev.target.closest('[data-port]')) return;
+    ev.stopPropagation();
+    const m = this.mod(id); if (!m) return;
+    const st = { x: ev.clientX, y: ev.clientY, mx: m.x, my: m.y };
+    let moved = false;
+    const move = e => {
+      const dx = (e.clientX - st.x) / this.state.view.z, dy = (e.clientY - st.y) / this.state.view.z;
+      if (Math.abs(e.clientX - st.x) + Math.abs(e.clientY - st.y) > 3) moved = true;
+      if (moved) this.patch(id, { x: Math.round(st.mx + dx), y: Math.round(st.my + dy) });
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+      if (!moved) this.setState({ selected: id, confirmDel: null });
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+  onPortDown(id, ev) {
+    ev.stopPropagation(); ev.preventDefault();
+    const m = this.mod(id); const p = this.toGraph(ev.clientX, ev.clientY);
+    this.setState({ link: { from: id, x1: m.x + this.W, y1: m.y + this.H / 2, x2: p.x, y2: p.y } });
+    const move = e => { const q = this.toGraph(e.clientX, e.clientY); this.setState(s => s.link ? { link: Object.assign({}, s.link, { x2: q.x, y2: q.y }) } : null); };
+    const up = e => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      let target = null;
+      if (el && el.closest) { const c = el.closest('[data-node]'); if (c) target = c.getAttribute('data-node'); }
+      this.setState({ link: null });
+      if (target && target !== id) this.addEdge(id, target); else if (!target) this.toast('Drop the connection on a module to create an edge');
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+
+  /* ---------- mutations ---------- */
+  patch(id, p) { this.setState(s => ({ modules: s.modules.map(m => m.id === id ? Object.assign({}, m, p) : m) })); }
+  patchField(mid, fid, p) { this.setState(s => ({ modules: s.modules.map(m => m.id !== mid ? m : Object.assign({}, m, { fields: m.fields.map(f => f.id === fid ? Object.assign({}, f, p) : f) })) })); }
+  patchLevel(mid, lid, p) { this.setState(s => ({ modules: s.modules.map(m => m.id !== mid ? m : Object.assign({}, m, { chain: m.chain.map(l => l.id === lid ? Object.assign({}, l, p) : l) })) })); }
+  patchGateRow(mid, gid, p) { this.setState(s => ({ modules: s.modules.map(m => m.id !== mid ? m : Object.assign({}, m, { gate: { combinator: m.gate.combinator, rows: m.gate.rows.map(g => g.id === gid ? Object.assign({}, g, p) : g) } })) })); }
+  toast(msg, undo) { this._t && clearTimeout(this._t); this.setState({ toast: msg, undo: undo || null }); this._t = setTimeout(() => this.setState({ toast: null, undo: null }), 4200); }
+
+  addEdge(from, to) {
+    if (this.state.edges.some(e => e.from === from && e.to === to)) { this.toast('That edge already exists'); return; }
+    if (from === to) return;
+    const e = this.E(from, to);
+    const src = this.mod(from), dst = this.mod(to);
+    this.setState(s => ({
+      edges: s.edges.concat([e]),
+      modules: s.modules.map(m => m.id !== to ? m : Object.assign({}, m, {
+        gate: { combinator: m.gate.combinator, rows: m.gate.rows.concat([this.G(src.key + '_status', '==', 'approved', src.key)]) }
+      }))
+    }));
+    this.toast(src.name.split(' — ')[0] + ' → ' + dst.name.split(' — ')[0] + ' connected · gate row added');
+  }
+  delEdge(id) {
+    const e = this.state.edges.find(x => x.id === id); if (!e) return;
+    const snapshot = { edges: this.state.edges, modules: this.state.modules };
+    this.setState(s => ({
+      edges: s.edges.filter(x => x.id !== id),
+      modules: s.modules.map(m => m.id !== e.to ? m : Object.assign({}, m, { gate: { combinator: m.gate.combinator, rows: m.gate.rows.filter(g => g.src !== e.from) } })),
+      hoverEdge: null
+    }));
+    this.toast('Edge removed · its gate rows were dropped', snapshot);
+  }
+  undo() { const u = this.state.undo; if (!u) return; this.setState({ edges: u.edges, modules: u.modules, toast: null, undo: null }); }
+
+  addField(mid) {
+    const m = this.mod(mid);
+    this.setState(s => ({ modules: s.modules.map(x => x.id !== mid ? x : Object.assign({}, x, { fields: x.fields.concat([this.F('New field', m.key + '_field_' + (x.fields.length + 1), 'text', false)]) })) }));
+  }
+  delField(mid, fid) { this.setState(s => ({ modules: s.modules.map(m => m.id !== mid ? m : Object.assign({}, m, { fields: m.fields.filter(f => f.id !== fid) })) })); }
+
+  addLevel(mid) {
+    this.setState(s => ({ modules: s.modules.map(m => m.id !== mid ? m : Object.assign({}, m, { chain: m.chain.concat([this.L('New level', 'Module Supervisor', 'pending_level_' + (m.chain.length + 1))]) })) }));
+  }
+  delLevel(mid, lid) {
+    this.setState(s => ({ modules: s.modules.map(m => m.id !== mid ? m : Object.assign({}, m, { chain: m.chain.filter(l => l.id !== lid) })), confirmDel: null }));
+  }
+  chainMove(mid, from, to) {
+    this.setState(s => ({ modules: s.modules.map(m => { if (m.id !== mid) return m; const c = m.chain.slice(); const [it] = c.splice(from, 1); c.splice(to, 0, it); return Object.assign({}, m, { chain: c }); }) }));
+    this.toast('Approval order updated — node badge refreshed');
+  }
+  onChainDown(mid, idx, ev) {
+    ev.preventDefault(); ev.stopPropagation();
+    this.setState({ chainDrag: { mid, from: idx, over: idx } });
+    const move = e => {
+      const rows = Array.prototype.slice.call(document.querySelectorAll('[data-chainrow]'));
+      let over = idx;
+      rows.forEach(r => { const b = r.getBoundingClientRect(); if (e.clientY >= b.top && e.clientY <= b.bottom) over = Number(r.getAttribute('data-chainrow')); });
+      this.setState(s => s.chainDrag ? { chainDrag: Object.assign({}, s.chainDrag, { over }) } : null);
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+      const d = this.state.chainDrag;
+      if (d && d.over !== d.from) this.chainMove(d.mid, d.from, d.over);
+      this.setState({ chainDrag: null });
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+
+  addGateRow(mid) {
+    const m = this.mod(mid);
+    const up = this.state.edges.filter(e => e.to === mid).map(e => this.mod(e.from)).filter(Boolean);
+    const src = up[0];
+    this.setState(s => ({ modules: s.modules.map(x => x.id !== mid ? x : Object.assign({}, x, { gate: { combinator: x.gate.combinator, rows: x.gate.rows.concat([this.G(src ? src.key + '_status' : 'field_key', '==', 'approved', src ? src.key : null)]) } })) }));
+  }
+  delGateRow(mid, gid) { this.setState(s => ({ modules: s.modules.map(m => m.id !== mid ? m : Object.assign({}, m, { gate: { combinator: m.gate.combinator, rows: m.gate.rows.filter(g => g.id !== gid) } })) })); }
+
+  newModule() {
+    const ms = this.state.modules;
+    const maxX = ms.reduce((a, m) => Math.max(a, m.x), 0);
+    const id = this.uid('mod');
+    const m = this.M({ key: 'new_module_' + (ms.length + 1), name: 'New module', mono: 'NM', color: '#6f7a86', x: maxX + 342, y: 430, fields: [], chain: [this.L('Supervisor review', 'Module Supervisor', 'pending_review')], supervisorNames: ['Unassigned'] });
+    m.id = id;
+    this.setState(s => ({ modules: s.modules.concat([m]), selected: id, tab: 'fields' }));
+    this.toast('Blank module added — name it, add fields, then drag an edge into it');
+  }
+  deleteModule(id) {
+    const m = this.mod(id);
+    this.setState(s => ({ modules: s.modules.filter(x => x.id !== id), edges: s.edges.filter(e => e.from !== id && e.to !== id), selected: null }));
+    this.toast(m.name + ' removed with its edges');
+  }
+  setPreset(p) {
+    this.setState(Object.assign({ preset: p, selected: null, hoverEdge: null, confirmDel: null }, this.buildPreset(p)));
+    setTimeout(() => this.fit(), 40);
+  }
+
+  /* ---------- derived ---------- */
+  reachable() {
+    const intake = this.state.modules.filter(m => m.intake).map(m => m.id);
+    const seen = {}; const stack = intake.slice();
+    intake.forEach(i => seen[i] = true);
+    while (stack.length) {
+      const cur = stack.pop();
+      this.state.edges.filter(e => e.from === cur).forEach(e => { if (!seen[e.to]) { seen[e.to] = true; stack.push(e.to); } });
+    }
+    return seen;
+  }
+  coerce(v) {
+    if (v === 'true') return true; if (v === 'false') return false;
+    if (v !== '' && !isNaN(Number(v))) return Number(v);
+    return v;
+  }
+  jsonLogic(gate) {
+    const rows = gate.rows.filter(r => r.var);
+    if (!rows.length) return null;
+    const one = r => { const o = {}; o[r.op] = [{ var: r.var }, this.coerce(r.value)]; return o; };
+    if (rows.length === 1) return one(rows[0]);
+    const out = {}; out[gate.combinator] = rows.map(one); return out;
+  }
+  gateText(gate, rows) {
+    const rs = (rows || gate.rows).filter(r => r.var);
+    if (!rs.length) return '';
+    return rs.map(r => r.var + ' ' + r.op + ' ' + r.value).join(gate.combinator === 'or' ? ' OR ' : ' AND ');
+  }
+  edgeCond(e) {
+    const dst = this.mod(e.to); if (!dst) return '';
+    const own = dst.gate.rows.filter(r => r.src === e.from);
+    return this.gateText(dst.gate, own.length ? own : []);
+  }
+  bez(x1, y1, x2, y2) {
+    const dx = Math.max(46, Math.abs(x2 - x1) * 0.45);
+    return 'M' + x1 + ',' + y1 + ' C' + (x1 + dx) + ',' + y1 + ' ' + (x2 - dx) + ',' + y2 + ' ' + x2 + ',' + y2;
+  }
+  peopleModel() {
+    const nodes = [], edges = [];
+    const ms = this.state.modules;
+    if (!ms.length) return { nodes, edges };
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity;
+    ms.forEach(m => { x0 = Math.min(x0, m.x); x1 = Math.max(x1, m.x + this.W); y0 = Math.min(y0, m.y); });
+    const cx = (x0 + x1) / 2 - 80;
+    const admin = { id: 'ba', role: 'Business admin · tenant-wide', name: 'Business Admin — Priya Raghavan', x: cx - 20, y: y0 - 212, w: 230 };
+    const obs = { id: 'obs', role: 'Observer · read-only', name: 'Observer — Audit & Reporting', x: cx - 20, y: y0 - 128, w: 230 };
+    nodes.push(admin, obs);
+    edges.push({ id: 'pe_ba_obs', d: this.bez(admin.x + admin.w / 2, admin.y + 46, obs.x + obs.w / 2, obs.y), dash: '0' });
+    ms.forEach(m => {
+      const sups = (m.supervisorNames && m.supervisorNames.length ? m.supervisorNames : ['Unassigned']);
+      const supNodes = sups.map((nm, i) => ({ id: m.id + '_s' + i, role: 'Supervisor · ' + m.key, name: nm, x: m.x + i * 124, y: m.y + 132, w: 116 }));
+      supNodes.forEach(sn => {
+        nodes.push(sn);
+        edges.push({ id: sn.id + '_m', d: this.bez(sn.x + sn.w / 2, sn.y, m.x + this.W / 2, m.y + this.H), dash: '0' });
+        edges.push({ id: sn.id + '_o', d: this.bez(obs.x + obs.w / 2, obs.y + 46, sn.x + sn.w / 2, sn.y), dash: '4 4' });
+      });
+      (m.executives || []).length;
+      if (m.executives !== false) {
+        (m.execs || []).forEach((ex, j) => {
+          const targets = ex.sups.map(i => supNodes[i]).filter(Boolean);
+          if (!targets.length) return;
+          const ax = targets.reduce((a, t) => a + t.x + t.w / 2, 0) / targets.length;
+          const en = { id: m.id + '_e' + j, role: targets.length > 1 ? 'Executive · shared' : 'Executive · ' + m.key, name: ex.name, x: ax - 58, y: m.y + 214, w: 116 };
+          nodes.push(en);
+          targets.forEach(t => edges.push({ id: en.id + '_' + t.id, d: this.bez(en.x + en.w / 2, en.y, t.x + t.w / 2, t.y + 46), dash: '0' }));
+        });
+      }
+    });
+    return { nodes, edges };
+  }
+  config() {
+    const s = this.state;
+    return {
+      workspace: { id: s.workspaceSlug, name: s.workspaceName, preset: s.preset, console: 'platform_admin' },
+      modules: s.modules.map((m, i) => ({
+        key: m.key, name: m.name, order: i + 1,
+        executives_enabled: m.supervisorOnly ? false : m.executives,
+        supervisor_only: m.supervisorOnly || undefined,
+        intake: m.intake || undefined,
+        fields: m.fields.map(f => {
+          const o = { key: f.key, label: f.label, type: f.type, required: f.required };
+          if (f.options) o.options = f.options;
+          return o;
+        }),
+        approval_chain: m.chain.map((l, k) => {
+          const o = { level: k + 1, name: l.name, assignee_rule: this.slug(l.assignee), awaiting_status: l.status };
+          if (l.assignee === 'Observer') o.invalid = 'observer_is_read_only';
+          return o;
+        }),
+        unlock_gate: this.jsonLogic(m.gate)
+      })),
+      edges: s.edges.map(e => ({ from: (this.mod(e.from) || {}).key, to: (this.mod(e.to) || {}).key, condition: this.edgeCond(e) || null })),
+      roles: {
+        business_admin: { scope: 'workspace', count: 1, approves: true },
+        observer: { scope: 'workspace', read_only: true, approves: false },
+        supervisor: { scope: 'module', per_module: s.modules.map(m => ({ module: m.key, count: (m.supervisorNames || []).length || 1 })) },
+        executive: { scope: 'supervisor', may_report_to_multiple_supervisors: true }
+      }
+    };
+  }
+
+  /* ---------- render values ---------- */
+  renderVals() {
+    const s = this.state, v = s.view, W = this.W, H = this.H;
+    const reach = this.reachable();
+    const sel = s.selected ? this.mod(s.selected) : null;
+    const chipBase = 'display:inline-flex;align-items:center;font-size:10px;font-weight:500;padding:2px 6px;border-radius:5px;white-space:nowrap;border:1px solid ';
+
+    const nodes = s.modules.map(m => {
+      const locked = !reach[m.id];
+      const isSel = s.selected === m.id;
+      const first = m.chain[0];
+      return {
+        id: m.id, key: m.key, name: m.name, mono: m.mono, locked,
+        fieldLabel: m.fields.length + (m.fields.length === 1 ? ' field' : ' fields'),
+        levelLabel: m.chain.length ? m.chain.length + (m.chain.length === 1 ? ' level → ' : ' levels → ') + this.short(first.assignee) : 'no chain',
+        execLabel: m.supervisorOnly ? 'Supervisor-only' : (m.executives ? 'Executives on' : 'Executives off'),
+        execChipStyle: m.supervisorOnly
+          ? { display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 5, whiteSpace: 'nowrap', border: '1px solid var(--warnline)', background: 'var(--warnbg)', color: 'var(--warnfg)' }
+          : { display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 5, whiteSpace: 'nowrap', border: '1px solid var(--line)', background: 'var(--chip)', color: m.executives ? 'var(--fg2)' : 'var(--fg3)' },
+        wrap: {
+          position: 'absolute', left: m.x, top: m.y, width: W, height: H,
+          background: 'var(--panel)', border: '1px solid ' + (isSel ? 'var(--accent)' : 'var(--line)'),
+          boxShadow: isSel ? '0 0 0 3px var(--accent-soft),' + 'var(--shadow)' : 'var(--shadow)',
+          borderRadius: 11, overflow: 'hidden', cursor: 'grab', opacity: locked ? 0.5 : 1, zIndex: isSel ? 6 : 4
+        },
+        accentStyle: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: m.color },
+        iconStyle: { flex: '0 0 26px', width: 26, height: 26, borderRadius: 7, background: m.color, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 600, letterSpacing: '.03em' },
+        onDown: e => this.onNodeDown(m.id, e),
+        onPortDown: e => this.onPortDown(m.id, e)
+      };
+    });
+
+    const posOf = {}; s.modules.forEach(m => posOf[m.id] = m);
+    const edges = [], edgeBadges = [];
+    s.edges.forEach(e => {
+      const a = posOf[e.from], b = posOf[e.to]; if (!a || !b) return;
+      const x1 = a.x + W, y1 = a.y + H / 2, x2 = b.x, y2 = b.y + H / 2;
+      const hi = s.hoverEdge === e.id;
+      const dim = !reach[e.to] ? 0.45 : 1;
+      edges.push({
+        id: e.id, d: this.bez(x1, y1, x2, y2),
+        stroke: hi ? 'var(--edge-hi)' : 'var(--edge)', width: hi ? 2.4 : 1.6,
+        marker: hi ? 'url(#arwhi)' : 'url(#arw)', opacity: dim,
+        onClick: () => this.delEdge(e.id),
+        onEnter: () => this.setState({ hoverEdge: e.id }),
+        onLeave: () => this.setState(st => st.hoverEdge === e.id ? { hoverEdge: null } : null)
+      });
+      const cond = this.edgeCond(e);
+      if (cond) {
+        const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+        edgeBadges.push({
+          id: e.id + '_b', label: hi ? cond : 'IF',
+          onEnter: () => this.setState({ hoverEdge: e.id }),
+          onLeave: () => this.setState(st => st.hoverEdge === e.id ? { hoverEdge: null } : null),
+          onClick: () => this.delEdge(e.id),
+          style: {
+            position: 'absolute', left: mx, top: my, transform: 'translate(-50%,-50%)',
+            padding: hi ? '3px 8px' : '2px 5px', borderRadius: 6, zIndex: 5, cursor: 'pointer',
+            background: hi ? 'var(--fg)' : 'var(--panel)', color: hi ? 'var(--bg)' : 'var(--fg3)',
+            border: '1px solid ' + (hi ? 'var(--fg)' : 'var(--line2)'),
+            fontFamily: "'IBM Plex Mono', monospace", fontSize: hi ? 10 : 9, fontWeight: 500,
+            whiteSpace: 'nowrap', opacity: dim, boxShadow: 'var(--shadow)'
+          }
+        });
+      }
+    });
+
+    const pm = s.showPeople ? this.peopleModel() : { nodes: [], edges: [] };
+    const peopleNodes = pm.nodes.map(p => ({
+      id: p.id, role: p.role, name: p.name,
+      style: {
+        position: 'absolute', left: p.x, top: p.y, width: p.w, minHeight: 44,
+        display: 'flex', flexDirection: 'column', gap: 1, justifyContent: 'center',
+        padding: '7px 9px', borderRadius: 9, zIndex: 3,
+        background: 'var(--panel2)',
+        border: '1px ' + (p.id === 'obs' ? 'dashed' : 'solid') + ' var(--line2)',
+        color: 'var(--fg2)'
+      }
+    }));
+
+    const presets = [['coffee', 'Coffee Chain (base)'], ['qsr', 'QSR Brands'], ['franchise', 'Franchise Partner']].map(p => ({
+      key: p[0], label: { coffee: 'Coffee Chain', qsr: 'QSR Brands', franchise: 'Franchise' }[p[0]], onClick: () => this.setPreset(p[0]),
+      style: {
+        height: 24, padding: '0 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+        whiteSpace: 'nowrap', flex: '0 0 auto', lineHeight: '22px',
+        fontSize: 11.5, fontWeight: s.preset === p[0] ? 600 : 500,
+        background: s.preset === p[0] ? 'var(--panel)' : 'transparent',
+        color: s.preset === p[0] ? 'var(--fg)' : 'var(--fg3)',
+        boxShadow: s.preset === p[0] ? '0 1px 2px rgba(0,0,0,.08)' : 'none'
+      }
+    }));
+
+    const btn = active => ({
+      height: 30, padding: '0 12px', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 500,
+      whiteSpace: 'nowrap', flex: '0 0 auto', lineHeight: '28px',
+      border: '1px solid ' + (active ? 'var(--accent)' : 'var(--line2)'),
+      background: active ? 'var(--accent-soft)' : 'var(--panel)',
+      color: active ? 'var(--accent)' : 'var(--fg)'
+    });
+
+    const tabStyle = k => ({
+      height: 32, padding: '0 11px', borderRadius: '7px 7px 0 0', cursor: 'pointer', fontSize: 12,
+      fontWeight: s.tab === k ? 600 : 500, border: 'none', background: 'transparent',
+      color: s.tab === k ? 'var(--fg)' : 'var(--fg3)',
+      boxShadow: s.tab === k ? 'inset 0 -2px 0 var(--accent)' : 'none'
+    });
+
+    const out = {
+      workspaceName: s.workspaceName, workspaceSlug: s.workspaceSlug,
+      presets, nodes, edges, edgeBadges, peopleNodes, peopleEdges: pm.edges,
+      canvasRef: this.canvasRef,
+      viewportStyle: { position: 'absolute', left: 0, top: 0, width: 0, height: 0, transform: 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.z + ')', transformOrigin: '0 0' },
+      gridStyle: {
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        backgroundImage: 'radial-gradient(var(--dot) 1px, transparent 1px)',
+        backgroundSize: (26 * v.z) + 'px ' + (26 * v.z) + 'px',
+        backgroundPosition: v.x + 'px ' + v.y + 'px',
+        opacity: (this.props.showDotGrid === false) ? 0 : 1
+      },
+      linkPath: s.link ? this.bez(s.link.x1, s.link.y1, s.link.x2, s.link.y2) : false,
+      zoomLabel: Math.round(v.z * 100) + '%',
+      onZoomIn: () => this.zoomBy(1.18), onZoomOut: () => this.zoomBy(1 / 1.18), onFit: () => this.fit(),
+      onCanvasDown: e => this.onCanvasDown(e),
+      onNewModule: () => this.newModule(),
+      onTogglePeople: () => this.setState(st => ({ showPeople: !st.showPeople })),
+      onToggleJson: () => this.setState(st => ({ showJson: !st.showJson })),
+      onToggleTheme: () => this.setState(st => ({ theme: st.theme === 'dark' ? 'light' : 'dark' })),
+      themeLabel: s.theme === 'dark' ? 'Dark' : 'Light',
+      peopleBtnStyle: btn(s.showPeople), jsonBtnStyle: btn(s.showJson),
+      showJson: s.showJson, configJson: JSON.stringify(this.config(), null, 2),
+      jsonMeta: s.modules.length + ' modules · ' + s.edges.length + ' edges · live',
+      toast: s.toast || false, canUndo: !!s.undo, onUndo: () => this.undo(),
+      tip: false, tipStyle: {},
+      hasSelection: !!sel,
+      assigneeOptions: ['Module Supervisor', 'Business Admin', "Site's assigned executive", 'Per-site delegate', 'Observer'],
+      opOptions: ['==', '!=', '>', '>=', '<', '<='],
+      fieldTypes: [['text', 'Text'], ['number', 'Number'], ['currency', 'Currency'], ['percent', 'Percent'], ['date', 'Date'], ['ynna', 'Yes / No / N-A'], ['dropdown', 'Dropdown'], ['file', 'File upload'], ['checkbox', 'Checkbox'], ['repeater', 'Line items']].map(t => ({ v: t[0], l: t[1] })),
+      fields: [], chain: [], gateRows: [], varOptions: [],
+      isFields: false, isChain: false, isGate: false
+    };
+
+    if (!sel) return out;
+
+    out.selName = sel.name; out.selKey = sel.key; out.selMono = sel.mono;
+    out.selIconStyle = { flex: '0 0 30px', width: 30, height: 30, borderRadius: 8, background: sel.color, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 600 };
+    out.onSelName = e => this.patch(sel.id, { name: e.target.value, mono: e.target.value.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase() || sel.mono });
+    out.onSelKey = e => this.patch(sel.id, { key: this.slug(e.target.value) });
+    out.onDeleteModule = () => this.deleteModule(sel.id);
+    out.execToggleLabel = sel.supervisorOnly ? 'Supervisor-only module' : (sel.executives ? 'Executives enabled' : 'Executives disabled');
+    out.execToggleStyle = {
+      height: 24, padding: '0 9px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 500,
+      border: '1px solid ' + (sel.supervisorOnly ? 'var(--warnline)' : (sel.executives ? 'var(--accent)' : 'var(--line2)')),
+      background: sel.supervisorOnly ? 'var(--warnbg)' : (sel.executives ? 'var(--accent-soft)' : 'var(--panel)'),
+      color: sel.supervisorOnly ? 'var(--warnfg)' : (sel.executives ? 'var(--accent)' : 'var(--fg3)')
+    };
+    out.onToggleExec = () => {
+      if (sel.supervisorOnly) { this.patch(sel.id, { supervisorOnly: false, executives: true }); this.toast(sel.name + ' now allows executives'); }
+      else if (sel.executives) this.patch(sel.id, { executives: false });
+      else { this.patch(sel.id, { executives: false, supervisorOnly: true }); this.toast(sel.name + ' marked supervisor-only'); }
+    };
+    out.selSupervisorNote = (sel.supervisorNames && sel.supervisorNames.length ? sel.supervisorNames.length : 1) + ' supervisor' + ((sel.supervisorNames || []).length > 1 ? 's' : '');
+    out.onTabFields = () => this.setState({ tab: 'fields' });
+    out.onTabChain = () => this.setState({ tab: 'chain' });
+    out.onTabGate = () => this.setState({ tab: 'gate' });
+    out.tabFieldsStyle = tabStyle('fields'); out.tabChainStyle = tabStyle('chain'); out.tabGateStyle = tabStyle('gate');
+    out.isFields = s.tab === 'fields'; out.isChain = s.tab === 'chain'; out.isGate = s.tab === 'gate';
+
+    out.fieldSummary = sel.fields.length + ' fields · ' + sel.fields.filter(f => f.required).length + ' required';
+    out.onAddField = () => this.addField(sel.id);
+    out.fields = sel.fields.map((f, i) => ({
+      id: f.id, num: String(i + 1).padStart(2, '0'), label: f.label, key: f.key, type: f.type,
+      hasOptions: f.type === 'dropdown', optionsText: (f.options || []).join(', '),
+      reqLabel: f.required ? 'Required' : 'Optional',
+      reqStyle: {
+        height: 24, padding: '0 9px', borderRadius: 6, cursor: 'pointer', fontSize: 10.5, fontWeight: 500,
+        border: '1px solid ' + (f.required ? 'var(--accent)' : 'var(--line)'),
+        background: f.required ? 'var(--accent-soft)' : 'var(--panel)',
+        color: f.required ? 'var(--accent)' : 'var(--fg3)'
+      },
+      onLabel: e => this.patchField(sel.id, f.id, { label: e.target.value }),
+      onKey: e => this.patchField(sel.id, f.id, { key: e.target.value }),
+      onType: e => this.patchField(sel.id, f.id, { type: e.target.value, options: e.target.value === 'dropdown' ? (f.options || ['option_a', 'option_b']) : null }),
+      onReq: () => this.patchField(sel.id, f.id, { required: !f.required }),
+      onOptions: e => this.patchField(sel.id, f.id, { options: e.target.value.split(',').map(x => x.trim()).filter(Boolean) }),
+      onDel: () => this.delField(sel.id, f.id)
+    }));
+
+    const cd = s.chainDrag && s.chainDrag.mid === sel.id ? s.chainDrag : null;
+    out.onAddLevel = () => this.addLevel(sel.id);
+    out.chain = sel.chain.map((l, i) => ({
+      id: l.id, idx: i, num: i + 1, name: l.name, assignee: l.assignee, status: l.status,
+      invalid: l.assignee === 'Observer',
+      confirming: !!(s.confirmDel && s.confirmDel.mid === sel.id && s.confirmDel.lid === l.id),
+      numStyle: {
+        flex: '0 0 20px', width: 20, height: 20, borderRadius: 6, display: 'grid', placeItems: 'center',
+        fontSize: 10, fontWeight: 600, fontFamily: "'IBM Plex Mono', monospace",
+        background: l.assignee === 'Observer' ? 'var(--badbg)' : 'var(--chip)',
+        color: l.assignee === 'Observer' ? 'var(--badfg)' : 'var(--fg2)',
+        border: '1px solid ' + (l.assignee === 'Observer' ? 'var(--badline)' : 'var(--line)')
+      },
+      rowStyle: {
+        border: '1px solid ' + (cd && cd.over === i ? 'var(--accent)' : (l.assignee === 'Observer' ? 'var(--badline)' : 'var(--line)')),
+        borderRadius: 9, background: cd && cd.from === i ? 'var(--accent-soft)' : 'var(--panel2)',
+        padding: 9, opacity: cd && cd.from === i ? 0.85 : 1
+      },
+      onName: e => this.patchLevel(sel.id, l.id, { name: e.target.value }),
+      onAssignee: e => { this.patchLevel(sel.id, l.id, { assignee: e.target.value }); this.toast('Level ' + (i + 1) + ' assignee → ' + this.short(e.target.value) + ' · node badge refreshed'); },
+      onStatus: e => this.patchLevel(sel.id, l.id, { status: this.slug(e.target.value) }),
+      onDown: e => this.onChainDown(sel.id, i, e),
+      onDel: () => { if (sel.chain.length === 1) this.setState({ confirmDel: { mid: sel.id, lid: l.id } }); else this.delLevel(sel.id, l.id); },
+      onConfirmDel: () => this.delLevel(sel.id, l.id),
+      onCancelDel: () => this.setState({ confirmDel: null })
+    }));
+    out.chainStates = ['draft'].concat(sel.chain.map(l => l.status)).concat([sel.key === 'launch' ? 'ready_to_launch → launched' : 'approved / rejected']).join('  →  ');
+
+    const gate = sel.gate;
+    out.gateHasRows = gate.rows.length > 1;
+    out.gateIntro = gate.rows.length
+      ? 'This module unlocks for a site when the rule below evaluates true against upstream module data.'
+      : 'No gate — this module is an intake and is always available. Add a condition to gate it.';
+    out.onCombAnd = () => this.patch(sel.id, { gate: { combinator: 'and', rows: gate.rows } });
+    out.onCombOr = () => this.patch(sel.id, { gate: { combinator: 'or', rows: gate.rows } });
+    const combBtn = on => ({ height: 22, padding: '0 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 10.5, fontWeight: 600, fontFamily: "'IBM Plex Mono', monospace", background: on ? 'var(--panel)' : 'transparent', color: on ? 'var(--fg)' : 'var(--fg3)', boxShadow: on ? '0 1px 2px rgba(0,0,0,.08)' : 'none' });
+    out.combAndStyle = combBtn(gate.combinator === 'and'); out.combOrStyle = combBtn(gate.combinator === 'or');
+    out.onAddGateRow = () => this.addGateRow(sel.id);
+    out.gateRows = gate.rows.map((g, i) => ({
+      id: g.id, var: g.var, op: g.op, value: g.value,
+      join: i === 0 ? 'WHEN' : gate.combinator.toUpperCase(),
+      joinStyle: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 9.5, fontWeight: 600, letterSpacing: '.06em', padding: '2px 6px', borderRadius: 5, background: i === 0 ? 'var(--chip)' : 'var(--accent-soft)', color: i === 0 ? 'var(--fg3)' : 'var(--accent)', border: '1px solid ' + (i === 0 ? 'var(--line)' : 'transparent') },
+      srcLabel: g.src && this.mod(g.src) ? this.mod(g.src).name : 'unlinked upstream signal',
+      onVar: e => { const v2 = e.target.value; const owner = s.modules.find(m => m.fields.some(f => f.key === v2) || (m.key + '_status') === v2); this.patchGateRow(sel.id, g.id, { var: v2, src: owner ? owner.id : g.src }); },
+      onOp: e => this.patchGateRow(sel.id, g.id, { op: e.target.value }),
+      onValue: e => this.patchGateRow(sel.id, g.id, { value: e.target.value }),
+      onDel: () => this.delGateRow(sel.id, g.id)
+    }));
+    const vars = [];
+    s.modules.forEach(m => { if (m.id === sel.id) return; vars.push(m.key + '_status'); m.fields.forEach(f => { if (vars.indexOf(f.key) < 0) vars.push(f.key); }); });
+    gate.rows.forEach(g => { if (g.var && vars.indexOf(g.var) < 0) vars.unshift(g.var); });
+    out.varOptions = vars;
+    const jl = this.jsonLogic(gate);
+    out.gateJson = jl ? JSON.stringify(jl, null, 2) : '// no gate — always unlocked';
+    out.gateStatus = gate.rows.length + (gate.rows.length === 1 ? ' condition' : ' conditions');
+    return out;
+  }
+}
+</script>
+</body>
+</html>

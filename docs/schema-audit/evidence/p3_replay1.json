@@ -1,0 +1,41 @@
+{
+ "database": "m_prop",
+ "label": "proposals re-run #1",
+ "files": [
+  {
+   "file": "20261004_1_tenant_config_releases.sql",
+   "statements": 13,
+   "failed": []
+  },
+  {
+   "file": "20261004_2_module_catalog_and_tenant_modules.sql",
+   "statements": 18,
+   "failed": []
+  },
+  {
+   "file": "20261004_3_module_columns_reference_registry.sql",
+   "statements": 14,
+   "failed": []
+  },
+  {
+   "file": "20261004_4_site_release_pinning.sql",
+   "statements": 7,
+   "failed": []
+  },
+  {
+   "file": "20261004_5_generic_module_runtime.sql",
+   "statements": 27,
+   "failed": []
+  },
+  {
+   "file": "20261004_6_audit_provenance.sql",
+   "statements": 5,
+   "failed": []
+  }
+ ],
+ "summary": {
+  "files": 6,
+  "ok": 6,
+  "with_failures": 0
+ }
+}

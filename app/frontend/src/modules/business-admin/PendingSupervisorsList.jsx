@@ -1,6 +1,7 @@
 import React from 'react';
 import { T, Icon, Card, Button, Skeleton, EmptyState, ErrorState, TABULAR } from './ui/kit.jsx';
-import { WORKSPACE_MODULES } from '../shared/workspaceModules.js';
+import { switcherModules } from '../shared/workspaceModules.js';
+import { useWorkspaceModules } from '../../state/useWorkspaceModules.js';
 
 // Presentational. The shell owns fetching and passes:
 //   data = { status, items, error }   — items: [{ id, email, module, createdAt }]
@@ -22,16 +23,26 @@ import { WORKSPACE_MODULES } from '../shared/workspaceModules.js';
 //
 // Payment + Recce are absent from that list too — Recce is part of Design, and
 // Payment was retired as a module (202606132).
-const FILTERS = [
-  { key: 'all', label: 'All' },
-  ...WORKSPACE_MODULES.map((m) => ({ key: m.value, label: m.label })),
-  // Not a module: an observer is workspace-wide. It shares the queue because
-  // it shares the question ("who is waiting?"), and rides the module-keyed
-  // filter by carrying module: 'observer'.
-  { key: 'observer', label: 'Observer' },
-];
+//
+// F4b: the module tabs now come from the tenant's published release (GET
+// /workspace/modules via switcherModules): custom modules get a tab, disabled ones lose it.
+export function pendingFilters(modules) {
+  return [
+    { key: 'all', label: 'All' },
+    ...modules.map((m) => ({ key: m.value, label: m.label })),
+    // Not a module: an observer is workspace-wide. It shares the queue because
+    // it shares the question ("who is waiting?"), and rides the module-keyed
+    // filter by carrying module: 'observer'.
+    { key: 'observer', label: 'Observer' },
+  ];
+}
 
 export default function PendingSupervisorsList({ data, onApprove, onReject, onRetry }) {
+  const { modules: apiModules } = useWorkspaceModules();
+  const modules = React.useMemo(() => switcherModules(apiModules), [apiModules]);
+  const FILTERS = React.useMemo(() => pendingFilters(modules), [modules]);
+  // Custom modules are named by their configured label; built-ins keep their key as before.
+  const customLabel = (key) => modules.find((m) => m.kind === 'custom' && m.value === key)?.label || null;
   const [filter, setFilter] = React.useState('all');
   const [busyUserId, setBusyUserId] = React.useState(null);
   const [error, setError] = React.useState(null);
@@ -109,7 +120,7 @@ export default function PendingSupervisorsList({ data, onApprove, onReject, onRe
         <EmptyState icon={Icon.users}
           title={filter === 'all'
             ? 'No one awaiting approval'
-            : (filter === 'observer' ? 'No pending observers' : `No pending ${filter.toUpperCase()} supervisors`)}
+            : (filter === 'observer' ? 'No pending observers' : `No pending ${customLabel(filter) || filter.toUpperCase()} supervisors`)}
           hint={filter === 'observer'
             ? 'People who sign up with the workspace observer code will appear here for review.'
             : 'New sign-ups using a valid department code will appear here for review.'} />
@@ -127,7 +138,7 @@ export default function PendingSupervisorsList({ data, onApprove, onReject, onRe
                   textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</span>
                 <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
                   color: T.textMuted, padding: '3px 9px', borderRadius: 999, background: T.chip,
-                  border: `1px solid ${T.line}`, justifySelf: 'start' }}>{u.module}</span>
+                  border: `1px solid ${T.line}`, justifySelf: 'start' }}>{customLabel(u.module) || u.module}</span>
                 <span style={{ fontSize: 11.5, color: T.textFaint, fontFamily: T.mono, overflow: 'hidden',
                   textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.createdAt ? new Date(u.createdAt).toLocaleString() : '—'}</span>
                 <span style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

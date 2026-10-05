@@ -1,0 +1,21 @@
+{
+  "name": "@matrix-configurator/building-blocks",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Provenance-tracked building blocks for the Workspace Configurator: design seeds/vocabularies/schemas/validation, the production Matrix-bd flow as configurator data, NocoBase and proposal concept maps.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "exports": {
+    "./validation": "./from-design/validation.mjs",
+    "./flow-adapter": "./from-matrix-bd/flow-adapter.mjs",
+    "./mini-schema": "./lib/mini-schema.mjs",
+    "./load-dc": "./lib/load-dc.mjs"
+  },
+  "scripts": {
+    "test": "node --test",
+    "extract:design": "node scripts/extract-design.mjs",
+    "extract:matrix-bd": "node scripts/extract-matrix-bd.mjs",
+    "build:flow": "node scripts/build-matrix-bd-flow.mjs",
+    "regenerate": "node scripts/extract-design.mjs && node scripts/extract-matrix-bd.mjs && node scripts/build-matrix-bd-flow.mjs"
+  }
+}

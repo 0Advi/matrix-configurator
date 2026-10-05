@@ -12,6 +12,8 @@ import {
   InvalidCredentialsError,
 } from '../../services/api/supabaseAuth.js';
 import { JOIN_MODE_KEYS, joinMode as joinModeConfig } from './joinModes.js';
+import { isUnknownWorkspace } from './workspaceLookup.js';
+import { isCustomModuleKey, customModuleRoute } from '../shared/workspaceModules.js';
 import blueTokaiLogo from '../../assets/brands/blue-tokai.png';
 import gotTeaLogo from '../../assets/brands/got-tea.png';
 import suchaliLogo from '../../assets/brands/suchali.png';
@@ -40,6 +42,8 @@ function decodeJwtPayload(token) {
 function routeFromToken(token) {
   const p = decodeJwtPayload(token);
   if (p?.role === 'business_admin') return '/business-admin';
+  // F4b: a configurator-defined (custom) module claim lands on its generic module page.
+  if (isCustomModuleKey(p?.module)) return customModuleRoute(p.module);
   if (p?.module === 'legal') return '/legal';
   if (p?.module === 'design') return '/design';
   if (p?.module === 'project') return '/project';
@@ -111,7 +115,12 @@ function LoginPanel({ code, onAuthed }) {
     if (pw !== pw2) { say('Passwords do not match.'); return; }
     setBusy(true); setMsg(null);
     try {
-      await setupPassword(em(), code, pw);
+      // F4b: a business admin provisioned by the platform admin (approval queue or the
+      // configurator's first publish) holds a one-time SETUP CODE. When it is entered, claim
+      // the account with it (POST /auth/password-reset/complete — the code is verified and
+      // consumed) instead of the code-less first-password path.
+      if (tok.trim()) await completePasswordReset(em(), code, pw, tok.trim());
+      else await setupPassword(em(), code, pw);
       const data = await signInWithWorkspaceCode(em(), code, pw);
       onAuthed(data?.access_token);
     } catch (err) {
@@ -176,6 +185,17 @@ function LoginPanel({ code, onAuthed }) {
         <span>{em()}</span>
         <button type="button" className="bl-link" onClick={changeEmail}>Change</button>
       </div>
+
+      {isSetup && (
+        <>
+          <label className="bl-label" htmlFor="bl-setup">
+            Setup code <span style={{ fontWeight: 400, opacity: 0.7 }}>(if your platform admin gave you one)</span>
+          </label>
+          <input id="bl-setup" className="bl-input" type="text" value={tok}
+            onChange={(e) => { setTok(e.target.value); if (msg) setMsg(null); }}
+            placeholder="One-time setup code" autoComplete="one-time-code" spellCheck={false} />
+        </>
+      )}
 
       {isReset && (
         <>
@@ -284,18 +304,36 @@ export default function BrandedLoginPage() {
     let alive = true;
     if (!CODE_RE.test(code)) { setBrand({ status: 'error', name: '', logo: null }); return undefined; }
     getWorkspaceBranding(code)
-      .then((b) => { if (alive) setBrand({ status: 'ready', name: b?.name || 'Your workspace', logo: b?.logo_url || null }); })
-      .catch(() => { if (alive) setBrand({ status: 'error', name: '', logo: null }); });
+      .then((b) => {
+        if (!alive) return;
+        // F4b: an explicit `name: null` is the branding endpoint saying the code is not a
+        // workspace — show "Workspace not found" instead of a generic sign-in form that could
+        // only ever fail. (No `name` key at all = an older uniform backend → previous fallback.)
+        if (isUnknownWorkspace(b)) setBrand({ status: 'unknown', name: '', logo: null });
+        else setBrand({ status: 'ready', name: b?.name || 'Your workspace', logo: b?.logo_url || null });
+      })
+      .catch(() => { if (alive) setBrand({ status: 'unreachable', name: '', logo: null }); });
     return () => { alive = false; };
   }, [code]);
 
-  if (brand.status === 'error') {
+  if (brand.status === 'error' || brand.status === 'unknown') {
     return (
       <div className="bl-shell">
-        <div className="bl-card bl-card--narrow">
+        <div className="bl-card bl-card--narrow" role="alert" aria-label="Workspace not found">
           <h2 className="bl-title">Workspace not found</h2>
           <p className="bl-sub">We couldn&#39;t find a workspace for <strong>{code}</strong>. Double-check the code with your admin.</p>
           <button type="button" className="bl-btn" onClick={() => navigate('/welcome')}>Back to home</button>
+        </div>
+      </div>
+    );
+  }
+  if (brand.status === 'unreachable') {
+    return (
+      <div className="bl-shell">
+        <div className="bl-card bl-card--narrow" role="alert">
+          <h2 className="bl-title">Can&#39;t reach the server</h2>
+          <p className="bl-sub">We couldn&#39;t check workspace <strong>{code}</strong> right now. Please try again in a moment.</p>
+          <button type="button" className="bl-btn" onClick={() => window.location.reload()}>Try again</button>
         </div>
       </div>
     );

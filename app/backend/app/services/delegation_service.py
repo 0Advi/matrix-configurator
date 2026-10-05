@@ -248,16 +248,23 @@ async def actor_has_delegation_for_site(
 
 
 # ── Module-aware delegations (site_delegations table) ──────────────────────
-# Used by BD, Legal, Payment, Design, Project, NSO, Project Excellence, and Financial Closure
-# (see _VALID_MODULES below). Every reader returns empty/False instead of raising when the
-# table is absent — keeps executive flows usable before the migration has landed everywhere.
-
-_VALID_MODULES = {"bd", "legal", "payment", "design", "project", "nso", "project_excellence", "financial_closure", "quality_audit"}
+# Used by BD, Legal, Design, Project, NSO, Project Excellence, Financial Closure, the
+# quality_audit scope and (Phase 2) custom modules run by the generic runtime. Every
+# reader returns empty/False instead of raising when the table is absent — keeps
+# executive flows usable before the migration has landed everywhere.
+#
+# Phase 2: the fixed _VALID_MODULES set ({"bd","legal","payment",…,"quality_audit"})
+# is gone. A module key only has to be well-formed here; whether it exists for the
+# tenant is enforced by the database (site_delegations.module now references
+# tenant_modules(tenant_id, module_key), migration 20261004_3), and the readers
+# below are always tenant-scoped.
 
 
 def _assert_module(module: str) -> str:
+    from app.services.module_registry_service import is_valid_module_key
+
     m = (module or "").lower()
-    if m not in _VALID_MODULES:
+    if not is_valid_module_key(m):
         raise HTTPException(
             status_code=http_status.HTTP_400_BAD_REQUEST,
             detail=f"Unsupported delegation module: {module!r}",

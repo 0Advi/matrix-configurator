@@ -1,0 +1,26 @@
+/* react-jsonschema-form (@rjsf/core default theme: plain HTML, bootstrap-style class names)
+   restyled with the app's zm tokens, scoped to the generic module's stage form. F4b. */
+.gm-form form { display: flex; flex-direction: column; gap: 14px; }
+.gm-form fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.gm-form legend { display: none; }
+.gm-form .form-group { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.gm-form .control-label, .gm-form label {
+  font-family: var(--zm-font-body); font-size: 12.5px; font-weight: 650; color: var(--zm-fg-2);
+}
+.gm-form .required { color: var(--zm-danger); margin-left: 2px; }
+.gm-form input.form-control, .gm-form select.form-control, .gm-form textarea.form-control,
+.gm-form input[type="text"], .gm-form input[type="number"], .gm-form input[type="date"], .gm-form input[type="email"] {
+  height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--zm-line-strong);
+  background: var(--zm-surface); color: var(--zm-fg); font-family: var(--zm-font-body); font-size: 13px;
+  width: 100%; box-sizing: border-box; outline: none;
+}
+.gm-form textarea.form-control { height: auto; min-height: 72px; padding: 8px 10px; }
+.gm-form input:focus, .gm-form select:focus, .gm-form textarea:focus { border-color: var(--zm-accent-line); box-shadow: var(--zm-ring-focus); }
+.gm-form .field-radio-group { display: flex; gap: 14px; flex-wrap: wrap; }
+.gm-form .radio, .gm-form .radio-inline, .gm-form .checkbox { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--zm-fg); }
+.gm-form .radio label, .gm-form .checkbox label { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: var(--zm-fg); cursor: pointer; }
+.gm-form .field-description, .gm-form .help-block { margin: 0; font-size: 11.5px; color: var(--zm-fg-3); }
+.gm-form .error-detail { list-style: none; margin: 0; padding: 0; }
+.gm-form .error-detail li, .gm-form .text-danger { font-size: 12px; color: var(--zm-danger); }
+.gm-form .has-error input, .gm-form .has-error select, .gm-form .has-error textarea { border-color: var(--zm-danger); }
+.gm-form .panel.errors { display: none; }

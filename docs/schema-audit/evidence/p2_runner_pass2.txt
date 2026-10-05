@@ -1,0 +1,3 @@
+_verify_schema: PASS
+[INFO] startup-migrations: 0 new migration file(s), 0 statement(s) applied; 69 already in ledger
+[INFO] Schema verification passed: sites columns present, model=text, rent_type includes staggered.

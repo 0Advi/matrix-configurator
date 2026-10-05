@@ -19,9 +19,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
+from app.core.problems import ApiProblem
 from app.core.ratelimit import rate_limit
 from app.db.session import engine
 from app.routers import audit, auth, bd, business_admin, delegations, design, financial_closure, launch_approval, legal, loi, notifications, nso, project, project_excellence, sites, staging, supervisor_codes, tenancy, users
+# Phase 2 (configurator integration): data-driven modules, platform workspaces, custom-module runtime.
+from app.routers import module_runtime, platform, workspace
+# Phase 2b (G3): role-scoped saved views of custom-module pages.
+from app.routers import module_views
 
 
 # ── Structured / JSON logging ─────────────────────────────────────────
@@ -568,6 +573,18 @@ def _cors_headers_for(request: Request) -> dict[str, str]:
     }
 
 
+@app.exception_handler(ApiProblem)
+async def api_problem_handler(request: Request, exc: ApiProblem) -> JSONResponse:
+    """Phase 2: structured 4xx — ``detail`` stays a string; extra keys (code,
+    findings, gate, errors) ride next to it. Runs inside the middleware stack, so
+    CORS / security headers apply as for any HTTPException."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail, **exc.extra},
+        headers=getattr(exc, "headers", None),
+    )
+
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Last-resort handler. Logs the traceback (with request_id) and returns a
@@ -599,6 +616,7 @@ ROUTERS = (
     auth, bd, legal, design, project, project_excellence, financial_closure, nso,
     launch_approval, loi, staging, sites, audit, notifications, tenancy, users,
     delegations, business_admin, supervisor_codes,
+    workspace, platform, module_runtime, module_views,
 )
 
 for router_module in ROUTERS:

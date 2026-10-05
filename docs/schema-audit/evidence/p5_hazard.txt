@@ -1,0 +1,4 @@
+_verify_schema: PASS
+[WARNING] startup-migrations: BASELINED 69 existing migration(s) on an already-provisioned database — none were re-executed. This is the one-time adoption that stops destructive re-runs (e.g. the password_hash wipe). New migration files added after this deploy will apply normally.
+[INFO] Schema verification passed: sites columns present, model=text, rent_type includes staggered.
+6 | False

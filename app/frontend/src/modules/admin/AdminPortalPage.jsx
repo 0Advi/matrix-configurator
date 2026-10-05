@@ -1,61 +1,24 @@
 import React from 'react';
 import { PRODUCT_NAME } from '../../router/routes.js';
+import { apiFetch, adminLogin } from './adminApi.js';
+import CredentialsDialog from './CredentialsDialog.jsx';
+import WorkspacesArea from './workspaces/WorkspacesArea.jsx';
 
-const SESSION_KEY = 'matrix.admin.platformKey';
+// F4b: the platform-admin token lives ONLY in this page's memory (module scope, so moving
+// between portal tabs/routes keeps it; a reload or a new tab asks to sign in again — it is a
+// 30-minute token anyway). It used to be kept in sessionStorage; the portal now embeds the
+// Workspace Configurator as a same-origin iframe, and same-origin pages share sessionStorage,
+// so the key must not sit there. Any key left by an older build is scrubbed on load.
+const LEGACY_SESSION_KEY = 'matrix.admin.platformKey';
+let memoryKey = '';
 
-function readKey() {
-  try { return sessionStorage.getItem(SESSION_KEY) || ''; }
-  catch { return ''; }
-}
+function readKey() { return memoryKey; }
 
 function writeKey(k) {
-  try {
-    if (k) sessionStorage.setItem(SESSION_KEY, k);
-    else   sessionStorage.removeItem(SESSION_KEY);
-  } catch {/* private browsing — keep the key in memory only */}
+  memoryKey = k || '';
 }
 
-const apiBase = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL)
-  || 'http://localhost:8000/api';
-
-async function apiFetch(path, { key, method = 'GET', body } = {}) {
-  const r = await fetch(`${apiBase}${path}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Platform-Admin-Key': key || '',
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await r.text();
-  let parsed;
-  try { parsed = text ? JSON.parse(text) : null; } catch { parsed = { detail: text }; }
-  if (!r.ok) {
-    const detail = parsed?.detail || `Request failed (${r.status})`;
-    const err = new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
-    err.status = r.status;
-    throw err;
-  }
-  return parsed;
-}
-
-async function apiUpload(path, { key, formData }) {
-  const r = await fetch(`${apiBase}${path}`, {
-    method: 'POST',
-    headers: { 'X-Platform-Admin-Key': key || '' },
-    body: formData,
-  });
-  const text = await r.text();
-  let parsed;
-  try { parsed = text ? JSON.parse(text) : null; } catch { parsed = { detail: text }; }
-  if (!r.ok) {
-    const detail = parsed?.detail || `Upload failed (${r.status})`;
-    const err = new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
-    err.status = r.status;
-    throw err;
-  }
-  return parsed;
-}
+try { sessionStorage.removeItem(LEGACY_SESSION_KEY); } catch {/* storage unavailable */}
 
 function GateScreen({ onUnlock }) {
   const [email, setEmail] = React.useState('');
@@ -68,19 +31,7 @@ function GateScreen({ onUnlock }) {
     if (!email.trim() || !password) { setError('Enter your admin email and password.'); return; }
     setBusy(true); setError(null);
     try {
-      const res = await fetch(`${apiBase}/tenancy/admin/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
-      });
-      const text = await res.text();
-      let parsed; try { parsed = text ? JSON.parse(text) : null; } catch { parsed = { detail: text }; }
-      if (!res.ok) {
-        const detail = parsed?.detail || `Login failed (${res.status})`;
-        throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
-      }
-      const token = parsed?.token;
-      if (!token) throw new Error('Login response missing token.');
+      const token = await adminLogin(email.trim(), password);
       writeKey(token);
       onUnlock(token);
     } catch (err) {
@@ -95,8 +46,8 @@ function GateScreen({ onUnlock }) {
       <form onSubmit={submit} style={{ width: 420, background: '#13141B', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 14, padding: 28, display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}>
         <div>
           <div style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.75)' }}>{PRODUCT_NAME} · Platform admin</div>
-          <h1 style={{ margin: '6px 0 4px', fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', color: '#fff' }}>Approval queue</h1>
-          <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.82)', lineHeight: 1.5 }}>This portal lets you approve workspace requests and provision tenants. It is not part of any workspace — sign in with the platform admin credentials.</p>
+          <h1 style={{ margin: '6px 0 4px', fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', color: '#fff' }}>Platform admin</h1>
+          <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.82)', lineHeight: 1.5 }}>This portal lets you design and publish workspaces, approve workspace requests and provision tenants. It is not part of any workspace — sign in with the platform admin credentials.</p>
         </div>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: 600 }}>
           Email
@@ -136,98 +87,6 @@ function ApproveDialog({ request, busy, onCancel, onConfirm }) {
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
           <button onClick={onCancel} disabled={busy} style={{ height: 34, padding: '0 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', background: 'transparent', color: '#fff', fontSize: 13, fontWeight: 600, cursor: busy ? 'wait' : 'pointer' }}>Cancel</button>
           <button onClick={() => onConfirm({ city: city.trim() || null, admin_name: adminName.trim() || null })} disabled={busy} style={{ height: 34, padding: '0 16px', borderRadius: 8, border: 'none', background: '#fff', color: '#0B0C10', fontSize: 13, fontWeight: 700, cursor: busy ? 'wait' : 'pointer' }}>{busy ? 'Provisioning…' : 'Approve & provision'}</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CredentialsDialog({ result, keyValue, onClose }) {
-  const [name, setName] = React.useState(result?.company || '');
-  const [logoFile, setLogoFile] = React.useState(null);
-  const [busy, setBusy] = React.useState(false);
-  const [saved, setSaved] = React.useState(false);
-  const [bErr, setBErr] = React.useState(null);
-  if (!result) return null;
-  const copy = (s) => { try { navigator.clipboard?.writeText(s); } catch {/* noop */} };
-  const loginUrl = `${window.location.origin}/login/${result.workspace_code}`;
-  const fld = { height: 38, padding: '0 11px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' };
-
-  async function saveBranding(e) {
-    e.preventDefault();
-    setBusy(true); setBErr(null);
-    try {
-      const fd = new FormData();
-      if (name.trim()) fd.append('name', name.trim());
-      if (logoFile) fd.append('logo', logoFile);
-      await apiUpload(`/tenancy/tenants/${result.tenant_id}/branding`, { key: keyValue, formData: fd });
-      setSaved(true);
-    } catch (e2) { setBErr(e2.message || 'Could not save branding.'); }
-    finally { setBusy(false); }
-  }
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div style={{ width: 540, maxHeight: '92vh', overflowY: 'auto', background: '#13141B', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: 24, color: '#fff', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div>
-          <div style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#86EFAC' }}>Provisioned ✓</div>
-          <h2 style={{ margin: '4px 0 2px', fontSize: 19, fontWeight: 700 }}>Workspace created</h2>
-          <p style={{ margin: 0, fontSize: 12.5, opacity: 0.7, lineHeight: 1.5 }}>Share the workspace code with the supervisor, then brand the company&#39;s login page below.</p>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 70px', gap: 10, alignItems: 'center', fontSize: 13 }}>
-          <span style={{ opacity: 0.6, fontSize: 12 }}>Workspace code</span>
-          <code style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', padding: '6px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', fontSize: 13, fontWeight: 700, letterSpacing: '0.05em' }}>{result.workspace_code}</code>
-          <button onClick={() => copy(result.workspace_code)} style={{ height: 28, borderRadius: 6, border: '1px solid rgba(255,255,255,0.18)', background: 'transparent', color: '#fff', fontSize: 11.5, cursor: 'pointer' }}>Copy</button>
-          {result.admin_setup_token && (
-            <>
-              <span style={{ opacity: 0.6, fontSize: 12 }}>Setup code</span>
-              <code style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', padding: '6px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', fontSize: 12, fontWeight: 700, overflowWrap: 'anywhere' }}>{result.admin_setup_token}</code>
-              <button onClick={() => copy(result.admin_setup_token)} style={{ height: 28, borderRadius: 6, border: '1px solid rgba(255,255,255,0.18)', background: 'transparent', color: '#fff', fontSize: 11.5, cursor: 'pointer' }}>Copy</button>
-            </>
-          )}
-          <span style={{ opacity: 0.6, fontSize: 12 }}>Seat limit</span>
-          <span style={{ fontSize: 13 }}>{result.seat_limit}</span>
-          <span/>
-        </div>
-        {result.admin_setup_token && (
-          <p style={{ margin: 0, padding: '10px 12px', borderRadius: 8, background: 'rgba(250,204,21,0.10)', color: '#FDE68A', fontSize: 12, lineHeight: 1.5 }}>
-            The admin&#39;s account has no password yet. Share the <b>setup code</b> with them privately —
-            on their login page they enter it (with a new password) to activate sign-in. It is shown only once and expires in 30 days.
-          </p>
-        )}
-
-        <div style={{ height: 1, background: 'rgba(255,255,255,0.1)' }}/>
-
-        <form onSubmit={saveBranding} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <div style={{ fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)' }}>Brand the login page</div>
-            <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.6, lineHeight: 1.5 }}>The company name and logo appear on their customized sign-in page.</p>
-          </div>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
-            Company name
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Blue Tokai Coffee" style={fld}/>
-          </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
-            Logo image
-            <input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] || null)} style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}/>
-          </label>
-          {bErr && <div style={{ fontSize: 12, color: '#FCA5A5' }}>{bErr}</div>}
-          {saved ? (
-            <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(34,197,94,0.12)', color: '#86EFAC', fontSize: 12.5, lineHeight: 1.5 }}>
-              Login page is ready. Open it:{' '}
-              <a href={loginUrl} target="_blank" rel="noreferrer" style={{ color: '#86EFAC', textDecoration: 'underline', overflowWrap: 'anywhere' }}>{loginUrl}</a>
-            </div>
-          ) : (
-            <button type="submit" disabled={busy} style={{ height: 40, borderRadius: 8, border: 'none', background: '#34D399', color: '#06251a', fontSize: 13, fontWeight: 800, cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.7 : 1 }}>
-              {busy ? 'Saving…' : 'Save branding & create login page'}
-            </button>
-          )}
-        </form>
-
-        <p style={{ margin: 0, padding: '10px 12px', borderRadius: 8, background: 'rgba(34,197,94,0.10)', color: '#86EFAC', fontSize: 12, lineHeight: 1.5 }}>{result.message}</p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ height: 34, padding: '0 16px', borderRadius: 8, border: 'none', background: '#fff', color: '#0B0C10', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Done</button>
         </div>
       </div>
     </div>
@@ -326,8 +185,13 @@ function statusPill(s) {
   );
 }
 
-function PortalScreen({ keyValue, onLogout }) {
-  const [view, setView] = React.useState('requests'); // requests | resets
+function PortalScreen({ keyValue, onLogout, onKeyChange }) {
+  const [view, setView] = React.useState('requests'); // requests | resets | workspaces
+  // The configurator iframe is mounted on first visit and then kept (hidden) while other
+  // tabs are open, so in-memory canvas state (v5 keeps demo-workspace edits in memory only)
+  // and a publish in flight survive a look at the request queue.
+  const [workspacesMounted, setWorkspacesMounted] = React.useState(false);
+  React.useEffect(() => { if (view === 'workspaces') setWorkspacesMounted(true); }, [view]);
   const [statusFilter, setStatusFilter] = React.useState('pending');
   const [items, setItems] = React.useState(null); // null = loading
   const [error, setError] = React.useState(null);
@@ -387,16 +251,20 @@ function PortalScreen({ keyValue, onLogout }) {
   }
 
   return (
-    <div style={{ minHeight: '100vh', maxHeight: '100vh', overflowY: 'auto', background: '#0B0C10', color: '#fff', padding: '32px 40px' }}>
-      <header style={{ display: 'flex', alignItems: 'baseline', gap: 16, marginBottom: 28, flexWrap: 'wrap' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#0B0C10', color: '#fff' }}>
+      <header style={{ display: 'flex', alignItems: 'baseline', gap: 16, flexWrap: 'wrap', flexShrink: 0,
+        padding: view === 'workspaces' ? '14px 20px 12px' : '32px 40px 0', marginBottom: view === 'workspaces' ? 0 : 28,
+        borderBottom: view === 'workspaces' ? '1px solid rgba(255,255,255,0.1)' : 'none' }}>
         <div>
           <div style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.78)' }}>{PRODUCT_NAME} · Platform admin</div>
-          <h1 style={{ margin: '4px 0 0', fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', color: '#fff' }}>{view === 'resets' ? 'Password reset queue' : 'Workspace approval queue'}</h1>
+          <h1 style={{ margin: '4px 0 0', fontSize: view === 'workspaces' ? 20 : 26, fontWeight: 700, letterSpacing: '-0.02em', color: '#fff' }}>
+            {view === 'resets' ? 'Password reset queue' : view === 'workspaces' ? 'Workspaces' : 'Workspace approval queue'}
+          </h1>
         </div>
         <span style={{ flex: 1 }}/>
-        <div style={{ display: 'inline-flex', gap: 4, padding: 4, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 999 }}>
-          {[['requests', 'Workspaces'], ['resets', 'Password resets']].map(([v, label]) => (
-            <button key={v} onClick={() => setView(v)} style={{ height: 30, padding: '0 14px', borderRadius: 999, border: 'none', background: view === v ? '#fff' : 'transparent', color: view === v ? '#0B0C10' : 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>{label}</button>
+        <div role="tablist" aria-label="Platform admin areas" style={{ display: 'inline-flex', gap: 4, padding: 4, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 999 }}>
+          {[['workspaces', 'Workspaces'], ['requests', 'Requests'], ['resets', 'Password resets']].map(([v, label]) => (
+            <button key={v} role="tab" aria-selected={view === v} onClick={() => setView(v)} style={{ height: 30, padding: '0 14px', borderRadius: 999, border: 'none', background: view === v ? '#fff' : 'transparent', color: view === v ? '#0B0C10' : 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>{label}</button>
           ))}
         </div>
         {view === 'requests' && (
@@ -406,10 +274,20 @@ function PortalScreen({ keyValue, onLogout }) {
             ))}
           </div>
         )}
-        <button onClick={load} style={{ height: 32, padding: '0 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', background: 'transparent', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Refresh</button>
+        {view !== 'workspaces' && (
+          <button onClick={load} style={{ height: 32, padding: '0 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', background: 'transparent', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Refresh</button>
+        )}
         <button onClick={() => { writeKey(''); onLogout(); }} style={{ height: 32, padding: '0 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', background: 'transparent', color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Sign out</button>
       </header>
 
+      {workspacesMounted && (
+        <div style={{ flex: 1, minHeight: 0, display: view === 'workspaces' ? 'flex' : 'none' }}>
+          <WorkspacesArea keyValue={keyValue} onKeyChange={onKeyChange} onLogout={() => { writeKey(''); onLogout(); }}/>
+        </div>
+      )}
+
+      {view !== 'workspaces' && (
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 40px 32px' }}>
       {view === 'resets' && (
         <ResetQueue keyValue={keyValue} onAuthError={() => { writeKey(''); onLogout(); }}/>
       )}
@@ -455,6 +333,8 @@ function PortalScreen({ keyValue, onLogout }) {
         </div>
       )}
       </>)}
+      </div>
+      )}
 
       {approving && <ApproveDialog request={approving} busy={approveBusy} onCancel={() => setApproving(null)} onConfirm={onApprove}/>}
       {credResult && <CredentialsDialog result={credResult} keyValue={keyValue} onClose={() => setCredResult(null)}/>}
@@ -464,6 +344,7 @@ function PortalScreen({ keyValue, onLogout }) {
 
 export default function AdminPortalPage() {
   const [keyValue, setKeyValue] = React.useState(() => readKey());
+  const onKeyChange = React.useCallback((k) => { writeKey(k); setKeyValue(k || ''); }, []);
   if (!keyValue) return <GateScreen onUnlock={setKeyValue}/>;
-  return <PortalScreen keyValue={keyValue} onLogout={() => setKeyValue('')}/>;
+  return <PortalScreen keyValue={keyValue} onLogout={() => setKeyValue('')} onKeyChange={onKeyChange}/>;
 }

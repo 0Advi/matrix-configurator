@@ -1,0 +1,2111 @@
+{
+ "$comment": "F4a test fixture: building-blocks/from-design/seed-workspaces.json workspaces.starbucks.manifest (design + pex disabled, 4 custom modules) + a custom module derived from wizardTemplates.vendor (stage 1 executive->supervisor, stage 2 supervisor->business_admin, entry gate bd 'in progress'). Same construction as app-stack/smoke-configurator.mjs.",
+ "manifest": {
+  "workspace": {
+   "id": "ws_fixture",
+   "name": "Fixture Retail",
+   "slug": "ws-fixture",
+   "live_version": "v0",
+   "draft_version": "v1"
+  },
+  "pipeline": {
+   "editable": false,
+   "stages": [],
+   "note": "BD backbone is platform-owned"
+  },
+  "signals": [],
+  "modules": [
+   {
+    "key": "bd",
+    "name": "BP – Site identification",
+    "type": "builtin",
+    "enabled": true,
+    "route": "/bd",
+    "state": "draft",
+    "tiers": {
+     "supervisor": true,
+     "executive": true,
+     "business_admin_signoff": true,
+     "delegation": true
+    },
+    "entry_gate": null,
+    "stages": [
+     {
+      "order": 1,
+      "name": "Draft capture",
+      "outcome": "submitted",
+      "terminal": false,
+      "approvers": [
+       "executive"
+      ],
+      "fields": [
+       {
+        "key": "site_name",
+        "label": "Site name",
+        "kind": "text",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       },
+       {
+        "key": "carpet_area",
+        "label": "Carpet area (sqft)",
+        "kind": "number",
+        "required": true,
+        "validation": "min 120 · max 40000",
+        "affects_outcome": false
+       },
+       {
+        "key": "rent_type",
+        "label": "Rent type",
+        "kind": "choice",
+        "required": true,
+        "validation": "fixed · revshare · mg_revshare",
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 2,
+      "name": "Shortlist review",
+      "outcome": "allocated",
+      "terminal": false,
+      "approvers": [
+       "supervisor"
+      ],
+      "fields": [
+       {
+        "key": "score",
+        "label": "Score",
+        "kind": "number",
+        "required": false,
+        "validation": "0–100",
+        "affects_outcome": false
+       },
+       {
+        "key": "shortlist_note",
+        "label": "Shortlist note",
+        "kind": "text",
+        "required": false,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 3,
+      "name": "Property Committee (CEO / CPO)",
+      "outcome": "approved",
+      "terminal": false,
+      "approvers": [
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "security_deposit",
+        "label": "Security deposit",
+        "kind": "number",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       },
+       {
+        "key": "tenure_months",
+        "label": "Tenure (months)",
+        "kind": "number",
+        "required": true,
+        "validation": "min 12 · max 180",
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 4,
+      "name": "LOI signed",
+      "outcome": "done",
+      "terminal": true,
+      "approvers": [
+       "supervisor",
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "loi_document",
+        "label": "LOI document",
+        "kind": "file",
+        "required": true,
+        "validation": "pdf · max 20MB",
+        "affects_outcome": false
+       }
+      ]
+     }
+    ],
+    "rollup": {
+     "strategy": "all_positive",
+     "n": 3,
+     "of": 5,
+     "limit": "25,00,000"
+    },
+    "exit_signal": "approved",
+    "navigation": [
+     {
+      "section": "BP",
+      "items": [
+       {
+        "label": "Sites",
+        "icon": "⌂",
+        "page": "sites",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Site identification",
+        "icon": "▤",
+        "page": "pipeline",
+        "badge": "queue",
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Property Committee",
+        "icon": "‡",
+        "page": "in_process",
+        "badge": "awaiting",
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "LOI signed",
+        "icon": "↗",
+        "page": "launch",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Archived",
+        "icon": "◫",
+        "page": "archived",
+        "badge": null,
+        "roles": [
+         "supervisor"
+        ]
+       },
+       {
+        "label": "Team",
+        "icon": "⧉",
+        "page": "team",
+        "badge": "team",
+        "roles": [
+         "supervisor"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "legal",
+    "name": "Legal / Statutory",
+    "type": "builtin",
+    "enabled": true,
+    "route": "/legal",
+    "state": "draft",
+    "tiers": {
+     "supervisor": true,
+     "executive": true,
+     "business_admin_signoff": true,
+     "delegation": true
+    },
+    "entry_gate": {
+     "match": "all",
+     "conditions": [
+      {
+       "source": "bd",
+       "outcome": "done"
+      }
+     ],
+     "refusal_message": "Legal & Compliance is locked: waiting for the LOI to be signed."
+    },
+    "stages": [
+     {
+      "order": 1,
+      "name": "RERA / statutory feasibility",
+      "outcome": "approved",
+      "terminal": false,
+      "approvers": [
+       "supervisor"
+      ],
+      "fields": [
+       {
+        "key": "dd_title",
+        "label": "Title document",
+        "kind": "choice",
+        "required": true,
+        "validation": "yes · no · n/a",
+        "affects_outcome": true
+       },
+       {
+        "key": "dd_plan",
+        "label": "Sanctioned plan",
+        "kind": "choice",
+        "required": true,
+        "validation": "yes · no · n/a",
+        "affects_outcome": true
+       },
+       {
+        "key": "dd_fire",
+        "label": "Fire NOC",
+        "kind": "choice",
+        "required": false,
+        "validation": "yes · no · n/a",
+        "affects_outcome": true
+       }
+      ]
+     },
+     {
+      "order": 2,
+      "name": "Agreement",
+      "outcome": "submitted",
+      "terminal": false,
+      "approvers": [
+       "supervisor"
+      ],
+      "fields": [
+       {
+        "key": "agr_signed",
+        "label": "Agreement signed",
+        "kind": "yesno",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       },
+       {
+        "key": "agr_registered",
+        "label": "Agreement registered",
+        "kind": "yesno",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 3,
+      "name": "Licensing",
+      "outcome": "done",
+      "terminal": true,
+      "approvers": [
+       "supervisor",
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "lic_fssai",
+        "label": "FSSAI",
+        "kind": "choice",
+        "required": false,
+        "validation": "pending · done",
+        "affects_outcome": false
+       }
+      ]
+     }
+    ],
+    "rollup": {
+     "strategy": "all_positive",
+     "n": 3,
+     "of": 5,
+     "limit": "25,00,000"
+    },
+    "exit_signal": "approved",
+    "navigation": [
+     {
+      "section": "Legal",
+      "items": [
+       {
+        "label": "Overview",
+        "icon": "⌂",
+        "page": "overview",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Sites",
+        "icon": "▤",
+        "page": "sites",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Change requests",
+        "icon": "‡",
+        "page": "change_requests",
+        "badge": "change_requests",
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Process flow",
+        "icon": "⇅",
+        "page": "process",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "History",
+        "icon": "↻",
+        "page": "history",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "finance_ca",
+    "name": "Finance – for budget",
+    "type": "builtin",
+    "enabled": true,
+    "route": "/finance-ca",
+    "state": "draft",
+    "tiers": {
+     "supervisor": true,
+     "executive": true,
+     "business_admin_signoff": true,
+     "delegation": true
+    },
+    "entry_gate": {
+     "match": "all",
+     "conditions": [
+      {
+       "source": "bd",
+       "outcome": "done"
+      }
+     ],
+     "refusal_message": "Finance / CA approval is locked: waiting for the LOI to be signed."
+    },
+    "stages": [
+     {
+      "order": 1,
+      "name": "Cost sheet",
+      "outcome": "submitted",
+      "terminal": false,
+      "approvers": [
+       "executive"
+      ],
+      "fields": [
+       {
+        "key": "fin_project_cost",
+        "label": "Project cost",
+        "kind": "number",
+        "required": true,
+        "validation": "₹",
+        "affects_outcome": false
+       },
+       {
+        "key": "fin_other_costs",
+        "label": "Other costs",
+        "kind": "number",
+        "required": false,
+        "validation": "₹",
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 2,
+      "name": "CA review",
+      "outcome": "approved",
+      "terminal": true,
+      "approvers": [
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "fin_ca_signoff",
+        "label": "CA sign-off",
+        "kind": "yesno",
+        "required": true,
+        "validation": null,
+        "affects_outcome": true
+       }
+      ]
+     }
+    ],
+    "rollup": {
+     "strategy": "all_positive",
+     "n": 3,
+     "of": 5,
+     "limit": "25,00,000"
+    },
+    "exit_signal": "approved",
+    "navigation": [
+     {
+      "section": "Finance",
+      "items": [
+       {
+        "label": "Overview",
+        "icon": "⌂",
+        "page": "overview",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Sites",
+        "icon": "▤",
+        "page": "sites",
+        "badge": "queue",
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "History",
+        "icon": "↻",
+        "page": "history",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "design",
+    "name": "Design",
+    "type": "builtin",
+    "enabled": false,
+    "route": "/design",
+    "state": "draft",
+    "tiers": {
+     "supervisor": true,
+     "executive": true,
+     "business_admin_signoff": true,
+     "delegation": true
+    },
+    "entry_gate": {
+     "match": "all",
+     "conditions": [
+      {
+       "source": "legal",
+       "outcome": "approved"
+      },
+      {
+       "source": "finance_ca",
+       "outcome": "approved"
+      }
+     ],
+     "refusal_message": "Design is locked: waiting for a positive DDR and Finance approval."
+    },
+    "stages": [
+     {
+      "order": 1,
+      "name": "Recce",
+      "outcome": "submitted",
+      "terminal": false,
+      "approvers": [
+       "executive"
+      ],
+      "fields": [
+       {
+        "key": "recce_pack",
+        "label": "Recce pack",
+        "kind": "file",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 2,
+      "name": "2D drawing",
+      "outcome": "in progress",
+      "terminal": false,
+      "approvers": [
+       "supervisor",
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "drawing_2d",
+        "label": "2D drawing",
+        "kind": "file",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 3,
+      "name": "3D render",
+      "outcome": "in progress",
+      "terminal": false,
+      "approvers": [
+       "supervisor",
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "drawing_3d",
+        "label": "3D render",
+        "kind": "file",
+        "required": false,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 4,
+      "name": "BOQ",
+      "outcome": "submitted",
+      "terminal": false,
+      "approvers": [
+       "supervisor"
+      ],
+      "fields": [
+       {
+        "key": "boq_amount",
+        "label": "Estimated amount",
+        "kind": "number",
+        "required": true,
+        "validation": "₹",
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 5,
+      "name": "GFC approval",
+      "outcome": "approved",
+      "terminal": true,
+      "approvers": [
+       "supervisor",
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "gfc_pack",
+        "label": "GFC pack",
+        "kind": "file",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       },
+       {
+        "key": "gfc_comments",
+        "label": "Admin comments",
+        "kind": "text",
+        "required": false,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     }
+    ],
+    "rollup": {
+     "strategy": "all_positive",
+     "n": 3,
+     "of": 5,
+     "limit": "25,00,000"
+    },
+    "exit_signal": "approved",
+    "navigation": [
+     {
+      "section": "Design",
+      "items": [
+       {
+        "label": "Overview",
+        "icon": "⌂",
+        "page": "overview",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Sites",
+        "icon": "▤",
+        "page": "sites",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Process flow",
+        "icon": "⇅",
+        "page": "process",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "History",
+        "icon": "↻",
+        "page": "history",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "project",
+    "name": "Project team – execution",
+    "type": "builtin",
+    "enabled": true,
+    "route": "/project",
+    "state": "draft",
+    "tiers": {
+     "supervisor": true,
+     "executive": true,
+     "business_admin_signoff": true,
+     "delegation": true
+    },
+    "entry_gate": {
+     "match": "all",
+     "conditions": [
+      {
+       "source": "store_design",
+       "outcome": "approved"
+      },
+      {
+       "source": "finance_ca",
+       "outcome": "approved"
+      }
+     ],
+     "refusal_message": "Execution is locked: waiting for final design and budget approval."
+    },
+    "stages": [
+     {
+      "order": 1,
+      "name": "Milestones",
+      "outcome": "in progress",
+      "terminal": false,
+      "approvers": [
+       "executive"
+      ],
+      "fields": [
+       {
+        "key": "milestone_plan",
+        "label": "Milestone plan",
+        "kind": "file",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       },
+       {
+        "key": "expected_completion",
+        "label": "Expected completion",
+        "kind": "date",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 2,
+      "name": "QA team – quality audit",
+      "outcome": "submitted",
+      "terminal": false,
+      "approvers": [
+       "supervisor",
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "site_readiness",
+        "label": "Site readiness",
+        "kind": "choice",
+        "required": true,
+        "validation": "ready · blocked",
+        "affects_outcome": true
+       },
+       {
+        "key": "snag_list",
+        "label": "Snag list",
+        "kind": "file",
+        "required": false,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 3,
+      "name": "Admin approval",
+      "outcome": "approved",
+      "terminal": true,
+      "approvers": [
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "approval_note",
+        "label": "Approval note",
+        "kind": "text",
+        "required": false,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     }
+    ],
+    "rollup": {
+     "strategy": "all_positive",
+     "n": 3,
+     "of": 5,
+     "limit": "25,00,000"
+    },
+    "exit_signal": "approved",
+    "navigation": [
+     {
+      "section": "Project",
+      "items": [
+       {
+        "label": "Overview",
+        "icon": "⌂",
+        "page": "overview",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Pipeline",
+        "icon": "▤",
+        "page": "pipeline",
+        "badge": "queue",
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Sites",
+        "icon": "◫",
+        "page": "sites",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "NSO Handover",
+        "icon": "↗",
+        "page": "handover",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Financial Closure",
+        "icon": "∑",
+        "page": "closure",
+        "badge": null,
+        "roles": [
+         "supervisor"
+        ]
+       },
+       {
+        "label": "Process flow",
+        "icon": "⇅",
+        "page": "process",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "History",
+        "icon": "↻",
+        "page": "history",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "nso",
+    "name": "NSO",
+    "type": "builtin",
+    "enabled": true,
+    "route": "/nso",
+    "state": "live",
+    "tiers": {
+     "supervisor": true,
+     "executive": false,
+     "business_admin_signoff": true,
+     "delegation": true
+    },
+    "entry_gate": {
+     "match": "all",
+     "conditions": [
+      {
+       "source": "project",
+       "outcome": "approved"
+      }
+     ],
+     "refusal_message": "NSO is locked: waiting for Project approval."
+    },
+    "stages": [
+     {
+      "order": 1,
+      "name": "Handover",
+      "outcome": "submitted",
+      "terminal": false,
+      "approvers": [
+       "supervisor"
+      ],
+      "fields": [
+       {
+        "key": "property_details",
+        "label": "Property details",
+        "kind": "text",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 2,
+      "name": "Licensing",
+      "outcome": "in progress",
+      "terminal": false,
+      "approvers": [
+       "supervisor"
+      ],
+      "fields": [
+       {
+        "key": "nso_fssai",
+        "label": "FSSAI",
+        "kind": "choice",
+        "required": true,
+        "validation": "pending · done",
+        "affects_outcome": true
+       },
+       {
+        "key": "nso_fire",
+        "label": "Fire NOC",
+        "kind": "choice",
+        "required": true,
+        "validation": "pending · done",
+        "affects_outcome": true
+       }
+      ]
+     },
+     {
+      "order": 3,
+      "name": "Launch",
+      "outcome": "done",
+      "terminal": true,
+      "approvers": [
+       "supervisor",
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "launch_date",
+        "label": "Launch date",
+        "kind": "date",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     }
+    ],
+    "rollup": {
+     "strategy": "all_positive",
+     "n": 3,
+     "of": 5,
+     "limit": "25,00,000"
+    },
+    "exit_signal": "approved",
+    "navigation": [
+     {
+      "section": "NSO",
+      "items": [
+       {
+        "label": "Overview",
+        "icon": "⌂",
+        "page": "overview",
+        "badge": null,
+        "roles": [
+         "supervisor"
+        ]
+       },
+       {
+        "label": "Sites",
+        "icon": "▤",
+        "page": "sites",
+        "badge": null,
+        "roles": [
+         "supervisor"
+        ]
+       },
+       {
+        "label": "Process flow",
+        "icon": "⇅",
+        "page": "process",
+        "badge": null,
+        "roles": [
+         "supervisor"
+        ]
+       },
+       {
+        "label": "History",
+        "icon": "↻",
+        "page": "history",
+        "badge": null,
+        "roles": [
+         "supervisor"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "pex",
+    "name": "Project Excellence",
+    "type": "builtin",
+    "enabled": false,
+    "route": "/pex",
+    "state": "draft",
+    "tiers": {
+     "supervisor": true,
+     "executive": true,
+     "business_admin_signoff": true,
+     "delegation": true
+    },
+    "entry_gate": {
+     "match": "all",
+     "conditions": [
+      {
+       "source": "design",
+       "outcome": "approved"
+      }
+     ],
+     "refusal_message": "Project Excellence is locked: waiting for GFC approval."
+    },
+    "stages": [
+     {
+      "order": 1,
+      "name": "GFC budget",
+      "outcome": "submitted",
+      "terminal": false,
+      "approvers": [
+       "supervisor"
+      ],
+      "fields": [
+       {
+        "key": "pex_lines",
+        "label": "Budget lines (11)",
+        "kind": "number",
+        "required": true,
+        "validation": "exactly 11",
+        "affects_outcome": false
+       },
+       {
+        "key": "pex_pack",
+        "label": "Budget pack",
+        "kind": "file",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 2,
+      "name": "Admin review",
+      "outcome": "approved",
+      "terminal": true,
+      "approvers": [
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "pex_score",
+        "label": "Score",
+        "kind": "number",
+        "required": true,
+        "validation": "0–10",
+        "affects_outcome": true
+       }
+      ]
+     }
+    ],
+    "rollup": {
+     "strategy": "all_positive",
+     "n": 3,
+     "of": 5,
+     "limit": "25,00,000"
+    },
+    "exit_signal": "approved",
+    "navigation": [
+     {
+      "section": "Excellence",
+      "items": [
+       {
+        "label": "Overview",
+        "icon": "⌂",
+        "page": "overview",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Pipeline",
+        "icon": "▤",
+        "page": "pipeline",
+        "badge": "queue",
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Quality Audit",
+        "icon": "◨",
+        "page": "audit",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "History",
+        "icon": "↻",
+        "page": "history",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "launch_approval",
+    "name": "New café launch",
+    "type": "builtin",
+    "enabled": true,
+    "route": "/launch-approval",
+    "state": "draft",
+    "tiers": {
+     "supervisor": true,
+     "executive": true,
+     "business_admin_signoff": true,
+     "delegation": true
+    },
+    "entry_gate": {
+     "match": "all",
+     "conditions": [
+      {
+       "source": "ops_hoc",
+       "outcome": "approved"
+      }
+     ],
+     "refusal_message": "Launch is locked: waiting for the operations handover."
+    },
+    "stages": [
+     {
+      "order": 1,
+      "name": "Commercial terms",
+      "outcome": "approved",
+      "terminal": true,
+      "approvers": [
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "launch_terms",
+        "label": "Terms confirmed",
+        "kind": "yesno",
+        "required": true,
+        "validation": null,
+        "affects_outcome": true
+       },
+       {
+        "key": "launch_open_date",
+        "label": "Opening date",
+        "kind": "date",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     }
+    ],
+    "rollup": {
+     "strategy": "all_positive",
+     "n": 3,
+     "of": 5,
+     "limit": "25,00,000"
+    },
+    "exit_signal": "approved",
+    "navigation": [
+     {
+      "section": "Launch",
+      "items": [
+       {
+        "label": "Overview",
+        "icon": "⌂",
+        "page": "overview",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Sites",
+        "icon": "↗",
+        "page": "sites",
+        "badge": "queue",
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "History",
+        "icon": "↻",
+        "page": "history",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "financial_closure",
+    "name": "Post launch",
+    "type": "builtin",
+    "enabled": true,
+    "route": "/financial-closure",
+    "state": "draft",
+    "tiers": {
+     "supervisor": true,
+     "executive": true,
+     "business_admin_signoff": true,
+     "delegation": true
+    },
+    "entry_gate": {
+     "match": "all",
+     "conditions": [
+      {
+       "source": "launch_approval",
+       "outcome": "approved"
+      }
+     ],
+     "refusal_message": "Financial Closure is locked: waiting for launch approval."
+    },
+    "stages": [
+     {
+      "order": 1,
+      "name": "Cost reconciliation",
+      "outcome": "submitted",
+      "terminal": false,
+      "approvers": [
+       "supervisor"
+      ],
+      "fields": [
+       {
+        "key": "final_cost",
+        "label": "Final cost",
+        "kind": "number",
+        "required": true,
+        "validation": "₹",
+        "affects_outcome": false
+       },
+       {
+        "key": "variance_note",
+        "label": "Variance note",
+        "kind": "text",
+        "required": false,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 2,
+      "name": "CPO approves final cost",
+      "outcome": "done",
+      "terminal": true,
+      "approvers": [
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "closure_pack",
+        "label": "Closure pack",
+        "kind": "file",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     }
+    ],
+    "rollup": {
+     "strategy": "all_positive",
+     "n": 3,
+     "of": 5,
+     "limit": "25,00,000"
+    },
+    "exit_signal": "approved",
+    "navigation": [
+     {
+      "section": "Closure",
+      "items": [
+       {
+        "label": "Overview",
+        "icon": "⌂",
+        "page": "overview",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Sites",
+        "icon": "▤",
+        "page": "sites",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "History",
+        "icon": "↻",
+        "page": "history",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "store_design",
+    "name": "Store Design",
+    "type": "custom",
+    "enabled": true,
+    "route": "/m/store_design",
+    "state": "draft",
+    "tiers": {
+     "supervisor": true,
+     "executive": true,
+     "business_admin_signoff": true,
+     "delegation": true
+    },
+    "entry_gate": {
+     "match": "all",
+     "conditions": [
+      {
+       "source": "legal",
+       "outcome": "approved"
+      }
+     ],
+     "refusal_message": "Store Design is locked: waiting for Legal / Statutory to be cleared."
+    },
+    "stages": [
+     {
+      "order": 1,
+      "name": "Measurement",
+      "outcome": "submitted",
+      "terminal": false,
+      "approvers": [
+       "supervisor",
+       "executive"
+      ],
+      "fields": [
+       {
+        "key": "sd_measure",
+        "label": "Site measurement pack",
+        "kind": "file",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 2,
+      "name": "Asia Pacific review",
+      "outcome": "in progress",
+      "terminal": false,
+      "approvers": [
+       "supervisor"
+      ],
+      "fields": [
+       {
+        "key": "sd_ap_note",
+        "label": "AP review note",
+        "kind": "text",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       },
+       {
+        "key": "sd_ap_verdict",
+        "label": "AP verdict",
+        "kind": "choice",
+        "required": true,
+        "validation": "yes · no · n/a",
+        "affects_outcome": true
+       }
+      ]
+     },
+     {
+      "order": 3,
+      "name": "Peer design",
+      "outcome": "in progress",
+      "terminal": false,
+      "approvers": [
+       "supervisor"
+      ],
+      "fields": [
+       {
+        "key": "sd_peer",
+        "label": "Peer drawing",
+        "kind": "file",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 4,
+      "name": "Final design",
+      "outcome": "approved",
+      "terminal": true,
+      "approvers": [
+       "supervisor",
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "sd_final",
+        "label": "Final design pack",
+        "kind": "file",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       },
+       {
+        "key": "sd_signoff",
+        "label": "Design team sign-off",
+        "kind": "yesno",
+        "required": true,
+        "validation": null,
+        "affects_outcome": true
+       }
+      ]
+     }
+    ],
+    "rollup": {
+     "strategy": "all_positive",
+     "n": 3,
+     "of": 5,
+     "limit": "25,00,000"
+    },
+    "exit_signal": "approved",
+    "navigation": [
+     {
+      "section": "Store Design",
+      "items": [
+       {
+        "label": "Overview",
+        "icon": "⌂",
+        "page": "overview",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Measurement",
+        "icon": "▤",
+        "page": "measurement",
+        "badge": "queue",
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Asia Pacific review",
+        "icon": "◨",
+        "page": "ap_review",
+        "badge": "awaiting",
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Peer design",
+        "icon": "◪",
+        "page": "peer",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Final design",
+        "icon": "✓",
+        "page": "final",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "History",
+        "icon": "↻",
+        "page": "history",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "joint_audit",
+    "name": "Audit by QA & NSO",
+    "type": "custom",
+    "enabled": true,
+    "route": "/m/joint_audit",
+    "state": "draft",
+    "tiers": {
+     "supervisor": true,
+     "executive": true,
+     "business_admin_signoff": true,
+     "delegation": true
+    },
+    "entry_gate": {
+     "match": "all",
+     "conditions": [
+      {
+       "source": "nso",
+       "outcome": "done"
+      }
+     ],
+     "refusal_message": "Joint audit is locked: waiting for NSO to finish."
+    },
+    "stages": [
+     {
+      "order": 1,
+      "name": "Joint audit",
+      "outcome": "approved",
+      "terminal": true,
+      "approvers": [
+       "supervisor",
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "ja_qa",
+        "label": "QA sign-off",
+        "kind": "yesno",
+        "required": true,
+        "validation": null,
+        "affects_outcome": true
+       },
+       {
+        "key": "ja_nso",
+        "label": "NSO sign-off",
+        "kind": "yesno",
+        "required": true,
+        "validation": null,
+        "affects_outcome": true
+       },
+       {
+        "key": "ja_pack",
+        "label": "Audit pack",
+        "kind": "file",
+        "required": false,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     }
+    ],
+    "rollup": {
+     "strategy": "all_positive",
+     "n": 3,
+     "of": 5,
+     "limit": "25,00,000"
+    },
+    "exit_signal": "approved",
+    "navigation": [
+     {
+      "section": "Audit by QA & NSO",
+      "items": [
+       {
+        "label": "Audits",
+        "icon": "✓",
+        "page": "audits",
+        "badge": "awaiting",
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "History",
+        "icon": "↻",
+        "page": "history",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "close_snags",
+    "name": "Project – close snags",
+    "type": "custom",
+    "enabled": true,
+    "route": "/m/close_snags",
+    "state": "draft",
+    "tiers": {
+     "supervisor": true,
+     "executive": true,
+     "business_admin_signoff": true,
+     "delegation": true
+    },
+    "entry_gate": {
+     "match": "all",
+     "conditions": [
+      {
+       "source": "joint_audit",
+       "outcome": "approved"
+      }
+     ],
+     "refusal_message": "Snag closure is locked: waiting for the joint audit."
+    },
+    "stages": [
+     {
+      "order": 1,
+      "name": "Snag list",
+      "outcome": "in progress",
+      "terminal": false,
+      "approvers": [
+       "supervisor",
+       "executive"
+      ],
+      "fields": [
+       {
+        "key": "cs_open",
+        "label": "Open snags",
+        "kind": "number",
+        "required": true,
+        "validation": "min 0",
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 2,
+      "name": "Snags closed",
+      "outcome": "approved",
+      "terminal": true,
+      "approvers": [
+       "supervisor"
+      ],
+      "fields": [
+       {
+        "key": "cs_closed",
+        "label": "All snags closed",
+        "kind": "yesno",
+        "required": true,
+        "validation": null,
+        "affects_outcome": true
+       }
+      ]
+     }
+    ],
+    "rollup": {
+     "strategy": "all_positive",
+     "n": 3,
+     "of": 5,
+     "limit": "25,00,000"
+    },
+    "exit_signal": "approved",
+    "navigation": [
+     {
+      "section": "Project – close snags",
+      "items": [
+       {
+        "label": "Overview",
+        "icon": "⌂",
+        "page": "overview",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Queue",
+        "icon": "▤",
+        "page": "queue",
+        "badge": "queue",
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "History",
+        "icon": "↻",
+        "page": "history",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "ops_hoc",
+    "name": "Operations HOC",
+    "type": "custom",
+    "enabled": true,
+    "route": "/m/ops_hoc",
+    "state": "draft",
+    "tiers": {
+     "supervisor": true,
+     "executive": true,
+     "business_admin_signoff": true,
+     "delegation": true
+    },
+    "entry_gate": {
+     "match": "all",
+     "conditions": [
+      {
+       "source": "close_snags",
+       "outcome": "approved"
+      }
+     ],
+     "refusal_message": "Handover is locked: waiting for snags to be closed."
+    },
+    "stages": [
+     {
+      "order": 1,
+      "name": "Handover checklist",
+      "outcome": "submitted",
+      "terminal": false,
+      "approvers": [
+       "supervisor",
+       "executive"
+      ],
+      "fields": [
+       {
+        "key": "hoc_pack",
+        "label": "Handover pack",
+        "kind": "file",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       }
+      ]
+     },
+     {
+      "order": 2,
+      "name": "Operations accept",
+      "outcome": "approved",
+      "terminal": true,
+      "approvers": [
+       "supervisor",
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "hoc_accept",
+        "label": "Accepted by operations",
+        "kind": "yesno",
+        "required": true,
+        "validation": null,
+        "affects_outcome": true
+       }
+      ]
+     }
+    ],
+    "rollup": {
+     "strategy": "all_positive",
+     "n": 3,
+     "of": 5,
+     "limit": "25,00,000"
+    },
+    "exit_signal": "approved",
+    "navigation": [
+     {
+      "section": "Operations HOC",
+      "items": [
+       {
+        "label": "Overview",
+        "icon": "⌂",
+        "page": "overview",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "Queue",
+        "icon": "▤",
+        "page": "queue",
+        "badge": "queue",
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       },
+       {
+        "label": "History",
+        "icon": "↻",
+        "page": "history",
+        "badge": null,
+        "roles": [
+         "supervisor",
+         "executive"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "vendor_onboarding",
+    "name": "Vendor Onboarding",
+    "type": "custom",
+    "enabled": true,
+    "route": "/m/vendor_onboarding",
+    "state": "live",
+    "tiers": {
+     "supervisor": true,
+     "executive": true,
+     "business_admin_signoff": true,
+     "delegation": true
+    },
+    "entry_gate": {
+     "match": "all",
+     "conditions": [
+      {
+       "source": "bd",
+       "outcome": "in progress"
+      }
+     ],
+     "refusal_message": "Vendor onboarding is locked: waiting for the BD shortlist."
+    },
+    "stages": [
+     {
+      "order": 1,
+      "name": "Vendor capture",
+      "outcome": "submitted",
+      "terminal": false,
+      "approvers": [
+       "executive",
+       "supervisor"
+      ],
+      "fields": [
+       {
+        "key": "vendor_name",
+        "label": "Vendor name",
+        "kind": "text",
+        "required": true,
+        "validation": null,
+        "affects_outcome": false
+       },
+       {
+        "key": "gst_number",
+        "label": "GST number",
+        "kind": "text",
+        "required": true,
+        "validation": "^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$",
+        "affects_outcome": true
+       }
+      ]
+     },
+     {
+      "order": 2,
+      "name": "Compliance check",
+      "outcome": "approved",
+      "terminal": true,
+      "approvers": [
+       "supervisor",
+       "business_admin"
+      ],
+      "fields": [
+       {
+        "key": "credit_days",
+        "label": "Credit days",
+        "kind": "number",
+        "required": true,
+        "validation": "min 0 · max 120",
+        "affects_outcome": true
+       }
+      ]
+     }
+    ],
+    "rollup": {
+     "strategy": "all_positive"
+    },
+    "exit_signal": "approved",
+    "navigation": []
+   }
+  ],
+  "permissions": [
+   {
+    "action": "create_draft",
+    "platform_ceiling": [
+     "executive",
+     "supervisor"
+    ],
+    "granted": [
+     "executive",
+     "supervisor"
+    ]
+   },
+   {
+    "action": "save_draft_details",
+    "platform_ceiling": [
+     "executive",
+     "supervisor"
+    ],
+    "granted": [
+     "executive",
+     "supervisor"
+    ]
+   },
+   {
+    "action": "submit_details_for_review",
+    "platform_ceiling": [
+     "executive",
+     "supervisor"
+    ],
+    "granted": [
+     "executive",
+     "supervisor"
+    ]
+   },
+   {
+    "action": "upload_loi",
+    "platform_ceiling": [
+     "executive",
+     "supervisor"
+    ],
+    "granted": [
+     "executive",
+     "supervisor"
+    ]
+   },
+   {
+    "action": "shortlist",
+    "platform_ceiling": [
+     "supervisor"
+    ],
+    "granted": [
+     "supervisor"
+    ]
+   },
+   {
+    "action": "approve_details",
+    "platform_ceiling": [
+     "supervisor"
+    ],
+    "granted": [
+     "supervisor"
+    ]
+   },
+   {
+    "action": "reject",
+    "platform_ceiling": [
+     "supervisor",
+     "business_admin"
+    ],
+    "granted": [
+     "supervisor",
+     "business_admin"
+    ]
+   },
+   {
+    "action": "archive",
+    "platform_ceiling": [
+     "business_admin"
+    ],
+    "granted": [
+     "business_admin"
+    ]
+   },
+   {
+    "action": "set_loi_timeline",
+    "platform_ceiling": [
+     "supervisor"
+    ],
+    "granted": [
+     "supervisor"
+    ]
+   },
+   {
+    "action": "push_to_payments",
+    "platform_ceiling": [
+     "business_admin"
+    ],
+    "granted": [
+     "business_admin"
+    ]
+   },
+   {
+    "action": "reassign_site",
+    "platform_ceiling": [
+     "supervisor",
+     "business_admin"
+    ],
+    "granted": [
+     "supervisor"
+    ]
+   },
+   {
+    "action": "legal_finalize_dd",
+    "platform_ceiling": [
+     "supervisor"
+    ],
+    "granted": [
+     "supervisor"
+    ]
+   },
+   {
+    "action": "legal_raise_change_request",
+    "platform_ceiling": [
+     "supervisor",
+     "business_admin"
+    ],
+    "granted": [
+     "supervisor",
+     "business_admin"
+    ]
+   },
+   {
+    "action": "design_approve_gfc",
+    "platform_ceiling": [
+     "business_admin"
+    ],
+    "granted": [
+     "business_admin"
+    ]
+   },
+   {
+    "action": "project_approve_budget",
+    "platform_ceiling": [
+     "business_admin"
+    ],
+    "granted": [
+     "business_admin"
+    ]
+   },
+   {
+    "action": "nso_mark_launched",
+    "platform_ceiling": [
+     "supervisor"
+    ],
+    "granted": [
+     "supervisor"
+    ]
+   }
+  ]
+ }
+}

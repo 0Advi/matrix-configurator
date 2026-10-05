@@ -23,14 +23,19 @@
 import React from 'react';
 import { useSession } from '../../../state/SessionContext.jsx';
 import { activateOverride } from '../../../services/api/adminOverride.js';
-import { WORKSPACE_MODULES, workspaceModuleLabel, workspaceModuleRoute } from '../workspaceModules.js';
+import { switcherModules, workspaceModuleLabel, workspaceModuleRoute } from '../workspaceModules.js';
+import { useWorkspaceModules } from '../../../state/useWorkspaceModules.js';
 import Icon from '../primitives/Icon.jsx';
 
 export default function ReadOnlyBanner({ onLeave }) {
   const { isReadOnly, effectiveModule, role } = useSession();
+  // F4b: the switcher lists the tenant's enabled modules from its published release
+  // (custom ones included); the static list is only the fallback.
+  const { modules: apiModules } = useWorkspaceModules();
   if (!isReadOnly) return null;
+  const modules = switcherModules(apiModules);
 
-  const where = workspaceModuleLabel(effectiveModule);
+  const where = workspaceModuleLabel(effectiveModule, modules);
   const as = role === 'executive' ? 'an executive' : 'a supervisor';
 
   // A full page load, not a client-side navigate — the same reason the
@@ -46,7 +51,7 @@ export default function ReadOnlyBanner({ onLeave }) {
   const switchModule = (next) => {
     if (!next || next === effectiveModule) return;
     activateOverride({ role: role === 'executive' ? 'executive' : 'supervisor', module: next });
-    window.location.href = workspaceModuleRoute(next);
+    window.location.href = workspaceModuleRoute(next, modules);
   };
 
   return (
@@ -88,7 +93,7 @@ export default function ReadOnlyBanner({ onLeave }) {
         {/* An observer always arrives with a module, so this is a placeholder
             for the impossible case rather than a choice worth offering. */}
         {!effectiveModule && <option value="">Choose a module…</option>}
-        {WORKSPACE_MODULES.map((m) => (
+        {modules.map((m) => (
           <option key={m.value} value={m.value}>{m.label}</option>
         ))}
       </select>

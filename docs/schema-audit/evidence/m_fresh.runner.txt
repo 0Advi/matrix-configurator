@@ -1,0 +1,368 @@
+_verify_schema: FAIL (SystemExit 1)
+[INFO] startup-migrations: empty ledger and no existing schema detected — treating as a fresh database and applying all migrations once.
+[ERROR] startup-migrations: statement failed in 202605221_add_workspace_requests.sql: CREATE TABLE public.workspace_requests (
+[ERROR] startup-migrations: statement failed in 202605221_add_workspace_requests.sql: CREATE INDEX workspace_requests_status_created_idx
+[ERROR] startup-migrations: statement failed in 202605221_add_workspace_requests.sql: CREATE INDEX workspace_requests_admin_email_idx
+[ERROR] startup-migrations: statement failed in 202605221_add_workspace_requests.sql: ALTER TABLE public.workspace_requests ENABLE ROW LEVEL SECURITY;
+[ERROR] startup-migrations: statement failed in 202605221_add_workspace_requests.sql: -- No policies on `authenticated` — only the backend (service-role) touches this.
+[ERROR] startup-migrations: statement failed in 202605221_add_workspace_requests.sql: -- workspace_code: a short, human-shareable identifier the supervisor gives to
+[ERROR] startup-migrations: statement failed in 202605221_add_workspace_requests.sql: UPDATE public.tenants
+[ERROR] startup-migrations: statement failed in 202605221_add_workspace_requests.sql: ALTER TABLE public.tenants
+[ERROR] startup-migrations: statement failed in 202605221_add_workspace_requests.sql: CREATE UNIQUE INDEX IF NOT EXISTS tenants_workspace_code_uidx
+[ERROR] startup-migrations: 202605221_add_workspace_requests.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: -- Role canonicalization + pipeline lifecycle scaffolding.
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: ALTER TABLE public.users
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: ALTER TABLE public.users
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: ALTER TABLE public.users
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: -- ── 2. password_hash column — INTENTIONALLY NOT DROPPED HERE ─────────────
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: ALTER TABLE public.site_details DROP COLUMN IF EXISTS total_area_sqft;
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: ALTER TABLE public.site_details DROP COLUMN IF EXISTS nearest_competitor_m;
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: ALTER TABLE public.site_details DROP COLUMN IF EXISTS nearest_competitor_name;
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: ALTER TABLE public.site_details DROP COLUMN IF EXISTS has_parking;
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: ALTER TABLE public.site_details DROP COLUMN IF EXISTS has_outdoor_seating;
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: ALTER TABLE public.site_details DROP COLUMN IF EXISTS is_corner_property;
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: ALTER TABLE public.site_details DROP COLUMN IF EXISTS score_notes;
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: -- ── 4. Revive support: remember pre-archive status ─────────────────────────
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: -- ── 5. Shortlist approval delegation ───────────────────────────────────────
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: -- One active grant per (site, delegate); a new grant is allowed after revoke.
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: CREATE INDEX IF NOT EXISTS shortlist_delegations_tenant_site_idx
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: CREATE INDEX IF NOT EXISTS shortlist_delegations_delegate_active_idx
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: ALTER TABLE public.shortlist_delegations ENABLE ROW LEVEL SECURITY;
+[ERROR] startup-migrations: statement failed in 202605241_role_canonicalization_and_lifecycle.sql: -- Matches the tenant_isolation pattern used by the newer policies on
+[ERROR] startup-migrations: 202605241_role_canonicalization_and_lifecycle.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202605261_role_three_tier_business_admin.sql: -- Role: collapse to three-tier hierarchy (business_admin, supervisor, executive).
+[ERROR] startup-migrations: statement failed in 202605261_role_three_tier_business_admin.sql: ALTER TABLE public.users
+[ERROR] startup-migrations: statement failed in 202605261_role_three_tier_business_admin.sql: ALTER TABLE public.users
+[ERROR] startup-migrations: 202605261_role_three_tier_business_admin.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202605262_business_admins_table.sql: -- business_admins: per-tenant promotion grant.
+[ERROR] startup-migrations: statement failed in 202605262_business_admins_table.sql: CREATE INDEX IF NOT EXISTS idx_business_admins_tenant
+[ERROR] startup-migrations: 202605262_business_admins_table.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202605263_module_codes_table.sql: -- module_codes: per-tenant per-module supervisor invite code.
+[ERROR] startup-migrations: statement failed in 202605263_module_codes_table.sql: CREATE INDEX IF NOT EXISTS idx_module_codes_tenant_module
+[ERROR] startup-migrations: 202605263_module_codes_table.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202605264_supervisor_invite_codes_table.sql: -- supervisor_invite_codes: per-supervisor per-module executive invite code.
+[ERROR] startup-migrations: statement failed in 202605264_supervisor_invite_codes_table.sql: CREATE INDEX IF NOT EXISTS idx_supinvite_supervisor
+[ERROR] startup-migrations: 202605264_supervisor_invite_codes_table.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202605265_user_module_memberships_table.sql: -- user_module_memberships: which modules a user participates in and how.
+[ERROR] startup-migrations: statement failed in 202605265_user_module_memberships_table.sql: CREATE INDEX IF NOT EXISTS idx_umm_tenant_module
+[ERROR] startup-migrations: statement failed in 202605265_user_module_memberships_table.sql: CREATE INDEX IF NOT EXISTS idx_umm_supervisor
+[ERROR] startup-migrations: 202605265_user_module_memberships_table.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[INFO] startup-migrations: applied 202605266_shortlist_delegations_executive_check.sql (1 statement(s))
+[ERROR] startup-migrations: statement failed in 202605267_users_notes_column.sql: -- 202605267 — add users.notes column for pending-signup state stash
+[ERROR] startup-migrations: 202605267_users_notes_column.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202605268_legal_workflow_tables.sql: -- 202605268 — legal workflow tables + sites mirror columns
+[ERROR] startup-migrations: statement failed in 202605268_legal_workflow_tables.sql: CREATE TABLE IF NOT EXISTS public.legal_dd_checklist (
+[ERROR] startup-migrations: statement failed in 202605268_legal_workflow_tables.sql: CREATE TABLE IF NOT EXISTS public.site_agreement (
+[ERROR] startup-migrations: statement failed in 202605268_legal_workflow_tables.sql: CREATE TABLE IF NOT EXISTS public.site_licensing (
+[ERROR] startup-migrations: 202605268_legal_workflow_tables.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202605269_legal_change_requests_table.sql: -- 202605269 — legal_change_requests table
+[ERROR] startup-migrations: statement failed in 202605269_legal_change_requests_table.sql: CREATE INDEX IF NOT EXISTS idx_lcr_tenant_status
+[ERROR] startup-migrations: statement failed in 202605269_legal_change_requests_table.sql: CREATE INDEX IF NOT EXISTS idx_lcr_site
+[ERROR] startup-migrations: statement failed in 202605269_legal_change_requests_table.sql: CREATE INDEX IF NOT EXISTS idx_lcr_requested_by
+[ERROR] startup-migrations: 202605269_legal_change_requests_table.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202605271_site_delegations.sql: -- site_delegations: module-aware per-site delegation rows.
+[ERROR] startup-migrations: statement failed in 202605271_site_delegations.sql: CREATE UNIQUE INDEX IF NOT EXISTS site_delegations_unique_active
+[ERROR] startup-migrations: statement failed in 202605271_site_delegations.sql: CREATE INDEX IF NOT EXISTS site_delegations_by_module
+[ERROR] startup-migrations: 202605271_site_delegations.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202605272_checklist_stage.sql: -- 202605272 — checklist staging (draft / pending_review / published)
+[ERROR] startup-migrations: statement failed in 202605272_checklist_stage.sql: ALTER TABLE public.site_licensing
+[ERROR] startup-migrations: statement failed in 202605272_checklist_stage.sql: CREATE INDEX IF NOT EXISTS idx_legal_dd_checklist_stage
+[ERROR] startup-migrations: statement failed in 202605272_checklist_stage.sql: CREATE INDEX IF NOT EXISTS idx_site_licensing_stage
+[ERROR] startup-migrations: 202605272_checklist_stage.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606020_pipeline_rent_fields.sql: -- 202606020 — pipeline rent/map fields on sites
+[ERROR] startup-migrations: statement failed in 202606020_pipeline_rent_fields.sql: -- Drop and recreate the constraint so it always includes 'mg_revshare',
+[ERROR] startup-migrations: statement failed in 202606020_pipeline_rent_fields.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: 202606020_pipeline_rent_fields.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606033_project_execution_foundation.sql: CREATE TABLE IF NOT EXISTS project_reviews (
+[ERROR] startup-migrations: statement failed in 202606033_project_execution_foundation.sql: CREATE INDEX IF NOT EXISTS idx_project_reviews_tenant_status
+[ERROR] startup-migrations: statement failed in 202606033_project_execution_foundation.sql: CREATE INDEX IF NOT EXISTS idx_project_reviews_budget_status
+[ERROR] startup-migrations: statement failed in 202606033_project_execution_foundation.sql: CREATE TABLE IF NOT EXISTS project_budget_items (
+[ERROR] startup-migrations: statement failed in 202606033_project_execution_foundation.sql: CREATE INDEX IF NOT EXISTS idx_project_budget_items_site
+[ERROR] startup-migrations: 202606033_project_execution_foundation.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606081_passwords_branding_reset.sql: -- 1. Per-user password hash (bcrypt). NULL = no password set yet (legacy).
+[ERROR] startup-migrations: statement failed in 202606081_passwords_branding_reset.sql: -- 2. Per-tenant logo for the customized login page. `tenants.name` already
+[ERROR] startup-migrations: statement failed in 202606081_passwords_branding_reset.sql: -- 3. Password-reset requests, routed to the PLATFORM admin (not the business
+[ERROR] startup-migrations: statement failed in 202606081_passwords_branding_reset.sql: CREATE INDEX IF NOT EXISTS idx_pwd_reset_status
+[ERROR] startup-migrations: statement failed in 202606081_passwords_branding_reset.sql: CREATE INDEX IF NOT EXISTS idx_pwd_reset_tenant_email
+[ERROR] startup-migrations: statement failed in 202606081_passwords_branding_reset.sql: -- RLS on, no policies — matches the other backend-only tables (business_admins,
+[ERROR] startup-migrations: 202606081_passwords_branding_reset.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606091_project_budget_11_heads_area_covers.sql: -- 1. Allow an 11th budget line item.
+[ERROR] startup-migrations: statement failed in 202606091_project_budget_11_heads_area_covers.sql: ALTER TABLE public.project_budget_items
+[ERROR] startup-migrations: statement failed in 202606091_project_budget_11_heads_area_covers.sql: -- 2. Area / cover inputs captured with the budget (drive the calculated
+[ERROR] startup-migrations: statement failed in 202606091_project_budget_11_heads_area_covers.sql: ALTER TABLE public.project_reviews
+[ERROR] startup-migrations: statement failed in 202606091_project_budget_11_heads_area_covers.sql: ALTER TABLE public.project_reviews
+[ERROR] startup-migrations: 202606091_project_budget_11_heads_area_covers.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606092_project_execution_flow.sql: -- 1. Allow the executive-negotiated 'proposed' initialization status.
+[ERROR] startup-migrations: statement failed in 202606092_project_execution_flow.sql: ALTER TABLE public.project_reviews
+[ERROR] startup-migrations: statement failed in 202606092_project_execution_flow.sql: -- 2. Supervisor's mid-project visit date.
+[ERROR] startup-migrations: statement failed in 202606092_project_execution_flow.sql: -- 3. NSO handoff.
+[ERROR] startup-migrations: statement failed in 202606092_project_execution_flow.sql: ALTER TABLE public.project_reviews
+[ERROR] startup-migrations: statement failed in 202606092_project_execution_flow.sql: ALTER TABLE public.project_reviews
+[ERROR] startup-migrations: statement failed in 202606092_project_execution_flow.sql: ALTER TABLE public.project_reviews
+[ERROR] startup-migrations: 202606092_project_execution_flow.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606093_drop_stale_budget_idx_10_constraint.sql: -- 202606093 — Drop stale project_budget_items_idx_check constraint.
+[ERROR] startup-migrations: 202606093_drop_stale_budget_idx_10_constraint.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606094_launch_approvals.sql: -- ── 1. escalation_date on site_details ────────────────────────────────────────
+[ERROR] startup-migrations: statement failed in 202606094_launch_approvals.sql: -- ── 2. is_launched / launched_at on sites ─────────────────────────────────────
+[ERROR] startup-migrations: statement failed in 202606094_launch_approvals.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: statement failed in 202606094_launch_approvals.sql: -- ── 3. launch_approvals table ─────────────────────────────────────────────────
+[ERROR] startup-migrations: statement failed in 202606094_launch_approvals.sql: CREATE INDEX IF NOT EXISTS idx_launch_approvals_tenant_status
+[ERROR] startup-migrations: statement failed in 202606094_launch_approvals.sql: CREATE INDEX IF NOT EXISTS idx_launch_approvals_site_id
+[ERROR] startup-migrations: 202606094_launch_approvals.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260609_nso_module.sql: -- NSO module: persisted New Store Opening readiness workflow.
+[ERROR] startup-migrations: statement failed in 20260609_nso_module.sql: ALTER TABLE module_codes DROP CONSTRAINT IF EXISTS module_codes_module_check;
+[ERROR] startup-migrations: statement failed in 20260609_nso_module.sql: ALTER TABLE module_codes
+[ERROR] startup-migrations: statement failed in 20260609_nso_module.sql: ALTER TABLE supervisor_invite_codes DROP CONSTRAINT IF EXISTS chk_supervisor_invite_codes_module;
+[ERROR] startup-migrations: statement failed in 20260609_nso_module.sql: ALTER TABLE supervisor_invite_codes DROP CONSTRAINT IF EXISTS supervisor_invite_codes_module_check;
+[ERROR] startup-migrations: statement failed in 20260609_nso_module.sql: ALTER TABLE supervisor_invite_codes
+[ERROR] startup-migrations: statement failed in 20260609_nso_module.sql: ALTER TABLE user_module_memberships DROP CONSTRAINT IF EXISTS chk_user_module_memberships_module;
+[ERROR] startup-migrations: statement failed in 20260609_nso_module.sql: ALTER TABLE user_module_memberships DROP CONSTRAINT IF EXISTS user_module_memberships_module_check;
+[ERROR] startup-migrations: statement failed in 20260609_nso_module.sql: ALTER TABLE user_module_memberships
+[ERROR] startup-migrations: statement failed in 20260609_nso_module.sql: ALTER TABLE site_delegations DROP CONSTRAINT IF EXISTS chk_site_delegations_module;
+[ERROR] startup-migrations: statement failed in 20260609_nso_module.sql: ALTER TABLE site_delegations DROP CONSTRAINT IF EXISTS site_delegations_module_check;
+[ERROR] startup-migrations: statement failed in 20260609_nso_module.sql: ALTER TABLE site_delegations
+[ERROR] startup-migrations: statement failed in 20260609_nso_module.sql: CREATE TABLE IF NOT EXISTS nso_reviews (
+[ERROR] startup-migrations: statement failed in 20260609_nso_module.sql: CREATE INDEX IF NOT EXISTS idx_nso_reviews_tenant_status
+[ERROR] startup-migrations: 20260609_nso_module.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606121_launch_validation_loop.sql: -- ── 1. New status FSM ─────────────────────────────────────────────────────────
+[ERROR] startup-migrations: statement failed in 202606121_launch_validation_loop.sql: ALTER TABLE public.launch_approvals
+[ERROR] startup-migrations: statement failed in 202606121_launch_validation_loop.sql: UPDATE public.launch_approvals SET status = CASE status
+[ERROR] startup-migrations: statement failed in 202606121_launch_validation_loop.sql: ALTER TABLE public.launch_approvals
+[ERROR] startup-migrations: statement failed in 202606121_launch_validation_loop.sql: ALTER TABLE public.launch_approvals
+[ERROR] startup-migrations: statement failed in 202606121_launch_validation_loop.sql: -- ── 2. Per-stage verdict / comment / actor columns ────────────────────────────
+[ERROR] startup-migrations: statement failed in 202606121_launch_validation_loop.sql: -- Verdicts are a small enum; guard them but allow NULL (not yet reviewed).
+[ERROR] startup-migrations: statement failed in 202606121_launch_validation_loop.sql: ALTER TABLE public.launch_approvals
+[ERROR] startup-migrations: statement failed in 202606121_launch_validation_loop.sql: ALTER TABLE public.launch_approvals
+[ERROR] startup-migrations: statement failed in 202606121_launch_validation_loop.sql: ALTER TABLE public.launch_approvals
+[ERROR] startup-migrations: statement failed in 202606121_launch_validation_loop.sql: -- ── 3. launch_review_events — the recorded comment + rent-edit timeline ────────
+[ERROR] startup-migrations: statement failed in 202606121_launch_validation_loop.sql: CREATE INDEX IF NOT EXISTS idx_launch_review_events_approval
+[ERROR] startup-migrations: statement failed in 202606121_launch_validation_loop.sql: CREATE INDEX IF NOT EXISTS idx_launch_review_events_site
+[ERROR] startup-migrations: 202606121_launch_validation_loop.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606122_security_posture_lockdown.sql: -- Security posture lockdown (issues #101, #105, #106, #107, #108)
+[ERROR] startup-migrations: statement failed in 202606122_security_posture_lockdown.sql: ALTER TABLE public.launch_approvals ENABLE ROW LEVEL SECURITY;
+[ERROR] startup-migrations: statement failed in 202606122_security_posture_lockdown.sql: ALTER TABLE public.launch_review_events ENABLE ROW LEVEL SECURITY;
+[ERROR] startup-migrations: statement failed in 202606122_security_posture_lockdown.sql: -- #106: definer-rights views bypassed base-table RLS (bare anon key could
+[ERROR] startup-migrations: statement failed in 202606122_security_posture_lockdown.sql: ALTER VIEW public.stuck_sites SET (security_invoker = true);
+[ERROR] startup-migrations: statement failed in 202606122_security_posture_lockdown.sql: -- #108: SECURITY DEFINER trigger function that inserts a caller-controlled
+[ERROR] startup-migrations: statement failed in 202606122_security_posture_lockdown.sql: REVOKE EXECUTE ON FUNCTION public.handle_new_auth_user() FROM anon, authenticated;
+[ERROR] startup-migrations: 202606122_security_posture_lockdown.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606123_reset_token_binding.sql: -- #85: bind password-reset completion to a single-use token issued at admin
+[ERROR] startup-migrations: 202606123_reset_token_binding.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[INFO] startup-migrations: applied 202606131_drop_duplicate_approvals_indexes.sql (2 statement(s))
+[INFO] startup-migrations: applied 202606131_drop_project_executions.sql (1 statement(s))
+[INFO] startup-migrations: applied 202606132_drop_duplicate_indexes_sweep.sql (3 statement(s))
+[ERROR] startup-migrations: statement failed in 202606132_retire_payment_module.sql: -- ── 1. Purge stale payment rows ───────────────────────────────────────────────
+[ERROR] startup-migrations: statement failed in 202606132_retire_payment_module.sql: DELETE FROM public.user_module_memberships WHERE module = 'payment';
+[ERROR] startup-migrations: statement failed in 202606132_retire_payment_module.sql: DELETE FROM public.supervisor_invite_codes WHERE module = 'payment';
+[ERROR] startup-migrations: statement failed in 202606132_retire_payment_module.sql: DELETE FROM public.site_delegations        WHERE module = 'payment';
+[ERROR] startup-migrations: statement failed in 202606132_retire_payment_module.sql: -- ── 3. Re-add tightened CHECK constraints (payment excluded) ─────────────────
+[ERROR] startup-migrations: statement failed in 202606132_retire_payment_module.sql: ALTER TABLE public.supervisor_invite_codes
+[ERROR] startup-migrations: statement failed in 202606132_retire_payment_module.sql: ALTER TABLE public.user_module_memberships
+[ERROR] startup-migrations: statement failed in 202606132_retire_payment_module.sql: ALTER TABLE public.site_delegations
+[ERROR] startup-migrations: 202606132_retire_payment_module.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606133_fk_index_sweep.sql: -- Migration: Index the highest-value unindexed FK columns (issue #167)
+[ERROR] startup-migrations: statement failed in 202606133_fk_index_sweep.sql: -- launch_review_events — tenant_id join path
+[ERROR] startup-migrations: statement failed in 202606133_fk_index_sweep.sql: -- project_budget_items — tenant_id join path
+[ERROR] startup-migrations: statement failed in 202606133_fk_index_sweep.sql: -- supervisor_invite_codes — tenant_id join path (also helps module-lookup JOINs)
+[ERROR] startup-migrations: statement failed in 202606133_fk_index_sweep.sql: -- workspace_requests — provisioned_tenant_id FK (reverse-lookup after provisioning)
+[ERROR] startup-migrations: statement failed in 202606133_fk_index_sweep.sql: -- notification_outbox — site_id (queried on every per-site notification flush)
+[ERROR] startup-migrations: 202606133_fk_index_sweep.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606134_project_excellence_module.sql: -- Migration: Project Excellence module
+[ERROR] startup-migrations: statement failed in 202606134_project_excellence_module.sql: -- ── 2. New: project_excellence_items (11 budget line items per site) ─────────
+[ERROR] startup-migrations: statement failed in 202606134_project_excellence_module.sql: -- ── 3. Add project_excellence_status mirror to sites ─────────────────────────
+[ERROR] startup-migrations: statement failed in 202606134_project_excellence_module.sql: -- ── 4. Widen the module CHECK to include 'project_excellence' ────────────────
+[ERROR] startup-migrations: statement failed in 202606134_project_excellence_module.sql: ALTER TABLE public.site_delegations
+[ERROR] startup-migrations: statement failed in 202606134_project_excellence_module.sql: -- ── 5. Strip budget columns from project_reviews ─────────────────────────────
+[ERROR] startup-migrations: statement failed in 202606134_project_excellence_module.sql: -- Tighten current_stage: 'budget' is no longer a valid project stage.
+[ERROR] startup-migrations: statement failed in 202606134_project_excellence_module.sql: ALTER TABLE public.project_reviews
+[ERROR] startup-migrations: statement failed in 202606134_project_excellence_module.sql: -- Update default so new rows start at 'execution'.
+[ERROR] startup-migrations: statement failed in 202606134_project_excellence_module.sql: -- ── 7. Indexes ────────────────────────────────────────────────────────────────
+[ERROR] startup-migrations: statement failed in 202606134_project_excellence_module.sql: CREATE INDEX IF NOT EXISTS idx_pe_reviews_budget_status
+[ERROR] startup-migrations: statement failed in 202606134_project_excellence_module.sql: CREATE INDEX IF NOT EXISTS idx_pe_items_site
+[ERROR] startup-migrations: statement failed in 202606134_project_excellence_module.sql: CREATE INDEX IF NOT EXISTS idx_pe_items_tenant
+[ERROR] startup-migrations: 202606134_project_excellence_module.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606140_drop_redundant_approvals_indexes.sql: CREATE INDEX IF NOT EXISTS idx_approvals_site_created
+[ERROR] startup-migrations: 202606140_drop_redundant_approvals_indexes.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: -- ── 1. site_status ────────────────────────────────────────────────────────────
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: -- stage_events.from_status / to_status — open set; just convert, no CHECK
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: ALTER TABLE public.stage_events
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: -- ── 2. user_role ──────────────────────────────────────────────────────────────
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: ALTER TABLE public.stage_events
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: -- ── 3. rent_type ─────────────────────────────────────────────────────────────
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: ALTER TABLE public.site_details
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: ALTER TABLE public.site_details
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: -- ── 4. file_type ─────────────────────────────────────────────────────────────
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: ALTER TABLE public.site_files
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: -- ── 5. store_model ───────────────────────────────────────────────────────────
+[ERROR] startup-migrations: 202606141_drop_legacy_enum_types.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606142_widen_module_checks_project_excellence.sql: -- Migration 202606142: widen module CHECK constraints to include 'project_excellence'
+[ERROR] startup-migrations: statement failed in 202606142_widen_module_checks_project_excellence.sql: ALTER TABLE public.module_codes DROP CONSTRAINT IF EXISTS module_codes_module_check;
+[ERROR] startup-migrations: statement failed in 202606142_widen_module_checks_project_excellence.sql: ALTER TABLE public.module_codes ADD CONSTRAINT chk_module_codes_module
+[ERROR] startup-migrations: statement failed in 202606142_widen_module_checks_project_excellence.sql: -- supervisor_invite_codes
+[ERROR] startup-migrations: statement failed in 202606142_widen_module_checks_project_excellence.sql: ALTER TABLE public.supervisor_invite_codes DROP CONSTRAINT IF EXISTS supervisor_invite_codes_module_check;
+[ERROR] startup-migrations: statement failed in 202606142_widen_module_checks_project_excellence.sql: ALTER TABLE public.supervisor_invite_codes ADD CONSTRAINT chk_supervisor_invite_codes_module
+[ERROR] startup-migrations: statement failed in 202606142_widen_module_checks_project_excellence.sql: -- user_module_memberships
+[ERROR] startup-migrations: statement failed in 202606142_widen_module_checks_project_excellence.sql: ALTER TABLE public.user_module_memberships DROP CONSTRAINT IF EXISTS user_module_memberships_module_check;
+[ERROR] startup-migrations: statement failed in 202606142_widen_module_checks_project_excellence.sql: ALTER TABLE public.user_module_memberships ADD CONSTRAINT chk_user_module_memberships_module
+[ERROR] startup-migrations: 202606142_widen_module_checks_project_excellence.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: -- Migration 202606144: shared site budgets (gfc + closure phases) — ADDITIVE ONLY.
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: -- 2. Shared budget line items (11 per site, per phase)
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: CREATE INDEX IF NOT EXISTS idx_site_budgets_tenant_phase_status ON public.site_budgets (tenant_id, phase, status);
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: CREATE INDEX IF NOT EXISTS idx_site_budgets_site ON public.site_budgets (site_id);
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: CREATE INDEX IF NOT EXISTS idx_site_budget_items_site_phase ON public.site_budget_items (site_id, phase);
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: CREATE INDEX IF NOT EXISTS idx_site_budget_items_budget ON public.site_budget_items (budget_id);
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: -- 3. sites.financial_closure_status mirror (closure-phase queue / dashboard chip)
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: -- 4. project_reviews: quality-audit becomes calendar-date + two-tier
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: ALTER TABLE public.project_reviews DROP CONSTRAINT IF EXISTS chk_project_quality_status;
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: ALTER TABLE public.project_reviews ADD CONSTRAINT chk_project_quality_status
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: -- 5. Normalize project current_stage ('budget' is no longer a project stage) — UPDATE only.
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: ALTER TABLE public.project_reviews DROP CONSTRAINT IF EXISTS chk_project_current_stage;
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: ALTER TABLE public.project_reviews ADD CONSTRAINT chk_project_current_stage
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: ALTER TABLE public.project_reviews ALTER COLUMN current_stage SET DEFAULT 'execution';
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: -- 6. Design ends at GFC: unblock the in-flight site stuck at the (now removed) BOQ
+[ERROR] startup-migrations: statement failed in 202606144_shared_site_budgets.sql: UPDATE public.sites s
+[ERROR] startup-migrations: 202606144_shared_site_budgets.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606145_drop_legacy_project_budget.sql: -- Migration 202606145: drop the legacy project budget — DESTRUCTIVE, NOT YET APPLIED.
+[ERROR] startup-migrations: 202606145_drop_legacy_project_budget.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606146_nso_handover_pushed_at.sql: -- Phase D: the project NSO-Handover push opens the NSO record directly at stage
+[ERROR] startup-migrations: 202606146_nso_handover_pushed_at.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606147_financial_closure_delegation.sql: -- Phase E: Financial Closure is filled by a project executive via delegate-or-self.
+[ERROR] startup-migrations: statement failed in 202606147_financial_closure_delegation.sql: ALTER TABLE public.site_delegations
+[ERROR] startup-migrations: 202606147_financial_closure_delegation.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606231_supervisor_executive_requests.sql: -- Add has_executive_access to user_module_memberships
+[ERROR] startup-migrations: statement failed in 202606231_supervisor_executive_requests.sql: -- Create supervisor_executive_requests table
+[ERROR] startup-migrations: statement failed in 202606231_supervisor_executive_requests.sql: -- Ensure a supervisor can only have one pending request per module at a time
+[ERROR] startup-migrations: statement failed in 202606231_supervisor_executive_requests.sql: -- Index for querying requests efficiently
+[ERROR] startup-migrations: statement failed in 202606231_supervisor_executive_requests.sql: -- Row-Level Security (#310): without this, the table is readable/writable by
+[ERROR] startup-migrations: statement failed in 202606231_supervisor_executive_requests.sql: -- Idempotent creation of tenant_isolation policy (CodeAnt review – Major severity)
+[ERROR] startup-migrations: 202606231_supervisor_executive_requests.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202607081_add_sqft_and_staggered_rent.sql: -- 1. New column: area_sqft (pipeline-stage sqft)
+[ERROR] startup-migrations: statement failed in 202607081_add_sqft_and_staggered_rent.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: statement failed in 202607081_add_sqft_and_staggered_rent.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: statement failed in 202607081_add_sqft_and_staggered_rent.sql: -- 2. New column: staggered_escalation (JSONB schedule)
+[ERROR] startup-migrations: statement failed in 202607081_add_sqft_and_staggered_rent.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: statement failed in 202607081_add_sqft_and_staggered_rent.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: statement failed in 202607081_add_sqft_and_staggered_rent.sql: -- 3. Widen rent_type CHECK to include 'staggered'
+[ERROR] startup-migrations: statement failed in 202607081_add_sqft_and_staggered_rent.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: 202607081_add_sqft_and_staggered_rent.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: -- ── site_licensing (5 statutory licences) ─────────────────────────────────────
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.site_licensing ADD  CONSTRAINT site_licensing_fssai_check
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.site_licensing DROP CONSTRAINT IF EXISTS site_licensing_health_trade_check;
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.site_licensing ADD  CONSTRAINT site_licensing_health_trade_check
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.site_licensing DROP CONSTRAINT IF EXISTS site_licensing_shops_estab_reg_check;
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.site_licensing ADD  CONSTRAINT site_licensing_shops_estab_reg_check
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.site_licensing DROP CONSTRAINT IF EXISTS site_licensing_fire_noc_check;
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.site_licensing ADD  CONSTRAINT site_licensing_fire_noc_check
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.site_licensing DROP CONSTRAINT IF EXISTS site_licensing_storage_license_check;
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.site_licensing ADD  CONSTRAINT site_licensing_storage_license_check
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: -- ── legal_dd_checklist (9 due-diligence items) ────────────────────────────────
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist ADD  CONSTRAINT legal_dd_checklist_title_doc_check
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist DROP CONSTRAINT IF EXISTS legal_dd_checklist_sanctioned_plan_check;
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist ADD  CONSTRAINT legal_dd_checklist_sanctioned_plan_check
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist DROP CONSTRAINT IF EXISTS legal_dd_checklist_oc_cc_check;
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist ADD  CONSTRAINT legal_dd_checklist_oc_cc_check
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist DROP CONSTRAINT IF EXISTS legal_dd_checklist_commercial_use_check;
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist ADD  CONSTRAINT legal_dd_checklist_commercial_use_check
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist DROP CONSTRAINT IF EXISTS legal_dd_checklist_property_tax_check;
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist ADD  CONSTRAINT legal_dd_checklist_property_tax_check
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist DROP CONSTRAINT IF EXISTS legal_dd_checklist_electricity_check;
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist ADD  CONSTRAINT legal_dd_checklist_electricity_check
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist DROP CONSTRAINT IF EXISTS legal_dd_checklist_fire_noc_check;
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist ADD  CONSTRAINT legal_dd_checklist_fire_noc_check
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist DROP CONSTRAINT IF EXISTS legal_dd_checklist_other_1_check;
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist ADD  CONSTRAINT legal_dd_checklist_other_1_check
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist DROP CONSTRAINT IF EXISTS legal_dd_checklist_other_2_check;
+[ERROR] startup-migrations: statement failed in 20260713_add_na_to_legal_checklists.sql: ALTER TABLE public.legal_dd_checklist ADD  CONSTRAINT legal_dd_checklist_other_2_check
+[ERROR] startup-migrations: 20260713_add_na_to_legal_checklists.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260715_add_staggered_rent_type_and_sqft.sql: -- 1. New column: area_sqft (pipeline-stage sqft)
+[ERROR] startup-migrations: statement failed in 20260715_add_staggered_rent_type_and_sqft.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: statement failed in 20260715_add_staggered_rent_type_and_sqft.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: statement failed in 20260715_add_staggered_rent_type_and_sqft.sql: -- 2. New column: staggered_escalation (JSONB schedule)
+[ERROR] startup-migrations: statement failed in 20260715_add_staggered_rent_type_and_sqft.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: statement failed in 20260715_add_staggered_rent_type_and_sqft.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: statement failed in 20260715_add_staggered_rent_type_and_sqft.sql: -- 3. Widen rent_type CHECK to include 'staggered'
+[ERROR] startup-migrations: statement failed in 20260715_add_staggered_rent_type_and_sqft.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: 20260715_add_staggered_rent_type_and_sqft.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260730_extend_rent_type_constraint.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: statement failed in 20260730_extend_rent_type_constraint.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: 20260730_extend_rent_type_constraint.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[INFO] startup-migrations: applied 20260731_fix_staggered_escalation_json_null.sql (1 statement(s))
+[ERROR] startup-migrations: statement failed in 20260801_widen_area_sqft_to_numeric.sql: -- Re-assert the default so it is stored as a numeric literal, not the old int.
+[ERROR] startup-migrations: 20260801_widen_area_sqft_to_numeric.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[INFO] startup-migrations: applied 20260802_complete_rls_defense_in_depth.sql (3 statement(s))
+[ERROR] startup-migrations: statement failed in 20260803_notification_outbox_drain_index.sql: -- 20260803 — Partial index for the email-drain query (#375)
+[ERROR] startup-migrations: 20260803_notification_outbox_drain_index.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[INFO] startup-migrations: applied 20260803_rls_site_budgets.sql (2 statement(s))
+[ERROR] startup-migrations: statement failed in 20260804_quality_audit_reports.sql: -- 20260804 — Quality-audit reports (before/after PDFs) for the Project-Excellence
+[ERROR] startup-migrations: statement failed in 20260804_quality_audit_reports.sql: CREATE INDEX IF NOT EXISTS idx_qa_reports_site ON public.quality_audit_reports (site_id);
+[ERROR] startup-migrations: statement failed in 20260804_quality_audit_reports.sql: ALTER TABLE public.project_reviews
+[ERROR] startup-migrations: 20260804_quality_audit_reports.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260805_qa_module_site_delegation.sql: -- Quality-audit report tasks are delegated via their own site_delegations
+[ERROR] startup-migrations: statement failed in 20260805_qa_module_site_delegation.sql: ALTER TABLE public.site_delegations
+[ERROR] startup-migrations: 20260805_qa_module_site_delegation.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260806_site_files_excellence_type.sql: -- Allow project-excellence document uploads to be stored in site_files.
+[ERROR] startup-migrations: statement failed in 20260806_site_files_excellence_type.sql: ALTER TABLE public.site_files ADD CONSTRAINT chk_site_files_file_type
+[ERROR] startup-migrations: 20260806_site_files_excellence_type.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260807_loi_send_back_note.sql: -- LOI send-back: a BD supervisor who receives the wrong LOI file can send it
+[ERROR] startup-migrations: 20260807_loi_send_back_note.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260808_site_files_closure_type.sql: -- Allow file_type='closure' on site_files: the Financial Closure phase gets its
+[ERROR] startup-migrations: statement failed in 20260808_site_files_closure_type.sql: ALTER TABLE public.site_files ADD CONSTRAINT chk_site_files_file_type
+[ERROR] startup-migrations: 20260808_site_files_closure_type.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260809_add_revshare_split_and_extend_staggered.sql: -- (a) Optional revenue-share split for the REV SHARE toggle. Nullable + no
+[ERROR] startup-migrations: statement failed in 20260809_add_revshare_split_and_extend_staggered.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: statement failed in 20260809_add_revshare_split_and_extend_staggered.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: statement failed in 20260809_add_revshare_split_and_extend_staggered.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: statement failed in 20260809_add_revshare_split_and_extend_staggered.sql: ALTER TABLE public.sites
+[ERROR] startup-migrations: 20260809_add_revshare_split_and_extend_staggered.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260810_launch_approvals_revshare_split.sql: ALTER TABLE public.launch_approvals
+[ERROR] startup-migrations: statement failed in 20260810_launch_approvals_revshare_split.sql: ALTER TABLE public.launch_approvals
+[ERROR] startup-migrations: statement failed in 20260810_launch_approvals_revshare_split.sql: ALTER TABLE public.launch_approvals
+[ERROR] startup-migrations: statement failed in 20260810_launch_approvals_revshare_split.sql: ALTER TABLE public.launch_approvals
+[ERROR] startup-migrations: statement failed in 20260810_launch_approvals_revshare_split.sql: ALTER TABLE public.launch_approvals
+[ERROR] startup-migrations: 20260810_launch_approvals_revshare_split.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260811_launch_approvals_staggered_schedule.sql: ALTER TABLE public.launch_approvals
+[ERROR] startup-migrations: statement failed in 20260811_launch_approvals_staggered_schedule.sql: ALTER TABLE public.launch_approvals
+[ERROR] startup-migrations: statement failed in 20260811_launch_approvals_staggered_schedule.sql: ALTER TABLE public.launch_approvals
+[ERROR] startup-migrations: 20260811_launch_approvals_staggered_schedule.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260812_reversible_actions.sql: -- Undo for business-admin 2D/3D deliverable decisions.
+[ERROR] startup-migrations: statement failed in 20260812_reversible_actions.sql: -- The only hot read: "open reversible actions for this site". consumed_at is in
+[ERROR] startup-migrations: statement failed in 20260812_reversible_actions.sql: -- Tenant-scoped listing (every query carries tenant_id — concurrency-audit
+[ERROR] startup-migrations: 20260812_reversible_actions.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260813_unique_ca_code_per_tenant.sql: -- 20260813 — One CA / Commercial Code per site, per workspace.
+[ERROR] startup-migrations: statement failed in 20260813_unique_ca_code_per_tenant.sql: -- 2. The constraint itself. Partial so the many sites with no CA code yet (and
+[ERROR] startup-migrations: 20260813_unique_ca_code_per_tenant.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260814_site_delete_cascades.sql: -- 20260814 — Make a site deletable in one statement.
+[ERROR] startup-migrations: statement failed in 20260814_site_delete_cascades.sql: ALTER TABLE public.site_details
+[ERROR] startup-migrations: statement failed in 20260814_site_delete_cascades.sql: ALTER TABLE public.site_files
+[ERROR] startup-migrations: statement failed in 20260814_site_delete_cascades.sql: ALTER TABLE public.site_files
+[ERROR] startup-migrations: statement failed in 20260814_site_delete_cascades.sql: ALTER TABLE public.stage_events
+[ERROR] startup-migrations: statement failed in 20260814_site_delete_cascades.sql: ALTER TABLE public.stage_events
+[ERROR] startup-migrations: statement failed in 20260814_site_delete_cascades.sql: ALTER TABLE public.notification_outbox
+[ERROR] startup-migrations: statement failed in 20260814_site_delete_cascades.sql: ALTER TABLE public.notification_outbox
+[ERROR] startup-migrations: statement failed in 20260814_site_delete_cascades.sql: ALTER TABLE public.approvals
+[ERROR] startup-migrations: statement failed in 20260814_site_delete_cascades.sql: ALTER TABLE public.approvals
+[ERROR] startup-migrations: statement failed in 20260814_site_delete_cascades.sql: -- Safety net for any child table added between this migration being written and
+[ERROR] startup-migrations: 20260814_site_delete_cascades.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260815_drop_dead_bd_columns.sql: -- 20260815 — Drop dead BD columns.
+[ERROR] startup-migrations: statement failed in 20260815_drop_dead_bd_columns.sql: ALTER TABLE public.sites      DROP COLUMN IF EXISTS notes;
+[ERROR] startup-migrations: statement failed in 20260815_drop_dead_bd_columns.sql: ALTER TABLE public.sites      DROP COLUMN IF EXISTS spoc_email;
+[ERROR] startup-migrations: statement failed in 20260815_drop_dead_bd_columns.sql: ALTER TABLE public.sites      DROP COLUMN IF EXISTS spoc_phone;
+[ERROR] startup-migrations: statement failed in 20260815_drop_dead_bd_columns.sql: ALTER TABLE public.site_files DROP COLUMN IF EXISTS onedrive_item_id;
+[ERROR] startup-migrations: statement failed in 20260815_drop_dead_bd_columns.sql: ALTER TABLE public.site_files DROP COLUMN IF EXISTS onedrive_synced_at;
+[ERROR] startup-migrations: 20260815_drop_dead_bd_columns.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260816_add_observer_role.sql: ALTER TABLE public.users
+[ERROR] startup-migrations: 20260816_add_observer_role.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260817_observer_codes.sql: -- 20260817 — Workspace-level invite code for the read-only `observer` role.
+[ERROR] startup-migrations: statement failed in 20260817_observer_codes.sql: CREATE UNIQUE INDEX IF NOT EXISTS uq_observer_codes_live_per_tenant
+[ERROR] startup-migrations: statement failed in 20260817_observer_codes.sql: CREATE INDEX IF NOT EXISTS idx_observer_codes_code
+[ERROR] startup-migrations: 20260817_observer_codes.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260818_multi_supervisor_executives.sql: CREATE UNIQUE INDEX IF NOT EXISTS uq_umm_user_module_unsupervised
+[ERROR] startup-migrations: statement failed in 20260818_multi_supervisor_executives.sql: CREATE UNIQUE INDEX IF NOT EXISTS uq_umm_user_module_supervisor
+[ERROR] startup-migrations: 20260818_multi_supervisor_executives.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 20260819_launch_rent_start_date.sql: ALTER TABLE public.site_details
+[ERROR] startup-migrations: statement failed in 20260819_launch_rent_start_date.sql: ALTER TABLE public.launch_approvals
+[ERROR] startup-migrations: 20260819_launch_rent_start_date.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[INFO] startup-migrations: 7 new migration file(s), 66 statement(s) applied; 0 already in ledger
+[CRITICAL] Database schema is outdated. Missing sites columns: expected_escalation_pct, revshare_dinein_pct, rent_set_at, rent_type, area_sqft, expected_escalation_years, expected_revshare_pct, google_maps_url, staggered_escalation, revshare_delivery_pct, expected_rent. Run latest migrations before deploying.

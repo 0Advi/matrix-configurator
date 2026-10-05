@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
-
 from pydantic import BaseModel, ConfigDict
 
-Module = Literal["bd", "legal", "design", "project", "nso", "project_excellence"]  # 'payment' retired (202606132); 'project_excellence' added (202606134)
+# Was a fixed Literal of six built-ins; now a shape-validated key whose tenant
+# registration/enablement is checked by the service (see business_admin.Module).
+from app.domain.schemas.business_admin import Module  # noqa: F401  (re-exported)
 
 
 class InviteCodeOut(BaseModel):

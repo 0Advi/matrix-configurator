@@ -1,0 +1,303 @@
+{
+  "$comment": "Catalogue of every approval flow in Matrix-bd (site workflow + access). Each flow: where its state lives, the status vocabulary, who acts at each tier, loops/send-backs, entry gate, exit signal, routes and sources. Hand-curated from source at the pinned SHA; status vocabularies cross-checked against modules-and-vocabularies.json.",
+  "provenance": {
+    "repo": "/Users/aditya/Desktop/bd/Matrix-bd",
+    "ref": "origin/main",
+    "sha": "3d4f277beb22c5be02c2abacea61b6afaee7cdeb",
+    "status": "verified (read from source); 'pattern' classification is an interpretation"
+  },
+  "patterns": {
+    "two_level": "executive captures → supervisor reviews (reject → back) → business_admin confirms (reject → back). The doctrine described in docs/14-dynamic-platform/dynamic-flow-transformation-plan.html §3.",
+    "one_level": "executive captures → supervisor decides.",
+    "supervisor_only": "supervisor captures and decides (no executive tier).",
+    "admin_gate": "a single business_admin decision gate inside a module.",
+    "forward_loop": "every tier records a verdict that flows FORWARD (never bounces) to a final confirmer.",
+    "checklist_rollup": "a set of yes/no/na items whose aggregate decides the outcome."
+  },
+  "flows": [
+    {
+      "id": "bd_shortlist",
+      "module": "bd",
+      "name": "Shortlist a pipeline draft",
+      "pattern": "one_level",
+      "state": "sites.status",
+      "statuses": ["draft_submitted", "shortlisted", "rejected", "archived"],
+      "steps": [
+        { "actor": "executive|supervisor", "action": "create draft", "to": "draft_submitted (executive) / shortlisted (supervisor-created drafts skip review)", "route": "POST /api/bd/drafts" },
+        { "actor": "supervisor", "action": "shortlist", "from": "draft_submitted", "to": "shortlisted", "route": "POST /api/bd/drafts/{site_id}/shortlist" },
+        { "actor": "supervisor", "action": "reject (reasons[] + note) / archive (note required)", "to": "rejected | archived", "route": "POST /api/bd/drafts/{site_id}/reject | /archive" }
+      ],
+      "loops": ["archive → revive restores archived_from_status (supervisor, POST /api/sites/{id}/revive)"],
+      "rules": ["_assert_not_self_approval: a non-supervising caller cannot shortlist/reject its own draft"],
+      "sources": ["backend/app/domain/state_machine.py", "backend/app/services/bd_service.py svc_create_draft, svc_shortlist_draft, svc_reject_site, svc_archive_site, svc_revive_site", "backend/app/routers/bd.py"]
+    },
+    {
+      "id": "bd_details_approval",
+      "module": "bd",
+      "name": "Site details review",
+      "pattern": "one_level",
+      "state": "sites.status (+ approvals row with expected_loi_days / loi_deadline)",
+      "statuses": ["shortlisted", "details_submitted", "approved", "rejected", "archived"],
+      "steps": [
+        { "actor": "executive (owner/assigned/delegated) | supervisor", "action": "save details (17-field form, partial)", "route": "POST /api/bd/shortlist/{site_id}/details/save" },
+        { "actor": "executive", "action": "submit for review", "from": "shortlisted", "to": "details_submitted", "route": "POST /api/bd/shortlist/{site_id}/submit" },
+        { "actor": "supervisor", "action": "approve (sets expected_loi_days → LOI deadline)", "from": "details_submitted", "to": "approved", "route": "POST /api/bd/shortlist/{site_id}/approve" }
+      ],
+      "loops": ["business_admin may UNDO a BD site approval within the reversible_actions window (POST /api/sites/{id}/reversible-actions/{rid}/undo)"],
+      "sources": ["backend/app/services/bd_service.py svc_submit_details, svc_approve_shortlist, apply_reversible_undo", "backend/app/domain/schemas/site.py SaveDetailsRequest, ApproveShortlistRequest", "backend/app/services/reversible_service.py"]
+    },
+    {
+      "id": "loi",
+      "module": "bd",
+      "name": "LOI upload and hand-off to Legal",
+      "pattern": "one_level",
+      "state": "sites.status",
+      "statuses": ["approved", "loi_uploaded", "legal_review"],
+      "steps": [
+        { "actor": "executive", "action": "upload signed LOI", "from": "approved", "to": "loi_uploaded", "route": "POST /api/loi/{site_id}/upload" },
+        { "actor": "supervisor", "action": "set/extend LOI timeline", "route": "POST /api/loi/{site_id}/set-timeline" },
+        { "actor": "supervisor", "action": "send back (wrong file, comments required)", "from": "loi_uploaded", "to": "approved", "route": "POST /api/loi/{site_id}/send-back" },
+        { "actor": "supervisor", "action": "send to Legal (seeds legal_dd_checklist, notifies legal supervisors)", "from": "loi_uploaded", "to": "legal_review", "route": "POST /api/staging/{site_id}/push" }
+      ],
+      "sources": ["backend/app/services/loi_service.py", "backend/app/services/bd_service.py svc_push_to_payments", "backend/app/domain/state_machine.py (LOI_UPLOADED → APPROVED send-back)"]
+    },
+    {
+      "id": "legal_dd",
+      "module": "legal",
+      "name": "Due-diligence report (DDR)",
+      "pattern": "checklist_rollup + one_level",
+      "state": "legal_dd_checklist (stage, 9 items, final_verdict) → sites.legal_dd_status, sites.status",
+      "statuses": { "stage": ["draft", "pending_review", "published"], "items": ["pending", "yes", "no", "na"], "final_verdict": ["pending", "positive", "negative"], "sites.legal_dd_status": ["pending", "in_review", "positive", "negative"] },
+      "items": ["title_doc", "sanctioned_plan", "oc_cc", "commercial_use", "property_tax", "electricity", "fire_noc", "other_1 (custom label)", "other_2 (custom label)"],
+      "steps": [
+        { "actor": "executive (needs legal site_delegation; only while stage=draft) | supervisor", "action": "fill items", "route": "POST /api/legal/{site_id}/dd/items" },
+        { "actor": "executive|supervisor", "action": "submit for review", "to": "stage=pending_review", "route": "POST /api/legal/{site_id}/dd/submit-for-review" },
+        { "actor": "supervisor (legal)", "action": "finalise verdict (rejection_reason required when negative)", "to": "published; positive → legal_dd_status=positive; negative → sites.status=legal_rejected", "route": "POST /api/legal/{site_id}/dd/finalize" }
+      ],
+      "decision": "Verdict is STAMPED by the supervisor (not computed from the items); the BD 'DDR negative' view flags any item == 'no' as well.",
+      "sources": ["backend/app/services/legal_service.py svc_save_verification, svc_submit_dd_for_review, svc_save_due_diligence", "backend/app/domain/schemas/legal.py", "backend/app/services/site_stage_status_service.py _legal_rows"]
+    },
+    {
+      "id": "legal_change_request",
+      "module": "legal (raised from bd)",
+      "name": "Change request on a legal field",
+      "pattern": "one_level (cross-module)",
+      "state": "legal_change_requests",
+      "statuses": ["pending", "approved", "rejected"],
+      "steps": [
+        { "actor": "executive|supervisor (BD, own site)", "action": "open CR: (target_table, field_name, current → requested, justification)", "route": "POST /api/bd/change-requests" },
+        { "actor": "supervisor (legal)", "action": "approve (applies the value) / reject", "route": "POST /api/legal/change-requests/{id}/approve | /reject" }
+      ],
+      "loops": ["approval that flips the last failing DD item auto-recovers the site: legal_rejected → legal_review (_maybe_recover_dd_verdict)"],
+      "targets": ["legal_dd_checklist", "site_agreement", "site_licensing"],
+      "sources": ["backend/app/services/change_request_service.py", "backend/app/domain/state_machine.py (LEGAL_REJECTED → LEGAL_REVIEW)"]
+    },
+    {
+      "id": "legal_agreement",
+      "module": "legal",
+      "name": "Agreement",
+      "pattern": "supervisor_only",
+      "state": "site_agreement (signed, registered) → sites.agreement_status",
+      "statuses": ["pending", "signed", "registered"],
+      "gate": "published positive DDR",
+      "steps": [{ "actor": "supervisor (legal)", "action": "mark signed / registered (+ document)", "route": "POST /api/legal/{site_id}/agreement" }],
+      "sources": ["backend/app/services/legal_service.py svc_save_agreement"]
+    },
+    {
+      "id": "legal_licensing",
+      "module": "legal",
+      "name": "Licensing",
+      "pattern": "checklist_rollup + one_level",
+      "state": "site_licensing (5 items, stage) → sites.licensing_status, sites.status",
+      "statuses": { "items": ["pending", "yes", "no", "na"], "stage": ["draft", "pending_review", "published"], "sites.licensing_status": ["pending", "partial", "complete"] },
+      "items": ["fssai", "health_trade", "shops_estab_reg", "fire_noc", "storage_license"],
+      "gate": "published positive DDR AND agreement signed or registered",
+      "steps": [
+        { "actor": "executive (delegated, stage=draft) | supervisor", "action": "save items", "route": "POST /api/legal/{site_id}/licensing" },
+        { "actor": "executive|supervisor", "action": "submit for review", "route": "POST /api/legal/{site_id}/licensing/submit-for-review" },
+        { "actor": "supervisor (legal)", "action": "save with all five ∈ {yes, na}", "to": "licensing_status=complete, stage=published, sites.status legal_review → legal_approved" }
+      ],
+      "decision": "all_positive roll-up: every item yes or na (only a supervisor save publishes)",
+      "sources": ["backend/app/services/legal_service.py svc_save_licensing, svc_submit_licensing_for_review", "backend/app/services/licensing_status.py"]
+    },
+    {
+      "id": "finance_ca",
+      "module": "(none — BD site tracker Finance tab + business-admin portal)",
+      "name": "Finance / CA code approval",
+      "pattern": "two_level",
+      "state": "sites.finance_status (+ kyc_verified, ca_code, finance_amount)",
+      "statuses": ["pending", "awaiting_supervisor", "awaiting_admin", "approved"],
+      "gate": "sites.status ∈ {loi_uploaded, legal_review, legal_approved, pushed_to_payments} (runs in PARALLEL with Legal)",
+      "steps": [
+        { "actor": "executive (owner) | supervisor", "action": "save draft: KYC verified, CA code (unique per tenant, case-insensitive), amount", "route": "PATCH /api/sites/{site_id}/finance" },
+        { "actor": "executive|supervisor", "action": "request approval (KYC + CA code + amount required)", "to": "awaiting_supervisor", "route": "POST /api/sites/{site_id}/finance/request-approval" },
+        { "actor": "supervisor", "action": "approve", "from": "awaiting_supervisor", "to": "awaiting_admin", "route": "POST /api/sites/{site_id}/finance/approve" },
+        { "actor": "business_admin", "action": "approve (may unlock Design if DDR already positive)", "from": "awaiting_admin", "to": "approved", "route": "POST /api/business-admin/finance-approvals/{site_id}/approve" }
+      ],
+      "loops": ["either tier rejects → pending (fields unlock for correction)"],
+      "sources": ["backend/app/services/finance_service.py", "backend/app/services/workflow_unlocks.py maybe_unlock_design"]
+    },
+    {
+      "id": "design_deliverables",
+      "module": "design",
+      "name": "Design deliverables recce → 2D → 3D",
+      "pattern": "two_level (recce: one_level)",
+      "state": "design_deliverables (per kind) + design_reviews.current_stage → sites.design_status",
+      "statuses": { "deliverable.status": ["pending", "submitted", "approved", "rejected"], "deliverable.admin_status": ["pending", "approved", "rejected"], "review.current_stage": ["recce", "2d", "3d", "gfc", "done", "(boq: historical)"], "sites.design_status": ["pending", "allocated", "in_progress", "gfc_pending", "approved", "rejected"] },
+      "gate": "sites.legal_dd_status = 'positive' AND sites.finance_status = 'approved' (workflow_unlocks.design_unlock_ready)",
+      "steps": [
+        { "actor": "supervisor (design)", "action": "allocate site to a design executive (or self)", "to": "design_status=allocated", "route": "POST /api/design/{site_id}/allocate" },
+        { "actor": "executive|supervisor", "action": "upload deliverable for the active kind (supervisor self-upload auto-approves)", "route": "POST /api/design/{site_id}/deliverables/{kind}/upload" },
+        { "actor": "supervisor (design)", "action": "review yes/no with comments (reject → re-upload)", "route": "POST /api/design/{site_id}/deliverables/{kind}/review" },
+        { "actor": "business_admin", "action": "admin review for 2D and 3D (approve advances; send-back returns to supervisor)", "route": "POST /api/design/{site_id}/deliverables/{kind}/admin-review" }
+      ],
+      "loops": ["reject → re-upload at the same kind", "supervisor and admin 2D/3D decisions are undoable (reversible_actions)"],
+      "sources": ["backend/app/services/design_service.py (_NEXT_STAGE, _NEEDS_ADMIN, svc_submit_deliverable, svc_review_deliverable, svc_admin_review_deliverable)"]
+    },
+    {
+      "id": "design_gfc",
+      "module": "design",
+      "name": "Good-For-Construction (GFC) sign-off",
+      "pattern": "admin_gate",
+      "state": "design_reviews.gfc_status → sites.design_status",
+      "statuses": { "gfc_status": ["pending", "approved", "rejected"] },
+      "steps": [
+        { "actor": "supervisor (design)", "action": "send approved 3D for GFC", "to": "design_status=gfc_pending", "route": "POST /api/design/{site_id}/gfc-request" },
+        { "actor": "business_admin", "action": "GFC decision", "to": "approve → design_status=approved, stage=done (design COMPLETE; opens Project Excellence + Project); reject → stage=3d, design_status=in_progress", "route": "POST /api/design/gfc/{site_id}" }
+      ],
+      "note": "BOQ is no longer a design step: the 11-head budget moved to Project Excellence (models.py comment, design_service._DELIVERABLE_KINDS = recce/2d/3d).",
+      "sources": ["backend/app/services/design_service.py svc_request_gfc_approval, svc_gfc_decision"]
+    },
+    {
+      "id": "pe_gfc_budget",
+      "module": "project_excellence",
+      "name": "Post-GFC budget (11 heads)",
+      "pattern": "two_level",
+      "state": "site_budgets(phase='gfc') + site_budget_items(idx 1..11) → sites.project_excellence_status",
+      "statuses": { "budget.status": ["draft", "pending_supervisor", "pending_admin", "approved", "rejected"], "sites.project_excellence_status": ["pending", "allocated", "budgeting", "approved"] },
+      "gate": "sites.design_status = 'approved'",
+      "heads": ["Professional Fees", "HVAC", "Furniture, Light & Planters", "Civil & Interiors", "Kitchen Equipment", "Branding", "Crockery & Small Equipments", "Utilities", "Licencing", "BD Cost", "Misc"],
+      "steps": [
+        { "actor": "supervisor (project_excellence)", "action": "delegate to an executive (or self)", "route": "POST /api/project-excellence/{site_id}/allocate" },
+        { "actor": "executive|supervisor", "action": "fill 11 heads and submit (a supervisor's submit goes straight to pending_admin)", "route": "POST /api/project-excellence/{site_id}/budget" },
+        { "actor": "supervisor", "action": "review → pending_admin | rejected", "route": "POST /api/project-excellence/{site_id}/budget/review" },
+        { "actor": "business_admin", "action": "approve (seeds Project initialization) | reject", "route": "POST /api/project-excellence/{site_id}/budget/admin-review" }
+      ],
+      "sources": ["backend/app/services/project_excellence_service.py", "backend/app/services/budget_service.py BUDGET_LABELS", "backend/app/services/project_service.py seed_initialization_from_pe"]
+    },
+    {
+      "id": "project_milestones",
+      "module": "project",
+      "name": "Project execution milestones",
+      "pattern": "one_level per milestone (date proposals)",
+      "state": "project_reviews → sites.project_status",
+      "statuses": { "initialization_status": ["pending", "proposed", "submitted", "approved", "rejected"], "expected_completion_status": ["pending", "submitted", "approved", "rejected"], "sites.project_status": ["pending", "allocated", "in_progress", "done"] },
+      "gate": "sites.design_status = 'approved'",
+      "steps": [
+        { "actor": "supervisor (project)", "action": "allocate to an executive (or self)", "route": "POST /api/project/{site_id}/allocate" },
+        { "actor": "supervisor", "action": "propose initialization date if the PE hand-over left it unset", "route": "POST /api/project/{site_id}/initialization/propose" },
+        { "actor": "executive", "action": "accept / reject the proposed initialization date", "route": "POST /api/project/{site_id}/initialization/respond" },
+        { "actor": "supervisor", "action": "finalize the initialization date after a rejection", "route": "POST /api/project/{site_id}/initialization/finalize" },
+        { "actor": "executive|supervisor", "action": "submit expected completion", "route": "POST /api/project/{site_id}/milestone/{field}" },
+        { "actor": "supervisor", "action": "approve / reject expected completion", "route": "POST /api/project/{site_id}/milestone/{field}/review" },
+        { "actor": "supervisor", "action": "set mid-project visit date (after expected completion approved)", "route": "POST /api/project/{site_id}/mid-project-visit" }
+      ],
+      "sources": ["backend/app/services/project_service.py svc_submit_milestone, svc_review_milestone, svc_propose/respond/finalize_initialization, svc_set_mid_visit"]
+    },
+    {
+      "id": "quality_audit",
+      "module": "project + project_excellence",
+      "name": "Quality audit",
+      "pattern": "two_level (Project path) | supervisor_only (PE path)",
+      "state": "project_reviews.quality_audit_status; quality_audit_reports(kind before|after, pushed_at)",
+      "statuses": { "quality_audit_status": ["pending", "submitted", "supervisor_approved", "approved", "rejected"], "report.kind": ["before", "after"] },
+      "gate": "mid-project visit date set",
+      "steps": [
+        { "actor": "executive|supervisor (project)", "action": "record inspection date", "to": "submitted", "route": "POST /api/project/{site_id}/quality-audit/inspection-date" },
+        { "actor": "supervisor (project)", "action": "approve / reject", "to": "supervisor_approved | rejected", "route": "POST /api/project/{site_id}/quality-audit/supervisor-approve" },
+        { "actor": "business_admin", "action": "confirm → project COMPLETES (project_status=done)", "route": "POST /api/project/{site_id}/quality-audit/admin-confirm" },
+        { "actor": "supervisor (project_excellence) — alternative", "action": "mark audit completed → project completes", "route": "POST /api/project-excellence/{site_id}/quality-audit/complete" },
+        { "actor": "executive (quality_audit delegation) | supervisor (project_excellence)", "action": "upload + push 'before' (completes project) then 'after' report PDFs", "route": "POST /api/project-excellence/{site_id}/quality-audit/report/{kind}/upload | /push" }
+      ],
+      "note": "Joint ownership across two modules (Project + Project Excellence) — the real-world shape of v5's planned capability G1.",
+      "sources": ["backend/app/services/project_service.py svc_submit_inspection_date, svc_supervisor_approve_quality_audit, svc_admin_confirm_quality_audit, svc_pe_complete_quality_audit, svc_record_qa_report, svc_push_qa_report", "backend/app/db/models.py QualityAuditReport"]
+    },
+    {
+      "id": "nso_handover",
+      "module": "project → nso",
+      "name": "Push to NSO",
+      "pattern": "supervisor_only",
+      "state": "project_reviews.nso_status, nso_reviews.handover_pushed_at",
+      "statuses": { "project_reviews.nso_status": ["pending", "pushed"] },
+      "gate": "project done AND both QA reports uploaded + pushed",
+      "steps": [{ "actor": "supervisor (project)", "action": "push from the NSO Handover tab (NSO opens at stage three)", "route": "POST /api/project/{site_id}/push-to-nso" }],
+      "sources": ["backend/app/services/project_service.py svc_push_to_nso", "backend/app/services/nso_service.py svc_open_nso_at_stage_three"]
+    },
+    {
+      "id": "nso",
+      "module": "nso",
+      "name": "New-store opening readiness",
+      "pattern": "supervisor_only (staged, cross-module gates per stage)",
+      "state": "nso_reviews",
+      "statuses": { "current_stage": ["stage_one", "stage_two", "stage_three", "final", "done"], "nso_status": ["pending", "in_progress", "complete"], "dry_stock_order_status": ["pending", "ordered", "received"], "online_delivery_status": ["pending", "ready", "active"], "licence *_status (legacy, derived from Legal)": ["pending", "done"] },
+      "stageGates": {
+        "stage_one": "finance_status = 'approved' AND ca_code set",
+        "stage_two": "stage one complete (communication_floated set) AND project initialization approved",
+        "stage_three": "handover pushed from Project AND legal licensing complete AND project done",
+        "final": "dry stock ordered/received, online delivery ready/active, handover checklist signed, launch date, launch_ready set, BOTH sign-offs"
+      },
+      "steps": [
+        { "actor": "supervisor (nso)", "action": "stage one: property details + communication floated", "route": "POST|PATCH /api/nso/{site_id}/stage-one" },
+        { "actor": "supervisor (nso)", "action": "stage two: refresh licensing from Legal (read-only mirror)", "route": "POST|PATCH /api/nso/{site_id}/stage-two" },
+        { "actor": "supervisor (nso)", "action": "stage three: launch-readiness checklist", "route": "POST|PATCH /api/nso/{site_id}/stage-three" },
+        { "actor": "supervisor (nso)", "action": "final approval → creates the launch_approvals row", "route": "POST /api/nso/{site_id}/final-approval" }
+      ],
+      "sources": ["backend/app/services/nso_service.py (_trigger_one_unlocked, _stage_two_unlocked, _stage_three_unlocked, _stage_three_complete, svc_final_approval)", "backend/app/routers/nso.py (NsoMember = SUPERVISOR only)"]
+    },
+    {
+      "id": "launch_validation",
+      "module": "(none — business-admin portal + BD Launch)",
+      "name": "Launch validation loop",
+      "pattern": "forward_loop",
+      "state": "launch_approvals (staging copy of rent + commercial terms) + launch_review_events → on confirm commits to sites/site_details; sites.is_launched",
+      "statuses": ["pending_admin_review", "under_exec_review", "under_supervisor_review", "pending_admin_final", "ready_to_launch", "launched"],
+      "verdicts": ["approved", "rejected"],
+      "gate": "NSO final approval",
+      "steps": [
+        { "actor": "business_admin", "action": "review all department statuses; edit rent terms; send for review", "from": "pending_admin_review", "to": "under_exec_review", "route": "POST /api/launch-approvals/{site_id}/send-for-review" },
+        { "actor": "site creator (executive or supervisor)", "action": "verdict + comment; may set rent_start_date only", "to": "under_supervisor_review", "route": "POST /api/launch-approvals/{site_id}/exec-review" },
+        { "actor": "supervisor", "action": "edit rent terms; verdict + comment", "to": "pending_admin_final", "route": "POST /api/launch-approvals/{site_id}/supervisor-review" },
+        { "actor": "business_admin", "action": "final edits; CONFIRM commits staging into sites + site_details", "to": "ready_to_launch", "route": "POST /api/launch-approvals/{site_id}/final-confirm" },
+        { "actor": "business_admin", "action": "launch", "to": "launched (launch_approvals.status=launched, sites.is_launched=true, sites.launched_at; sites.status is NOT changed — 'launched' is admitted by chk_sites_status (migration 202606141) but no service writes it)", "route": "POST /api/launch-approvals/{site_id}/launch" }
+      ],
+      "editRights": { "pending_admin_review": ["business_admin"], "under_exec_review": ["site creator: rent_start_date only"], "under_supervisor_review": ["supervisor"], "pending_admin_final": ["business_admin"] },
+      "note": "A rejection never bounces the record back; verdicts are recorded and surfaced to the final confirmer.",
+      "sources": ["backend/app/services/launch_service.py (_EDIT_ALLOWED, _RENT_START_EDIT_ALLOWED, svc_*)", "backend/app/domain/schemas/launch.py"]
+    },
+    {
+      "id": "financial_closure",
+      "module": "financial_closure (site_delegations scope; routes guarded by module 'project')",
+      "name": "Financial closure (actuals vs GFC budget)",
+      "pattern": "two_level + admin_gate",
+      "state": "site_budgets(phase='closure') + 11 items (variation vs gfc) → sites.financial_closure_status",
+      "statuses": { "budget.status": ["draft", "pending_supervisor", "pending_admin", "approved", "rejected"], "sites.financial_closure_status": ["pending", "open", "allocated", "budgeting", "closed"] },
+      "gate": "sites.is_launched AND business_admin 'send for financial closure'",
+      "steps": [
+        { "actor": "business_admin", "action": "send for financial closure (seeds the 11 labels from gfc)", "to": "open", "route": "POST /api/financial-closure/{site_id}/send" },
+        { "actor": "supervisor (project)", "action": "allocate (or self)", "route": "POST /api/financial-closure/{site_id}/allocate" },
+        { "actor": "executive|supervisor (project)", "action": "enter actuals and submit", "route": "POST /api/financial-closure/{site_id}/budget" },
+        { "actor": "supervisor (project)", "action": "review → pending_admin | rejected", "route": "POST /api/financial-closure/{site_id}/budget/review" },
+        { "actor": "business_admin", "action": "approve + Financial Closure button → closed, archived to admin history", "route": "POST /api/financial-closure/{site_id}/finalize" }
+      ],
+      "sources": ["backend/app/services/financial_closure_service.py", "backend/app/routers/financial_closure.py (InProjectModule = require_module('project'))"]
+    }
+  ],
+  "accessApprovals": [
+    { "id": "supervisor_signup", "request": "POST /api/auth/signup/supervisor (department join code from module_codes)", "approver": "business_admin", "routes": "POST /api/business-admin/pending-supervisors/{user_id}/approve | /reject", "state": "users.is_active=false + users.notes='pending_module:<m>'", "source": "backend/app/services/business_admin_service.py" },
+    { "id": "executive_signup", "request": "POST /api/auth/signup/executive (supervisor_invite_codes)", "approver": "the inviting supervisor", "routes": "POST /api/supervisor-codes/me/pending-executives/{user_id}/approve | /reject", "source": "backend/app/routers/supervisor_codes.py" },
+    { "id": "observer_signup", "request": "POST /api/auth/signup/observer (observer_codes)", "approver": "business_admin", "routes": "POST /api/business-admin/pending-observers/{user_id}/approve | /reject; /observers/{user_id}/revoke", "source": "backend/app/services/business_admin_service.py" },
+    { "id": "supervisor_executive_access", "request": "POST /api/users/me/request-executive-access", "approver": "business_admin", "statuses": ["pending", "approved", "rejected"], "routes": "POST /api/business-admin/executive-requests/{id}/approve | /reject", "source": "backend/database/migrations/202606231_supervisor_executive_requests.sql" },
+    { "id": "workspace_request", "request": "POST /api/tenancy/request-workspace", "approver": "platform admin (short-lived aud=platform-admin JWT)", "statuses": ["pending", "approved", "rejected"], "routes": "POST /api/tenancy/requests/{id}/approve | /reject", "source": "backend/app/services/tenancy_service.py approve_workspace_request" },
+    { "id": "password_reset", "request": "POST /api/auth/password-reset/request", "approver": "platform admin", "statuses": ["pending", "approved", "completed", "rejected"], "routes": "POST /api/tenancy/password-reset-requests/{id}/confirm", "source": "backend/app/services/tenancy_service.py confirm_password_reset_request" }
+  ]
+}

@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useSession } from '../state/SessionContext.jsx';
 import { ROUTES } from './routes.js';
+import { isCustomModuleKey, customModuleRoute } from '../modules/shared/workspaceModules.js';
 
 // RequireRole: redirects to overview if the current role is not in the allowed list.
 // `roles` can contain canonical ROLE values or legacy display values.
@@ -47,6 +48,7 @@ function homeForSession(effectiveRole, effectiveModule) {
   // 'supervisor' or 'executive' — route them like that role, not to the
   // admin portal.  Only route to /business-admin when they are NOT simulating.
   if (effectiveRole === 'business_admin') return '/business-admin';
+  if (isCustomModuleKey(effectiveModule)) return customModuleRoute(effectiveModule);
   if (effectiveModule === 'legal')        return ROUTES.LEGAL;
   if (effectiveModule === 'design')       return ROUTES.DESIGN;
   if (effectiveModule === 'project')      return ROUTES.PROJECT;

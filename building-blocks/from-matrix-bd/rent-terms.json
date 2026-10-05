@@ -1,0 +1,98 @@
+{
+  "$comment": "Reusable FIELD GROUP: the Matrix-bd rent-terms model (fixed / revshare / mg_revshare / staggered), expressed as a discriminated field group a configurator can attach to any stage. Field kinds use the v5 KINDS vocabulary where possible; constraints and storage aliases are cited from source.",
+  "provenance": {
+    "repo": "/Users/aditya/Desktop/bd/Matrix-bd",
+    "ref": "origin/main",
+    "sha": "3d4f277beb22c5be02c2abacea61b6afaee7cdeb",
+    "sources": [
+      "frontend/src/modules/shared/rent/RentTermsForm.jsx (V1 form, launch loop)",
+      "frontend/src/modules/shared/rent/RentTermsFormV2.jsx (FEATURE_RENT_V2: 'Is the rent staggered?' + Dine-in/Delivery split)",
+      "frontend/src/modules/shared/rent/CommercialTermsForm.jsx",
+      "backend/app/domain/schemas/site.py (RentType, StaggeredEscalationItem, CreateDraftRequest._staggered_requirements, SaveDetailsRequest)",
+      "backend/app/domain/schemas/launch.py (RENT_EDITABLE_FIELDS, LaunchRentFieldsRequest)",
+      "backend/database/schema.sql (chk_sites_rent_type, is_valid_staggered_escalation, chk_revshare_*_range)"
+    ],
+    "status": "verified (read from source)"
+  },
+  "group": {
+    "key": "rent_terms",
+    "label": "Rent terms",
+    "discriminator": "rent_type",
+    "fields": [
+      {
+        "key": "rent_type", "label": "Rent type", "kind": "choice", "required": false,
+        "options": [
+          { "id": "fixed", "label": "Fixed + escalation", "sub": "monthly fixed + % per year" },
+          { "id": "revshare", "label": "Revenue share", "sub": "% of monthly sales" },
+          { "id": "mg_revshare", "label": "MG + Revenue share", "sub": "minimum guarantee + escalation + % of sales" },
+          { "id": "staggered", "label": "Staggered Rent with Escalation", "sub": "base rent + yearly stepped schedule" }
+        ],
+        "constraint": "NULL or one of the four (DB chk_sites_rent_type / chk_site_details_rent_type; Pydantic Literal RentType → clean 422)"
+      },
+      { "key": "expected_rent", "kind": "number", "unit": "₹/month", "labelByVariant": { "fixed": "Expected rent", "mg_revshare": "Minimum guarantee", "staggered": "Base rent" }, "visibleWhen": { "rent_type": ["fixed", "mg_revshare", "staggered"] }, "requiredWhen": { "rent_type": ["staggered"] } },
+      { "key": "rev_share_pct", "kind": "number", "unit": "%", "min": 0, "max": 100, "labelByVariant": { "revshare": "Revenue share (% of sales)", "mg_revshare": "Revenue share (% above MG)" }, "visibleWhen": { "rent_type": ["revshare", "mg_revshare"] } },
+      { "key": "escalation_pct", "kind": "number", "unit": "%", "min": 0, "max": 100, "label": "Escalation", "visibleWhen": { "rent_type": ["fixed", "mg_revshare"] } },
+      { "key": "expected_escalation_years", "kind": "choice", "label": "Escalation cadence", "options": [{ "id": 1, "label": "Yearly" }, { "id": 3, "label": "Every 3 yrs" }, { "id": 5, "label": "Every 5 yrs" }], "min": 0, "max": 99, "visibleWhen": { "rent_type": ["fixed", "mg_revshare"] } },
+      {
+        "key": "staggered_escalation", "kind": "repeater", "label": "Escalation schedule",
+        "visibleWhen": { "rent_type": ["staggered"] }, "requiredWhen": { "rent_type": ["staggered"] },
+        "minItems": 1, "maxItems": 5, "uniqueBy": "year",
+        "item": [
+          { "key": "year", "kind": "number", "required": true, "min": 1, "integer": true },
+          { "key": "percent", "kind": "number", "required": true, "min": 0, "max": 100 },
+          { "key": "mg", "kind": "number", "min": 0, "featureFlag": "FEATURE_RENT_V2" },
+          { "key": "dine_in_pct", "kind": "number", "min": 0, "max": 100, "featureFlag": "FEATURE_RENT_V2" },
+          { "key": "delivery_pct", "kind": "number", "min": 0, "max": 100, "featureFlag": "FEATURE_RENT_V2" }
+        ],
+        "dbValidator": "public.is_valid_staggered_escalation(jsonb): NULL / JSON null ok; array ≤ 5; year > 0; 0 ≤ percent ≤ 100; mg ≥ 0; 0 ≤ dine_in_pct, delivery_pct ≤ 100",
+        "onVariantChange": "switching away from staggered nulls the schedule on save (bd_service._apply_staggered_escalation)"
+      },
+      { "key": "revshare_dinein_pct", "kind": "number", "unit": "% of sales", "min": 0, "max": 100, "label": "Dine-in share", "featureFlag": "FEATURE_RENT_V2", "note": "clearable; turning the split off clears both values" },
+      { "key": "revshare_delivery_pct", "kind": "number", "unit": "% of sales", "min": 0, "max": 100, "label": "Delivery share", "featureFlag": "FEATURE_RENT_V2" },
+      { "key": "escalation_date", "kind": "date", "label": "Escalation date", "note": "launch staging only (RENT_EDITABLE_FIELDS)" },
+      { "key": "rent_free_days", "kind": "number", "unit": "days", "integer": true, "label": "Rent-free days" },
+      { "key": "lock_in_months", "kind": "number", "unit": "months", "integer": true, "label": "Lock-in" },
+      { "key": "tenure_months", "kind": "number", "unit": "months", "integer": true, "label": "Tenure" }
+    ],
+    "commercialTerms": {
+      "$comment": "Sibling group edited by the same roles in the launch loop (CommercialTermsForm.jsx).",
+      "fields": [
+        { "key": "carpet_area_sqft", "kind": "number", "unit": "sqft" },
+        { "key": "cam_charges", "kind": "number", "unit": "₹" },
+        { "key": "capex", "kind": "number", "unit": "₹" },
+        { "key": "security_deposit", "kind": "number", "unit": "₹" },
+        { "key": "brokerage", "kind": "number", "unit": "₹" },
+        { "key": "rent_start_date", "kind": "date", "note": "the ONLY field the site creator may edit (at under_exec_review); required before the admin commits" }
+      ]
+    }
+  },
+  "v2Presentation": {
+    "$comment": "RentTermsFormV2 (FEATURE_RENT_V2) reframes entry around one question; it is a presentation over the same storage.",
+    "question": "Is the rent staggered?",
+    "answers": { "no": "rent_type = fixed (base rent + one escalation % at a cadence)", "yes": "rent_type = staggered (base rent + per-year schedule)" },
+    "revShareToggle": "REV SHARE — add Dine-in % / Delivery % split (on either path; per-year in the staggered schedule)",
+    "legacy": "revshare / mg_revshare records render read-only with an explicit 'Convert to flat / staggered' action (logged)"
+  },
+  "storageAliases": {
+    "$comment": "The same concept carries different column names per layer — a configurator field group must map them explicitly.",
+    "rent_type": { "pipeline (sites)": "rent_type", "details form (SaveDetailsRequest)": "rent_type | rentType", "site_details": "rent_type", "launch staging": "rent_type" },
+    "rent amount": { "pipeline (sites)": "expected_rent", "details form": "rent", "site_details": "fixed_rent_amt", "launch staging": "expected_rent + fixed_rent_amt" },
+    "escalation %": { "pipeline (sites)": "expected_escalation_pct", "details form": "escalation", "site_details": "escalation_pct", "launch staging": "escalation_pct" },
+    "escalation cadence": { "pipeline (sites)": "expected_escalation_years", "launch staging": "expected_escalation_years" },
+    "revenue share %": { "pipeline (sites)": "expected_revshare_pct", "details form": "revshare", "site_details": "rev_share_pct", "launch staging": "rev_share_pct" },
+    "split": { "pipeline (sites)": "revshare_dinein_pct / revshare_delivery_pct", "launch staging": "revshare_dinein_pct / revshare_delivery_pct" },
+    "schedule": { "pipeline (sites)": "staggered_escalation (jsonb)", "launch staging": "staggered_escalation (jsonb)" },
+    "lock-in / tenure / rent-free": { "details form": "lockin / tenure / rent_free_days", "site_details + launch staging": "lock_in_months / tenure_months / rent_free_days" }
+  },
+  "editRightsByStage": {
+    "bd draft (create)": "executive | supervisor (CreateDraftRequest — staggered requires expected_rent + schedule)",
+    "bd details": "executive (own/assigned, while shortlisted) | supervisor",
+    "launch pending_admin_review / pending_admin_final": "business_admin",
+    "launch under_supervisor_review": "supervisor",
+    "launch under_exec_review": "site creator: rent_start_date only",
+    "commit": "only the admin's final confirm copies staging → sites + site_details (launch_service._commit_rent_to_canonical)"
+  },
+  "derived": {
+    "total_op_cost": "(rent + cam) × 1.18 (18% GST multiplier hard-coded in backend/app/services/_common.py _extract_details)"
+  }
+}

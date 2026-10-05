@@ -1,0 +1,232 @@
+### `m_prop` (A) vs `m_prop` (B)
+
+- **columns**: A=520 B=610 · only-A 0 · only-B 90 · differ 0
+  - only B `audit_logs.config_release_id`: uuid null=YES default=-
+  - only B `audit_logs.module_key`: text null=YES default=-
+  - only B `audit_logs.provenance`: jsonb null=YES default=-
+  - only B `module_approvals.acting_as_delegate`: boolean null=NO default=false
+  - only B `module_approvals.actor_id`: uuid null=NO default=-
+  - only B `module_approvals.actor_role`: text null=NO default=-
+  - only B `module_approvals.comment`: text null=YES default=-
+  - only B `module_approvals.decided_at`: timestamp with time zone null=NO default=now()
+  - only B `module_approvals.id`: uuid null=NO default=gen_random_uuid()
+  - only B `module_approvals.is_override`: boolean null=NO default=false
+  - only B `module_approvals.record_id`: uuid null=NO default=-
+  - only B `module_approvals.release_id`: uuid null=NO default=-
+  - only B `module_approvals.stage_order`: integer null=NO default=-
+  - only B `module_approvals.tenant_id`: uuid null=NO default=-
+  - only B `module_approvals.tier`: text null=NO default=-
+  - only B `module_approvals.verdict`: text null=NO default=-
+  - only B `module_catalog.config_key`: text null=YES default=-
+  - only B `module_catalog.created_at`: timestamp with time zone null=NO default=now()
+  - only B `module_catalog.default_position`: integer null=NO default=0
+  - only B `module_catalog.has_delegation`: boolean null=NO default=-
+  - only B `module_catalog.has_membership`: boolean null=NO default=-
+  - only B `module_catalog.implementation`: text null=NO default=-
+  - only B `module_catalog.key`: text null=NO default=-
+  - only B `module_catalog.name`: text null=NO default=-
+  - only B `module_catalog.outcome_map`: jsonb null=YES default=-
+  - only B `module_catalog.reached_map`: jsonb null=YES default=-
+  - only B `module_catalog.retired_at`: timestamp with time zone null=YES default=-
+  - only B `module_catalog.status_source`: text null=YES default=-
+  - only B `module_catalog.supervisor_only`: boolean null=NO default=false
+  - only B `module_catalog.surface`: text null=NO default='module'::text
+  - only B `module_records.assigned_to`: uuid null=YES default=-
+  - only B `module_records.closed_at`: timestamp with time zone null=YES default=-
+  - only B `module_records.created_at`: timestamp with time zone null=NO default=now()
+  - only B `module_records.current_stage`: integer null=YES default=-
+  - only B `module_records.exit_outcome`: text null=YES default=-
+  - only B `module_records.id`: uuid null=NO default=gen_random_uuid()
+  - only B `module_records.module_key`: text null=NO default=-
+  - only B `module_records.opened_at`: timestamp with time zone null=NO default=now()
+  - only B `module_records.opened_by`: uuid null=YES default=-
+  - only B `module_records.release_id`: uuid null=NO default=-
+  - only B `module_records.runtime_state`: jsonb null=NO default='{}'::jsonb
+  - only B `module_records.site_id`: uuid null=NO default=-
+  - only B `module_records.status`: text null=NO default='pending'::text
+  - only B `module_records.supervisor_id`: uuid null=YES default=-
+  - only B `module_records.tenant_id`: uuid null=NO default=-
+  - only B `module_records.updated_at`: timestamp with time zone null=NO default=now()
+  - only B `module_stage_states.created_at`: timestamp with time zone null=NO default=now()
+  - only B `module_stage_states.decided_at`: timestamp with time zone null=YES default=-
+  - only B `module_stage_states.field_values`: jsonb null=NO default='{}'::jsonb
+  - only B `module_stage_states.record_id`: uuid null=NO default=-
+  - only B `module_stage_states.stage_name`: text null=NO default=-
+  - only B `module_stage_states.stage_order`: integer null=NO default=-
+  - only B `module_stage_states.status`: text null=NO default='pending'::text
+  - only B `module_stage_states.submitted_at`: timestamp with time zone null=YES default=-
+  - only B `module_stage_states.submitted_by`: uuid null=YES default=-
+  - only B `module_stage_states.tenant_id`: uuid null=NO default=-
+  - only B `module_stage_states.updated_at`: timestamp with time zone null=NO default=now()
+  - only B `sites.config_release_id`: uuid null=YES default=-
+  - only B `tenant_config_live.activated_at`: timestamp with time zone null=NO default=now()
+  - only B `tenant_config_live.activated_by`: text null=NO default=-
+  - only B `tenant_config_live.release_id`: uuid null=NO default=-
+  - only B `tenant_config_live.tenant_id`: uuid null=NO default=-
+  - only B `tenant_config_live.workspace_ref`: text null=YES default=-
+  - only B `tenant_config_releases.created_at`: timestamp with time zone null=NO default=now()
+  - only B `tenant_config_releases.id`: uuid null=NO default=gen_random_uuid()
+  - only B `tenant_config_releases.manifest`: jsonb null=NO default=-
+  - only B `tenant_config_releases.manifest_sha256`: text null=NO default=-
+  - only B `tenant_config_releases.published_by`: text null=NO default=-
+  - only B `tenant_config_releases.published_by_user_id`: uuid null=YES default=-
+  - only B `tenant_config_releases.reason`: text null=YES default=-
+  - only B `tenant_config_releases.schema_version`: text null=NO default='configurator-v5'::text
+  - only B `tenant_config_releases.source`: text null=NO default='configurator'::text
+  - only B `tenant_config_releases.source_ref`: text null=YES default=-
+  - only B `tenant_config_releases.tenant_id`: uuid null=NO default=-
+  - only B `tenant_config_releases.version`: integer null=NO default=-
+  - only B `tenant_modules.catalog_key`: text null=YES default=-
+  - only B `tenant_modules.config_key`: text null=YES default=-
+  - only B `tenant_modules.created_at`: timestamp with time zone null=NO default=now()
+  - only B `tenant_modules.delegation_enabled`: boolean null=NO default=true
+  - only B `tenant_modules.enabled`: boolean null=NO default=true
+  - only B `tenant_modules.introduced_release_id`: uuid null=YES default=-
+  - only B `tenant_modules.kind`: text null=NO default=-
+  - only B `tenant_modules.label`: text null=NO default=-
+  - only B `tenant_modules.module_key`: text null=NO default=-
+  - only B `tenant_modules.position`: integer null=NO default=0
+  - only B `tenant_modules.route`: text null=YES default=-
+  - only B `tenant_modules.supervisor_only`: boolean null=NO default=false
+  - only B `tenant_modules.tenant_id`: uuid null=NO default=-
+  - only B `tenant_modules.updated_at`: timestamp with time zone null=NO default=now()
+  - only B `tenant_modules.updated_release_id`: uuid null=YES default=-
+- **constraints**: A=240 B=305 · only-A 5 · only-B 70 · differ 0
+  - only A `module_codes.chk_module_codes_module`: [c] CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'payment'::text, 'project_excellence'::text])))
+  - only A `site_delegations.chk_site_delegations_module`: [c] CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'project_excellence'::text, 'financial_closure'::text, 'quality_audit'::text])))
+  - only A `supervisor_executive_requests.supervisor_executive_requests_module_check`: [c] CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'project_excellence'::text])))
+  - only A `supervisor_invite_codes.chk_supervisor_invite_codes_module`: [c] CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'payment'::text, 'project_excellence'::text])))
+  - only A `user_module_memberships.chk_user_module_memberships_module`: [c] CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'payment'::text, 'project_excellence'::text])))
+  - only B `audit_logs.chk_audit_logs_provenance`: [c] CHECK (((provenance IS NULL) OR (jsonb_typeof(provenance) = 'object'::text)))
+  - only B `audit_logs.fk_audit_logs_config_release`: [f] FOREIGN KEY (config_release_id) REFERENCES tenant_config_releases(id)
+  - only B `module_approvals.chk_ma_actor_role`: [c] CHECK ((actor_role = ANY (ARRAY['executive'::text, 'supervisor'::text, 'business_admin'::text])))
+  - only B `module_approvals.chk_ma_override_by_admin`: [c] CHECK (((NOT is_override) OR (actor_role = 'business_admin'::text)))
+  - only B `module_approvals.chk_ma_tier`: [c] CHECK ((tier = ANY (ARRAY['executive'::text, 'supervisor'::text, 'business_admin'::text])))
+  - only B `module_approvals.chk_ma_verdict`: [c] CHECK ((verdict = ANY (ARRAY['submitted'::text, 'approved'::text, 'rejected'::text, 'sent_back'::text])))
+  - only B `module_approvals.fk_ma_release`: [f] FOREIGN KEY (tenant_id, release_id) REFERENCES tenant_config_releases(tenant_id, id)
+  - only B `module_approvals.fk_ma_stage`: [f] FOREIGN KEY (record_id, stage_order) REFERENCES module_stage_states(record_id, stage_order) ON DELETE CASCADE
+  - only B `module_approvals.module_approvals_actor_id_fkey`: [f] FOREIGN KEY (actor_id) REFERENCES users(id)
+  - only B `module_approvals.module_approvals_pkey`: [p] PRIMARY KEY (id)
+  - only B `module_approvals.module_approvals_tenant_id_fkey`: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+  - only B `module_catalog.chk_mc_config_key`: [c] CHECK (((config_key IS NULL) OR is_valid_module_key(config_key)))
+  - only B `module_catalog.chk_mc_key`: [c] CHECK (is_valid_module_key(key))
+  - only B `module_catalog.chk_mc_outcome_map`: [c] CHECK (((outcome_map IS NULL) OR (jsonb_typeof(outcome_map) = 'object'::text)))
+  - only B `module_catalog.chk_mc_reached_map`: [c] CHECK (((reached_map IS NULL) OR (jsonb_typeof(reached_map) = 'object'::text)))
+  - only B `module_catalog.chk_mc_surface`: [c] CHECK ((surface = ANY (ARRAY['module'::text, 'scope'::text])))
+  - only B `module_catalog.module_catalog_pkey`: [p] PRIMARY KEY (key)
+  - only B `module_catalog.uq_mc_config_key`: [u] UNIQUE (config_key)
+  - only B `module_codes.chk_module_codes_module_key`: [c] CHECK (is_valid_module_key(module))
+  - only B `module_codes.fk_module_codes_tenant_module`: [f] FOREIGN KEY (tenant_id, module) REFERENCES tenant_modules(tenant_id, module_key)
+  - only B `module_records.chk_mr_closed`: [c] CHECK (((closed_at IS NULL) = (exit_outcome IS NULL)))
+  - only B `module_records.chk_mr_current_stage`: [c] CHECK (((current_stage IS NULL) OR (current_stage >= 1)))
+  - only B `module_records.chk_mr_exit_outcome`: [c] CHECK (((exit_outcome IS NULL) OR (exit_outcome = ANY (ARRAY['pending'::text, 'allocated'::text, 'in progress'::text, 'submitted'::text, 'rejected'::text, 'approved'::text, 'done'::text, 'skipped'::text]))))
+  - only B `module_records.chk_mr_runtime_state`: [c] CHECK ((jsonb_typeof(runtime_state) = 'object'::text))
+  - only B `module_records.chk_mr_status`: [c] CHECK ((status = ANY (ARRAY['pending'::text, 'allocated'::text, 'in progress'::text, 'submitted'::text, 'rejected'::text, 'approved'::text, 'done'::text, 'skipped'::text])))
+  - only B `module_records.fk_mr_release`: [f] FOREIGN KEY (tenant_id, release_id) REFERENCES tenant_config_releases(tenant_id, id)
+  - only B `module_records.fk_mr_tenant_module`: [f] FOREIGN KEY (tenant_id, module_key) REFERENCES tenant_modules(tenant_id, module_key)
+  - only B `module_records.module_records_assigned_to_fkey`: [f] FOREIGN KEY (assigned_to) REFERENCES users(id)
+  - only B `module_records.module_records_opened_by_fkey`: [f] FOREIGN KEY (opened_by) REFERENCES users(id)
+  - only B `module_records.module_records_pkey`: [p] PRIMARY KEY (id)
+  - only B `module_records.module_records_site_id_fkey`: [f] FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+  - only B `module_records.module_records_supervisor_id_fkey`: [f] FOREIGN KEY (supervisor_id) REFERENCES users(id)
+  - only B `module_records.module_records_tenant_id_fkey`: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+  - only B `module_records.uq_module_records_site_module`: [u] UNIQUE (site_id, module_key)
+  - only B `module_stage_states.chk_mss_field_values`: [c] CHECK ((jsonb_typeof(field_values) = 'object'::text))
+  - only B `module_stage_states.chk_mss_stage_order`: [c] CHECK ((stage_order >= 1))
+  - only B `module_stage_states.chk_mss_status`: [c] CHECK ((status = ANY (ARRAY['pending'::text, 'allocated'::text, 'in progress'::text, 'submitted'::text, 'rejected'::text, 'approved'::text, 'done'::text, 'skipped'::text])))
+  - only B `module_stage_states.module_stage_states_pkey`: [p] PRIMARY KEY (record_id, stage_order)
+  - only B `module_stage_states.module_stage_states_record_id_fkey`: [f] FOREIGN KEY (record_id) REFERENCES module_records(id) ON DELETE CASCADE
+  - only B `module_stage_states.module_stage_states_submitted_by_fkey`: [f] FOREIGN KEY (submitted_by) REFERENCES users(id)
+  - only B `module_stage_states.module_stage_states_tenant_id_fkey`: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+  - only B `site_delegations.chk_site_delegations_module_key`: [c] CHECK (is_valid_module_key(module))
+  - only B `site_delegations.fk_site_delegations_tenant_module`: [f] FOREIGN KEY (tenant_id, module) REFERENCES tenant_modules(tenant_id, module_key)
+  - only B `sites.fk_sites_config_release`: [f] FOREIGN KEY (config_release_id) REFERENCES tenant_config_releases(id)
+  - only B `supervisor_executive_requests.chk_supervisor_executive_requests_module_key`: [c] CHECK (is_valid_module_key(module))
+  - only B `supervisor_executive_requests.fk_supervisor_executive_requests_tenant_module`: [f] FOREIGN KEY (tenant_id, module) REFERENCES tenant_modules(tenant_id, module_key)
+  - only B `supervisor_invite_codes.chk_supervisor_invite_codes_module_key`: [c] CHECK (is_valid_module_key(module))
+  - only B `supervisor_invite_codes.fk_supervisor_invite_codes_tenant_module`: [f] FOREIGN KEY (tenant_id, module) REFERENCES tenant_modules(tenant_id, module_key)
+  - only B `tenant_config_live.fk_tcl_release`: [f] FOREIGN KEY (tenant_id, release_id) REFERENCES tenant_config_releases(tenant_id, id)
+  - only B `tenant_config_live.tenant_config_live_pkey`: [p] PRIMARY KEY (tenant_id)
+  - only B `tenant_config_live.tenant_config_live_tenant_id_fkey`: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+  - only B `tenant_config_releases.chk_tcr_manifest`: [c] CHECK (((jsonb_typeof(manifest) = 'object'::text) AND (COALESCE(jsonb_typeof((manifest -> 'modules'::text)), 'missing'::text) = 'array'::text)))
+  - only B `tenant_config_releases.chk_tcr_sha256`: [c] CHECK ((manifest_sha256 ~ '^[0-9a-f]{64}$'::text))
+  - only B `tenant_config_releases.chk_tcr_source`: [c] CHECK ((source = ANY (ARRAY['configurator'::text, 'baseline'::text, 'import'::text])))
+  - only B `tenant_config_releases.chk_tcr_version`: [c] CHECK ((version >= 1))
+  - only B `tenant_config_releases.tenant_config_releases_pkey`: [p] PRIMARY KEY (id)
+  - only B `tenant_config_releases.tenant_config_releases_tenant_id_fkey`: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+  - only B `tenant_config_releases.uq_tcr_tenant_id`: [u] UNIQUE (tenant_id, id)
+  - only B `tenant_config_releases.uq_tcr_tenant_version`: [u] UNIQUE (tenant_id, version)
+  - only B `tenant_modules.chk_tm_catalog`: [c] CHECK ((((kind = 'builtin'::text) = (catalog_key IS NOT NULL)) AND ((catalog_key IS NULL) OR (catalog_key = module_key))))
+  - only B `tenant_modules.chk_tm_config_key`: [c] CHECK (((config_key IS NULL) OR is_valid_module_key(config_key)))
+  - only B `tenant_modules.chk_tm_key`: [c] CHECK (is_valid_module_key(module_key))
+  - only B `tenant_modules.chk_tm_kind`: [c] CHECK ((kind = ANY (ARRAY['builtin'::text, 'custom'::text])))
+  - only B `tenant_modules.fk_tm_introduced_release`: [f] FOREIGN KEY (tenant_id, introduced_release_id) REFERENCES tenant_config_releases(tenant_id, id)
+  - only B `tenant_modules.fk_tm_updated_release`: [f] FOREIGN KEY (tenant_id, updated_release_id) REFERENCES tenant_config_releases(tenant_id, id)
+  - only B `tenant_modules.tenant_modules_catalog_key_fkey`: [f] FOREIGN KEY (catalog_key) REFERENCES module_catalog(key)
+  - only B `tenant_modules.tenant_modules_pkey`: [p] PRIMARY KEY (tenant_id, module_key)
+  - only B `tenant_modules.tenant_modules_tenant_id_fkey`: [f] FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+  - only B `user_module_memberships.chk_user_module_memberships_module_key`: [c] CHECK (is_valid_module_key(module))
+  - only B `user_module_memberships.fk_user_module_memberships_tenant_module`: [f] FOREIGN KEY (tenant_id, module) REFERENCES tenant_modules(tenant_id, module_key)
+- **indexes**: A=94 B=114 · only-A 0 · only-B 20 · differ 0
+  - only B `audit_logs.idx_audit_logs_config_release`: CREATE INDEX idx_audit_logs_config_release ON public.audit_logs USING btree (config_release_id, created_at) WHERE (config_release_id IS NOT NULL)
+  - only B `module_approvals.idx_module_approvals_record`: CREATE INDEX idx_module_approvals_record ON public.module_approvals USING btree (record_id, stage_order, decided_at)
+  - only B `module_approvals.idx_module_approvals_tenant`: CREATE INDEX idx_module_approvals_tenant ON public.module_approvals USING btree (tenant_id, decided_at DESC)
+  - only B `module_approvals.module_approvals_pkey`: CREATE UNIQUE INDEX module_approvals_pkey ON public.module_approvals USING btree (id)
+  - only B `module_catalog.module_catalog_pkey`: CREATE UNIQUE INDEX module_catalog_pkey ON public.module_catalog USING btree (key)
+  - only B `module_catalog.uq_mc_config_key`: CREATE UNIQUE INDEX uq_mc_config_key ON public.module_catalog USING btree (config_key)
+  - only B `module_records.idx_module_records_assigned`: CREATE INDEX idx_module_records_assigned ON public.module_records USING btree (assigned_to) WHERE (assigned_to IS NOT NULL)
+  - only B `module_records.idx_module_records_tenant_module_status`: CREATE INDEX idx_module_records_tenant_module_status ON public.module_records USING btree (tenant_id, module_key, status)
+  - only B `module_records.module_records_pkey`: CREATE UNIQUE INDEX module_records_pkey ON public.module_records USING btree (id)
+  - only B `module_records.uq_module_records_site_module`: CREATE UNIQUE INDEX uq_module_records_site_module ON public.module_records USING btree (site_id, module_key)
+  - only B `module_stage_states.idx_module_stage_states_tenant`: CREATE INDEX idx_module_stage_states_tenant ON public.module_stage_states USING btree (tenant_id)
+  - only B `module_stage_states.module_stage_states_pkey`: CREATE UNIQUE INDEX module_stage_states_pkey ON public.module_stage_states USING btree (record_id, stage_order)
+  - only B `sites.idx_sites_config_release`: CREATE INDEX idx_sites_config_release ON public.sites USING btree (config_release_id) WHERE (config_release_id IS NOT NULL)
+  - only B `tenant_config_live.tenant_config_live_pkey`: CREATE UNIQUE INDEX tenant_config_live_pkey ON public.tenant_config_live USING btree (tenant_id)
+  - only B `tenant_config_live.uq_tcl_workspace_ref`: CREATE UNIQUE INDEX uq_tcl_workspace_ref ON public.tenant_config_live USING btree (workspace_ref) WHERE (workspace_ref IS NOT NULL)
+  - only B `tenant_config_releases.tenant_config_releases_pkey`: CREATE UNIQUE INDEX tenant_config_releases_pkey ON public.tenant_config_releases USING btree (id)
+  - only B `tenant_config_releases.uq_tcr_tenant_id`: CREATE UNIQUE INDEX uq_tcr_tenant_id ON public.tenant_config_releases USING btree (tenant_id, id)
+  - only B `tenant_config_releases.uq_tcr_tenant_version`: CREATE UNIQUE INDEX uq_tcr_tenant_version ON public.tenant_config_releases USING btree (tenant_id, version)
+  - only B `tenant_modules.tenant_modules_pkey`: CREATE UNIQUE INDEX tenant_modules_pkey ON public.tenant_modules USING btree (tenant_id, module_key)
+  - only B `tenant_modules.uq_tm_tenant_config_key`: CREATE UNIQUE INDEX uq_tm_tenant_config_key ON public.tenant_modules USING btree (tenant_id, config_key) WHERE (config_key IS NOT NULL)
+- **rls**: A=36 B=43 · only-A 0 · only-B 7 · differ 0
+  - only B `module_approvals`: rls=True
+  - only B `module_catalog`: rls=True
+  - only B `module_records`: rls=True
+  - only B `module_stage_states`: rls=True
+  - only B `tenant_config_live`: rls=True
+  - only B `tenant_config_releases`: rls=True
+  - only B `tenant_modules`: rls=True
+- **policies**: A=5 B=11 · only-A 0 · only-B 6 · differ 0
+  - only B `module_approvals.tenant_isolation`: ALL {public} USING((tenant_id = current_tenant_id())) CHECK((tenant_id = current_tenant_id()))
+  - only B `module_records.tenant_isolation`: ALL {public} USING((tenant_id = current_tenant_id())) CHECK((tenant_id = current_tenant_id()))
+  - only B `module_stage_states.tenant_isolation`: ALL {public} USING((tenant_id = current_tenant_id())) CHECK((tenant_id = current_tenant_id()))
+  - only B `tenant_config_live.tenant_isolation`: ALL {public} USING((tenant_id = current_tenant_id())) CHECK((tenant_id = current_tenant_id()))
+  - only B `tenant_config_releases.tenant_isolation`: ALL {public} USING((tenant_id = current_tenant_id())) CHECK((tenant_id = current_tenant_id()))
+  - only B `tenant_modules.tenant_isolation`: ALL {public} USING((tenant_id = current_tenant_id())) CHECK((tenant_id = current_tenant_id()))
+- **functions**: A=4 B=16 · only-A 0 · only-B 12 · differ 0
+  - only B `cfg_activate_release.p_release uuid, p_actor text`: 2bad1c0c46b4d6ed1585f3a2f4a8f148
+  - only B `cfg_forbid_mutation.`: 50b6f72520aaeea8b293867c8967a541
+  - only B `cfg_module_approvals_guard.`: 0c5bcda69ddadfc5d511de1ed7a9f744
+  - only B `cfg_module_records_guard.`: bfb1a44851a93a95df122399a7a4d242
+  - only B `cfg_module_stage_states_guard.`: 027849e72e7a822e9ad2f698fb53b5f0
+  - only B `cfg_release_fill_sha.`: 514c5db0924add89f6b7c8b091de84b8
+  - only B `cfg_release_stage.p_release uuid, p_module text, p_stage integer`: efd76a420a084b358bcdf631244beafa
+  - only B `cfg_release_stage_chain.p_release uuid, p_module text, p_stage integer`: 73ec9ed454511528929b4b732b6eb99b
+  - only B `cfg_seed_tenant_modules.`: 9f00153f5d82f30fab29b24b2df9e8ef
+  - only B `cfg_sites_pin_release.`: 5c93dd8ba080577ba2fabc1630536ea9
+  - only B `cfg_tenant_modules_guard.`: 2df0130dc288d3f4bbf8063f511add24
+  - only B `is_valid_module_key.k text`: b19b3dbf2ccc9417c3b615b3135424dc
+- **views**: A=2 B=3 · only-A 0 · only-B 1 · differ 0
+  - only B `site_module_outcomes`: view
+- **types**: identical (1)
+- **triggers**: A=0 B=9 · only-A 0 · only-B 9 · differ 0
+  - only B `module_approvals.trg_module_approvals_append_only`: BEFORE DELETE,UPDATE
+  - only B `module_approvals.trg_module_approvals_guard`: BEFORE INSERT
+  - only B `module_records.trg_module_records_guard`: BEFORE INSERT,UPDATE
+  - only B `module_stage_states.trg_module_stage_states_guard`: BEFORE INSERT,UPDATE
+  - only B `sites.trg_sites_pin_release`: BEFORE INSERT,UPDATE
+  - only B `tenant_config_releases.trg_tcr_append_only`: BEFORE DELETE,UPDATE
+  - only B `tenant_config_releases.trg_tcr_fill_sha`: BEFORE INSERT
+  - only B `tenant_modules.trg_tenant_modules_guard`: BEFORE INSERT,UPDATE
+  - only B `tenants.trg_tenants_seed_modules`: AFTER INSERT
+

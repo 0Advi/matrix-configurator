@@ -191,6 +191,9 @@ export function SessionProvider({ children }) {
           tenantId:  claims.tenant_id || INITIAL_SESSION.tenantId,
           cityScope: claims.city || INITIAL_SESSION.cityScope,
           module:    claims.module || null,
+          // F4b: modules the tenant's live release switched OFF (whoami.disabled_modules).
+          // Chrome hides them; the backend refuses them regardless.
+          disabledModules: Array.isArray(claims.disabled_modules) ? claims.disabled_modules : [],
           // JWT subject id — the DDR licensing tab compares this against the
           // site's legal delegate to decide whether the auto-inherited
           // licensing CTA is unlocked for this user.
@@ -299,6 +302,7 @@ export function SessionProvider({ children }) {
     // that page offers to change anything.
     isReadOnly: isObserver,
     effectiveModule,
+    disabledModules: session.disabledModules || [],
     adminOverride,
     switchAs,
     setRole: USE_MOCK ? setRole : undefined,

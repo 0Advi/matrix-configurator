@@ -206,3 +206,70 @@ def _reset_storage_client():
     storage_service._holder.client = None
     yield
     storage_service._holder.client = None
+
+
+# ── Phase 2: the per-tenant module registry in RecordingSession tests ──────────
+#
+# Services now read the tenant's module registry (tenant_modules, migration
+# 20261004_2) before minting codes, granting memberships or building the org
+# view. The pre-existing unit tests queue canned results for the queries they
+# were written against and describe a tenant that never published a
+# configuration — i.e. the backfilled built-in seed. This autouse fixture serves
+# exactly that seed (mirroring module_catalog: every non-retired built-in,
+# enabled, NSO supervisor-only) so those tests keep exercising what they always
+# did. Tests of the registry itself opt out with @pytest.mark.real_registry.
+
+LEGACY_REGISTRY = [
+    # key, label, position, has_membership, supervisor_only, surface
+    ("bd", "BD", 10, True, False, "module"),
+    ("legal", "Legal & Compliance", 20, True, False, "module"),
+    ("finance_ca", "Finance / CA approval", 25, False, False, "module"),
+    ("design", "Design", 30, True, False, "module"),
+    ("project_excellence", "Project Excellence", 40, True, False, "module"),
+    ("project", "Project execution", 50, True, False, "module"),
+    ("nso", "NSO", 60, True, True, "module"),
+    ("launch_approval", "Launch approval", 70, False, False, "module"),
+    ("financial_closure", "Financial closure", 80, False, False, "module"),
+    ("quality_audit", "Quality audit reports", 90, False, False, "scope"),
+]
+
+
+def legacy_registry_rows() -> list[dict]:
+    from app.services.module_registry_service import module_route
+
+    rows = []
+    for key, label, pos, has_m, sup_only, surface in LEGACY_REGISTRY:
+        row = {
+            "module_key": key, "kind": "builtin", "catalog_key": key, "config_key": key,
+            "label": label, "position": pos, "enabled": True, "supervisor_only": sup_only,
+            "delegation_enabled": True, "route": None, "introduced_release_id": None,
+            "updated_release_id": None, "surface": surface,
+            "implementation": f"builtin:{key}", "retired": False, "has_membership": has_m,
+        }
+        row["route"] = module_route(row)
+        rows.append(row)
+    return rows
+
+
+@pytest.fixture(autouse=True)
+def _legacy_module_registry(request, monkeypatch):
+    if request.node.get_closest_marker("real_registry"):
+        yield
+        return
+    from app.services import module_registry_service as registry
+
+    async def _list(session, tenant_id, *, enabled_only=True):
+        return [r for r in legacy_registry_rows() if r["enabled"] or not enabled_only]
+
+    async def _get(session, tenant_id, module_key):
+        return next((r for r in legacy_registry_rows() if r["module_key"] == module_key), None)
+
+    monkeypatch.setattr(registry, "list_tenant_modules", _list)
+    monkeypatch.setattr(registry, "get_tenant_module", _get)
+    yield
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "real_registry: do not stub the module registry with the legacy built-in seed",
+    )

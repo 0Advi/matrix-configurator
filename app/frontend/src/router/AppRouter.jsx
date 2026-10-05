@@ -4,6 +4,7 @@ import { ROUTES } from './routes.js';
 import { RequireModule, RequireRole } from './guards.jsx';
 import { useSession } from '../state/SessionContext.jsx';
 import { useAuthToken } from '../state/useAuthToken.js';
+import { isCustomModuleKey, customModuleRoute } from '../modules/shared/workspaceModules.js';
 
 import App from '../App.jsx';
 // Lazy-load the landing — Three.js is ~600KB minified. Authenticated users
@@ -61,6 +62,9 @@ const ProjectExcellenceQualityAuditPage = lazy(() => import('../modules/project_
 const NsoHandoverPage = lazy(() => import('../modules/project/NsoHandoverPage.jsx'));
 const FinancialClosureQueuePage = lazy(() => import('../modules/financial_closure/FinancialClosureQueuePage.jsx'));
 const FinancialClosureReviewPage = lazy(() => import('../modules/financial_closure/FinancialClosureReviewPage.jsx'));
+// F4b: configurator-defined (custom) modules run on one generic page, /m/:moduleKey.
+const GenericModulePage = lazy(() => import('../modules/custom-module/GenericModulePage.jsx'));
+const GenericRecordPage = lazy(() => import('../modules/custom-module/GenericRecordPage.jsx'));
 
 // In HTTP (non-mock) mode the landing page is the unauthenticated entry. The
 // existing app chrome only renders after a Supabase session is established.
@@ -72,6 +76,7 @@ const LANDING_PATH = '/welcome';
 function homeForRoleModule(role, module) {
   if (role === 'business_admin') return '/business-admin';
   if (role === 'observer')       return '/observer';
+  if (isCustomModuleKey(module)) return customModuleRoute(module);
   if (module === 'legal')        return ROUTES.LEGAL;
   if (module === 'design')       return ROUTES.DESIGN;
   if (module === 'project')      return ROUTES.PROJECT;
@@ -125,9 +130,13 @@ function LandingRedirectIfAuthed() {
 function IndexRedirect() {
   // The root `/` defaults to the BD overview. Non-BD module members bounce
   // to their own module home on first load.
-  const { session } = useSession();
-  const module = session?.module;
+  // F4b: effectiveModule (= the module a business admin / observer is simulating, else the
+  // session's own claim). session.module is whatever /auth/whoami echoed at mount, so after the
+  // simulation bar switched module client-side, `/` bounced back to the previous module.
+  const { session, effectiveModule } = useSession();
+  const module = effectiveModule || session?.module;
   if (USE_MOCK) return <OverviewPage/>; // mock mode stays on BD
+  if (isCustomModuleKey(module)) return <Navigate to={customModuleRoute(module)} replace/>;
   if (module === 'legal')   return <Navigate to={ROUTES.LEGAL}   replace/>;
   if (module === 'design')  return <Navigate to={ROUTES.DESIGN}  replace/>;
   if (module === 'project') return <Navigate to={ROUTES.PROJECT} replace/>;
@@ -547,6 +556,20 @@ export default function AppRouter() {
             <RequireModule modules={['bd']}>
               <DashboardMinimalPreview/>
             </RequireModule>
+          </RequireRole>
+        }/>
+
+        {/* F4b: configurator-defined modules (generic runtime). The backend decides who may
+            see what (membership / business admin / observer, module enabled); the pages show
+            its refusals. */}
+        <Route path={ROUTES.CUSTOM_MODULE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <GenericModulePage/>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.CUSTOM_MODULE_RECORD} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <GenericRecordPage/>
           </RequireRole>
         }/>
 

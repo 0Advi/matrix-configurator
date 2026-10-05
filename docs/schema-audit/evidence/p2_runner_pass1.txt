@@ -1,0 +1,9 @@
+_verify_schema: PASS
+[INFO] startup-migrations: applied 20261004_1_tenant_config_releases.sql (13 statement(s))
+[INFO] startup-migrations: applied 20261004_2_module_catalog_and_tenant_modules.sql (18 statement(s))
+[INFO] startup-migrations: applied 20261004_3_module_columns_reference_registry.sql (14 statement(s))
+[INFO] startup-migrations: applied 20261004_4_site_release_pinning.sql (7 statement(s))
+[INFO] startup-migrations: applied 20261004_5_generic_module_runtime.sql (27 statement(s))
+[INFO] startup-migrations: applied 20261004_6_audit_provenance.sql (5 statement(s))
+[INFO] startup-migrations: 6 new migration file(s), 84 statement(s) applied; 63 already in ledger
+[INFO] Schema verification passed: sites columns present, model=text, rent_type includes staggered.

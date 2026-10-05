@@ -1,0 +1,15 @@
+[F3 runtime, normal chain] gate with bd reached=['submitted']: status=locked
+[F3 runtime, normal chain] gate with bd reached=['approved', 'done', 'in progress', 'submitted']: status=open
+[F3 runtime, normal chain] executive submit -> submitted
+[F3 runtime, normal chain] supervisor approve -> approved, stage_completed
+[F3 runtime, normal chain] supervisor submit -> submitted
+[F3 runtime, normal chain] business_admin approve -> approved, stage_completed, module_completed
+[F3 runtime, normal chain] persisted: 9 audit events (hash chain verified from DB: True), 4 approvals (0 override), view outcome=approved reached=['submitted', 'approved']
+[F3 runtime, admin override] gate with bd reached=['submitted']: status=locked
+[F3 runtime, admin override] gate with bd reached=['approved', 'done', 'in progress', 'submitted']: status=open
+[F3 runtime, admin override] business_admin submit -> submitted(override)
+[F3 runtime, admin override] supervisor approve -> approved, stage_completed
+[F3 runtime, admin override] supervisor submit -> submitted
+[F3 runtime, admin override] business_admin approve -> approved, stage_completed, module_completed
+[F3 runtime, admin override] persisted: 9 audit events (hash chain verified from DB: True), 4 approvals (1 override), view outcome=approved reached=['submitted', 'approved']
+RESULT: PASS

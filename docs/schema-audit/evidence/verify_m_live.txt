@@ -1,0 +1,2 @@
+_verify_schema: PASS
+[INFO] Schema verification passed: sites columns present, model=text, rent_type includes staggered.

@@ -1,0 +1,10 @@
+_verify_schema: PASS
+[ERROR] startup-migrations: 202605221_add_workspace_requests.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: 202606033_project_execution_foundation.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: 202606133_fk_index_sweep.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: 202606141_drop_legacy_enum_types.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: 202606231_supervisor_executive_requests.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+module_codes | 0
+site_delegations | 0
+supervisor_invite_codes | 0
+user_module_memberships | 1

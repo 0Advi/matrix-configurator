@@ -1,0 +1,616 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://matrix.local/configurator/manifest.schema.json",
+  "title": "Workspace draft manifest",
+  "description": "Shape of Component.manifest() in Workspace Configurator v5.dc.html (sha256 b30033e9…2bda) — the JSON shown in 'Draft manifest' / 'Live manifest' and the payload a publish (cfg_releases.manifest) should store. $defs.moduleDraftManifest is the shape of wizManifest(w), the single custom-module manifest shown in wizard step 9. Derived from the source and validated against every seeded workspace by test/schemas.test.mjs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspace",
+    "pipeline",
+    "signals",
+    "modules",
+    "permissions"
+  ],
+  "properties": {
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "slug",
+        "live_version",
+        "draft_version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "seed ids are bare slugs (bluetokai); custom workspaces are ws_<slug with _>"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,30}$"
+        },
+        "live_version": {
+          "type": "string",
+          "pattern": "^v[0-9]+$",
+          "description": "v0 = never published"
+        },
+        "draft_version": {
+          "type": "string",
+          "pattern": "^v[0-9]+$"
+        }
+      }
+    },
+    "pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "editable",
+        "stages",
+        "note"
+      ],
+      "description": "Platform-owned BD backbone ('spine'). Empty in v5 seeds (spine = []); populated in v3.",
+      "properties": {
+        "editable": {
+          "const": false
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "signals": {
+      "type": "array",
+      "description": "External outcome sources a gate can wait on (v3 had 'finance'; v5 seeds have none).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "outcomes"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "outcomes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/moduleManifest"
+      }
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action",
+          "platform_ceiling",
+          "granted"
+        ],
+        "description": "Operators can only NARROW within the platform ceiling (granted ⊆ platform_ceiling is the intended invariant; the UI enforces it, the manifest does not).",
+        "properties": {
+          "action": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "platform_ceiling": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/permRole"
+            },
+            "uniqueItems": true
+          },
+          "granted": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/permRole"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "moduleKey": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,38}$"
+    },
+    "outcome": {
+      "enum": [
+        "pending",
+        "allocated",
+        "in progress",
+        "submitted",
+        "rejected",
+        "approved",
+        "done",
+        "skipped"
+      ]
+    },
+    "approverRole": {
+      "enum": [
+        "supervisor",
+        "executive",
+        "business_admin"
+      ]
+    },
+    "navRole": {
+      "enum": [
+        "supervisor",
+        "executive"
+      ]
+    },
+    "permRole": {
+      "enum": [
+        "supervisor",
+        "executive",
+        "business_admin",
+        "observer"
+      ]
+    },
+    "fieldKind": {
+      "enum": [
+        "choice",
+        "yesno",
+        "text",
+        "number",
+        "date",
+        "file",
+        "person"
+      ]
+    },
+    "tiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supervisor",
+        "executive",
+        "business_admin_signoff",
+        "delegation"
+      ],
+      "properties": {
+        "supervisor": {
+          "const": true
+        },
+        "executive": {
+          "type": "boolean",
+          "description": "false whenever the module is supervisor-only"
+        },
+        "business_admin_signoff": {
+          "type": "boolean"
+        },
+        "delegation": {
+          "type": "boolean"
+        }
+      }
+    },
+    "entryGate": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "match",
+            "conditions",
+            "refusal_message"
+          ],
+          "properties": {
+            "match": {
+              "enum": [
+                "all",
+                "any"
+              ]
+            },
+            "conditions": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "source",
+                  "outcome"
+                ],
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "description": "module key or signal key"
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "description": "a stage outcome / exit of the source, or a signal outcome"
+                  }
+                }
+              }
+            },
+            "refusal_message": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "label",
+        "kind",
+        "required",
+        "validation",
+        "affects_outcome"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]+$"
+        },
+        "label": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/fieldKind"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "validation": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "free text: 'a · b · c' options for choice, 'min X · max Y' for number, regex for text, 'pdf · max 20MB' for file"
+        },
+        "affects_outcome": {
+          "type": "boolean",
+          "description": "field is a 'checked field' fed into the roll-up strategy"
+        }
+      }
+    },
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order",
+        "name",
+        "outcome",
+        "terminal",
+        "approvers",
+        "fields"
+      ],
+      "properties": {
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        },
+        "terminal": {
+          "type": "boolean",
+          "description": "true only for the last stage"
+        },
+        "approvers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/approverRole"
+          },
+          "uniqueItems": true,
+          "description": "empty is representable but raises the 'no approver' finding"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/field"
+          }
+        },
+        "restricted_to": {
+          "enum": [
+            "site_creator"
+          ],
+          "description": "G3 (optional): 'site_creator' = only the site's creator (sites.submitted_by or sites.assigned_to) may perform the stage's FIRST step; a business admin may act only as a recorded override. Absent = anyone in the tier."
+        }
+      }
+    },
+    "rollup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy"
+      ],
+      "properties": {
+        "strategy": {
+          "enum": [
+            "all_positive",
+            "any_negative",
+            "count_at_least",
+            "sum_under",
+            "custom"
+          ]
+        },
+        "n": {
+          "type": [
+            "integer",
+            "string"
+          ]
+        },
+        "of": {
+          "type": [
+            "integer",
+            "string"
+          ]
+        },
+        "field": {
+          "type": "string"
+        },
+        "limit": {
+          "type": [
+            "string",
+            "number"
+          ],
+          "description": "Indian-grouped rupee string in the seed, e.g. '25,00,000'"
+        },
+        "engineering_request": {
+          "const": "filed"
+        },
+        "state": {
+          "const": "pending_engineering"
+        }
+      }
+    },
+    "moduleManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "name",
+        "type",
+        "enabled",
+        "route",
+        "state",
+        "tiers",
+        "entry_gate",
+        "stages",
+        "rollup",
+        "exit_signal",
+        "navigation"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/moduleKey"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": [
+            "builtin",
+            "custom"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "route": {
+          "type": "string",
+          "pattern": "^/(m/[a-z][a-z0-9_]*|[a-z][a-z0-9-]*)$",
+          "description": "custom: /m/<key>; built-in: /<key with - for _>"
+        },
+        "state": {
+          "enum": [
+            "live",
+            "draft",
+            "pending_engineering"
+          ]
+        },
+        "tiers": {
+          "$ref": "#/$defs/tiers"
+        },
+        "entry_gate": {
+          "$ref": "#/$defs/entryGate"
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stage"
+          }
+        },
+        "rollup": {
+          "$ref": "#/$defs/rollup"
+        },
+        "exit_signal": {
+          "$ref": "#/$defs/outcome"
+        },
+        "navigation": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "section",
+              "items"
+            ],
+            "properties": {
+              "section": {
+                "type": "string"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "label",
+                    "icon",
+                    "page",
+                    "badge",
+                    "roles"
+                  ],
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "icon": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "page": {
+                      "type": "string"
+                    },
+                    "badge": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "enum": [
+                            "queue",
+                            "awaiting",
+                            "shortlisted",
+                            "in_process",
+                            "archived",
+                            "change_requests",
+                            "team"
+                          ]
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "roles": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/navRole"
+                      },
+                      "uniqueItems": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "moduleDraftManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module",
+        "tiers",
+        "entry_gate",
+        "stages",
+        "rollup",
+        "screens",
+        "exit_signal"
+      ],
+      "properties": {
+        "module": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "key",
+            "name",
+            "type",
+            "icon",
+            "route",
+            "runtime"
+          ],
+          "properties": {
+            "key": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/moduleKey"
+                }
+              ]
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "custom"
+            },
+            "icon": {
+              "type": "string",
+              "minLength": 1
+            },
+            "route": {
+              "type": "string",
+              "pattern": "^/m/"
+            },
+            "runtime": {
+              "const": "generic"
+            }
+          }
+        },
+        "tiers": {
+          "$ref": "#/$defs/tiers"
+        },
+        "entry_gate": {
+          "$ref": "#/$defs/entryGate"
+        },
+        "stages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/stage"
+          }
+        },
+        "rollup": {
+          "$ref": "#/$defs/rollup"
+        },
+        "screens": {
+          "const": [
+            "overview",
+            "queue",
+            "history",
+            "checklist_review"
+          ]
+        },
+        "exit_signal": {
+          "$ref": "#/$defs/outcome"
+        }
+      }
+    }
+  }
+}

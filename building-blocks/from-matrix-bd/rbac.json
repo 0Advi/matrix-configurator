@@ -1,0 +1,138 @@
+{
+  "$comment": "Matrix-bd roles / RBAC model as configurator-ready data. Hand-curated from source; every entry cites path (+ symbol) at the pinned SHA. Route-level guards are machine-extracted in route-guards.json.",
+  "provenance": {
+    "repo": "/Users/aditya/Desktop/bd/Matrix-bd",
+    "ref": "origin/main",
+    "sha": "3d4f277beb22c5be02c2abacea61b6afaee7cdeb",
+    "commit": "2026-09-17 09:11:05 +0530 Merge pull request #503",
+    "status": "verified (read from source)"
+  },
+  "roles": [
+    {
+      "id": "business_admin",
+      "label": "Business admin",
+      "scope": "workspace (tenant-wide)",
+      "moduleMembership": false,
+      "canWrite": true,
+      "bypassesRouteGuards": true,
+      "approvalTier": "second level (confirm / final sign-off) in almost every module",
+      "canSimulate": "any role and any module via X-Override-Role / X-Override-Module (\"workspace access\")",
+      "registry": "users.role='business_admin' + business_admins(user_id, tenant_id)",
+      "sources": ["backend/app/rbac/roles.py (Role, READ_ALL_ROLES)", "backend/app/core/deps.py _apply_workspace_override", "backend/app/services/_common.py actor_is_business_admin / actor_can_supervise"]
+    },
+    {
+      "id": "observer",
+      "label": "Observer",
+      "scope": "workspace (tenant-wide), READ-ONLY",
+      "moduleMembership": false,
+      "canWrite": false,
+      "bypassesRouteGuards": true,
+      "readOnlyEnforcement": "get_current_user → _assert_may_write refuses every non-GET/HEAD/OPTIONS request keyed on real_role (so an override header cannot lift it)",
+      "canSimulate": "supervisor or executive only (_OBSERVER_OVERRIDE_ROLES), never business_admin; X-Override-Module scopes module queries",
+      "deniedCredentials": "require_real_role routes (department join codes, observer code) — reading a join code would allow writes by proxy",
+      "onboarding": "observer_codes (one live code per tenant) → pending observer → business admin approves",
+      "neverAnActor": "not allowed in user_module_memberships.role_in_module nor stage_events.actor_role",
+      "sources": ["backend/app/rbac/roles.py docstring", "backend/app/core/deps.py _assert_may_write, _OBSERVER_OVERRIDE_ROLES", "backend/app/rbac/guards.py require_real_role", "backend/database/migrations/20260816_add_observer_role.sql", "backend/database/migrations/20260817_observer_codes.sql"]
+    },
+    {
+      "id": "supervisor",
+      "label": "Supervisor",
+      "scope": "module (via user_module_memberships.module); sees all sites in the tenant for that module",
+      "moduleMembership": true,
+      "canWrite": true,
+      "approvalTier": "first level review in every module; the ONLY tier in NSO",
+      "dualRole": "may also work as an executive in its own module when has_executive_access=true (supervisor_executive_requests approved by a business admin); switches with X-Override-Role: executive",
+      "onboarding": "module_codes (department join code, rotated by business admin) → pending supervisor (users.is_active=false, users.notes='pending_module:<m>') → business admin approves",
+      "sources": ["backend/app/rbac/roles.py", "backend/app/core/deps.py get_current_user (_FULL_QUERY, has_executive_access)", "backend/app/services/business_admin_service.py approve_supervisor / approve_executive_request", "backend/database/migrations/202606231_supervisor_executive_requests.sql"]
+    },
+    {
+      "id": "executive",
+      "label": "Executive",
+      "scope": "own: sites they submitted or are assigned/delegated to",
+      "moduleMembership": true,
+      "canWrite": true,
+      "approvalTier": "capture / upload / submit; in Launch the site creator records a verdict that flows forward",
+      "reportsTo": "one or more supervisors in the same module (user_module_memberships.supervisor_id, one row per supervisor since 20260818)",
+      "onboarding": "supervisor_invite_codes (the supervisor's own code) → pending executive → that supervisor approves",
+      "sources": ["backend/app/services/_common.py apply_role_scope, assert_executive_owns_site", "backend/database/migrations/20260818_multi_supervisor_executives.sql", "backend/app/routers/supervisor_codes.py"]
+    }
+  ],
+  "readAllRoles": ["business_admin", "observer"],
+  "guards": {
+    "require_role(*roles)": "403 unless effective role ∈ roles OR role ∈ READ_ALL_ROLES (backend/app/rbac/guards.py)",
+    "require_module(name)": "403 unless JWT/override module == name OR role ∈ READ_ALL_ROLES (backend/app/rbac/guards.py)",
+    "require_real_role(*roles)": "keys on real_role; NO bypass and NO override — used for credentials (backend/app/rbac/guards.py)",
+    "service-level": [
+      "actor_can_supervise(actor): effective supervisor OR real business admin (backend/app/services/_common.py)",
+      "actor_is_business_admin(actor): real_role or role == business_admin (backend/app/services/_common.py)",
+      "assert_executive_owns_site(actor, site): executives only on submitted_by/assigned_to sites (backend/app/services/_common.py)",
+      "per-site delegation checks: shortlist_delegations (BD) and site_delegations(module) for legal/design/project/project_excellence/financial_closure/quality_audit (backend/app/services/delegation_service.py and module services)",
+      "_assert_not_self_approval: only callers who CANNOT supervise are blocked from approving/rejecting a draft they submitted; an effective supervisor (or business admin) may approve their own draft — this un-deadlocks the supervisor-simulating-executive flow (backend/app/services/bd_service.py)",
+      "supervisor-created drafts start directly at 'shortlisted' (no self-shortlist step) (backend/app/services/bd_service.py svc_create_draft; docs/03-state-machine/site-lifecycle.md)"
+    ]
+  },
+  "effectiveIdentityPerRequest": {
+    "steps": [
+      "decode HS256 JWT (aud=authenticated, exp+sub required); app_metadata.role and app_metadata.tenant_id mandatory (403 if absent)",
+      "re-read users.role + users.is_active from the DB on EVERY request (role in token is ignored; is_active=false is an immediate kill switch)",
+      "claims.role = claims.real_role = DB role; then _apply_workspace_override may change role/module (never real_role)",
+      "observer write refusal (_assert_may_write) runs after db.rollback()"
+    ],
+    "headers": {
+      "X-Override-Role": "business_admin → any; observer → supervisor|executive; supervisor with has_executive_access → executive",
+      "X-Override-Module": "business_admin and observer → any module"
+    },
+    "sources": ["backend/app/core/security.py decode_token / _session_from_claims", "backend/app/core/deps.py get_current_user, _apply_workspace_override, _assert_may_write"]
+  },
+  "permissionMaps": {
+    "backend": {
+      "source": "backend/app/rbac/permissions.py PERMISSIONS",
+      "note": "Documentation-grade only: no module outside permissions.py imports it (grep at SHA). Enforcement is route guards + service checks.",
+      "map": {
+        "create_draft": ["executive", "supervisor"], "save_draft_details": ["executive"], "submit_details_for_review": ["executive"], "upload_loi": ["executive"], "view_own_loi": ["executive"],
+        "shortlist": ["supervisor"], "approve_details": ["supervisor"], "reject": ["supervisor"], "archive": ["supervisor"], "set_loi_timeline": ["supervisor"], "send_to_legal": ["supervisor"], "push_to_payments": ["supervisor"], "reassign_site": ["supervisor"], "manage_module_team": ["supervisor"],
+        "legal_view_queue": ["supervisor", "executive"], "legal_save_dd": ["supervisor", "executive"], "legal_finalize_dd": ["supervisor"], "legal_save_agreement": ["supervisor"], "legal_save_licensing": ["supervisor", "executive"]
+      }
+    },
+    "frontend": {
+      "source": "frontend/src/rbac/permissions.js PERMISSIONS",
+      "note": "Diverges from backend: adds business_admin to create_draft/shortlist/approve_details/reject/archive (backend relies on the READ_ALL bypass instead); lacks send_to_legal and manage_module_team."
+    }
+  },
+  "moduleScopes": {
+    "membership": ["bd", "legal", "design", "project", "nso", "project_excellence"],
+    "membershipCheckAlsoAllows": ["payment (retired module; re-admitted by migration 202606142)"],
+    "siteDelegationScopes": ["bd", "legal", "design", "project", "nso", "project_excellence", "financial_closure", "quality_audit"],
+    "noModuleAtAll": ["finance/CA (BD site tracker Finance tab + business-admin portal)", "launch_approval (business_admin + site creator + supervisor)"],
+    "supervisorOnlyModules": ["nso (every NSO route: require_role(SUPERVISOR) + require_module('nso'))"],
+    "sources": ["from-matrix-bd/modules-and-vocabularies.json (checkVocabularies)", "backend/app/routers/nso.py NsoMember"]
+  },
+  "comparisonWithV5Ceiling": {
+    "$comment": "v5 seedBT().perms is a 'platform ceiling' per action; compare to what the backend actually lets through.",
+    "rows": [
+      { "action": "create_draft", "v5Ceiling": ["executive", "supervisor"], "real": ["executive", "supervisor"], "match": true },
+      { "action": "save_draft_details", "v5Ceiling": ["executive", "supervisor"], "real": ["executive", "supervisor"], "match": true, "note": "route POST /bd/shortlist/{id}/details/save admits both; PERMISSIONS map says executive only" },
+      { "action": "submit_details_for_review", "v5Ceiling": ["executive", "supervisor"], "real": ["executive"], "match": false },
+      { "action": "upload_loi", "v5Ceiling": ["executive", "supervisor"], "real": ["executive"], "match": false },
+      { "action": "shortlist", "v5Ceiling": ["supervisor"], "real": ["supervisor", "business_admin*"], "match": "partial" },
+      { "action": "approve_details", "v5Ceiling": ["supervisor"], "real": ["supervisor", "business_admin*"], "match": "partial" },
+      { "action": "reject", "v5Ceiling": ["supervisor", "business_admin"], "real": ["supervisor", "business_admin*"], "match": true },
+      { "action": "archive", "v5Ceiling": ["business_admin"], "real": ["supervisor", "business_admin*"], "match": false, "note": "real archive is a supervisor action with a required note; revive restores archived_from_status" },
+      { "action": "set_loi_timeline", "v5Ceiling": ["supervisor"], "real": ["supervisor"], "match": true },
+      { "action": "push_to_payments", "v5Ceiling": ["business_admin"], "real": ["supervisor"], "match": false, "note": "the real action is BD supervisor 'send to legal' (LOI_UPLOADED → LEGAL_REVIEW)" },
+      { "action": "reassign_site", "v5Ceiling": ["supervisor", "business_admin"], "real": ["supervisor", "business_admin*"], "match": true },
+      { "action": "legal_finalize_dd", "v5Ceiling": ["supervisor"], "real": ["supervisor (legal)"], "match": true },
+      { "action": "legal_raise_change_request", "v5Ceiling": ["supervisor", "business_admin"], "real": ["executive", "supervisor (BD raises)", "legal supervisor approves"], "match": false },
+      { "action": "design_approve_gfc", "v5Ceiling": ["business_admin"], "real": ["business_admin"], "match": true },
+      { "action": "project_approve_budget", "v5Ceiling": ["business_admin"], "real": ["business_admin (PE gfc budget admin review)"], "match": true, "note": "budget approval lives in Project Excellence, not Project" },
+      { "action": "nso_mark_launched", "v5Ceiling": ["supervisor"], "real": ["supervisor (NSO final approval)", "business_admin (launch)"], "match": "partial", "note": "launch itself is POST /launch-approvals/{id}/launch by business_admin" }
+    ],
+    "legend": "business_admin* = admitted through the READ_ALL_ROLES bypass / actor_can_supervise, not named in the guard"
+  },
+  "unmergedWork": {
+    "branch": "feat/supervisor-module-access",
+    "head": "3392f62497d5efc67cc29b2ec427483eaf3103e1",
+    "summary": "Supervisors may BORROW another module's workspace with business-admin approval (supervisor_module_access_grants, migration 20260930). Access is a simulation re-checked per request, not a membership. Also closes invite-code minting for foreign modules. NOT in origin/main — do not treat as current behaviour.",
+    "source": "git log origin/main..HEAD (commit 2a739de message)"
+  }
+}

@@ -1,0 +1,277 @@
+{
+  "$comment": "Z-Matrix design system tokens (--zm-*) as shipped by the Matrix-bd frontend. Two themes: :root = \"Peach Skyline\" (light, default), [data-theme=\"dark\"] = \"Deep Obsidian\".",
+  "provenance": {
+    "repo": "/Users/aditya/Desktop/bd/Matrix-bd",
+    "ref": "origin/main",
+    "sha": "3d4f277beb22c5be02c2abacea61b6afaee7cdeb",
+    "commit": "2026-09-17 09:11:05 +0530 Merge pull request #503 from Adityashandilya555/fix/review-followups",
+    "readMethod": "git show <sha>:<path> (read-only, GIT_OPTIONAL_LOCKS=0)",
+    "generatedBy": "building-blocks/scripts/extract-matrix-bd.mjs",
+    "files": [
+      "frontend/public/colors_and_type.css",
+      "z-matrix-design-system/project/colors_and_type.css"
+    ]
+  },
+  "themes": {
+    "light": {
+      "color": {
+        "--zm-bg": "#F4F6FA",
+        "--zm-bg-2": "#EDF1F7",
+        "--zm-surface": "#FFFFFF",
+        "--zm-surface-2": "#EFF3F9",
+        "--zm-surface-hover": "#EAEFF6",
+        "--zm-surface-sunken": "#E4EAF2",
+        "--zm-line": "#E2E8F0",
+        "--zm-line-strong": "#CBD5E1",
+        "--zm-line-faint": "#EEF2F7",
+        "--zm-grid": "rgba(30, 41, 59, 0.04)",
+        "--zm-grid-strong": "rgba(30, 41, 59, 0.06)",
+        "--zm-fg": "#1E2A36",
+        "--zm-fg-2": "#3B4855",
+        "--zm-fg-3": "#6B7785",
+        "--zm-fg-4": "#9AA6B2",
+        "--zm-fg-inv": "#FFFFFF",
+        "--zm-accent": "#496580",
+        "--zm-accent-hover": "#3B5269",
+        "--zm-accent-press": "#2F4458",
+        "--zm-accent-soft": "#E7EEF5",
+        "--zm-accent-line": "#C3D1E0",
+        "--zm-accent-on": "#FFFFFF",
+        "--zm-cta-bg": "#496580",
+        "--zm-cta-bg-hover": "#3B5269",
+        "--zm-cta-fg": "#FFFFFF",
+        "--zm-brand-peach": "#FFDBBB",
+        "--zm-brand-blue": "#BADDFF",
+        "--zm-brand-mint": "#BAFFF5",
+        "--zm-brand-slate": "#496580",
+        "--zm-brand-on-pastel": "#1E2A36",
+        "--zm-brand-on-slate": "#FFFFFF",
+        "--zm-copper": "#9A6321",
+        "--zm-copper-hover": "#82531B",
+        "--zm-copper-soft": "#FBEAD6",
+        "--zm-copper-line": "#E8C49A",
+        "--zm-plum": "#6B4789",
+        "--zm-plum-soft": "#ECE3F2",
+        "--zm-success": "#15876B",
+        "--zm-success-soft": "#DBF6EE",
+        "--zm-warning": "#9A6321",
+        "--zm-warning-soft": "#FBEAD6",
+        "--zm-danger": "#C23B3B",
+        "--zm-danger-soft": "#FBE1E0",
+        "--zm-info": "#2D63B8",
+        "--zm-info-soft": "#E3EEFB",
+        "--zm-stage-draft": "#6B7785",
+        "--zm-stage-shortlist": "#2D63B8",
+        "--zm-stage-bd": "#496580",
+        "--zm-stage-loi": "#9A6321",
+        "--zm-stage-payment": "#15876B",
+        "--zm-stage-legal": "#6B4789",
+        "--zm-stage-handover": "#A2407C",
+        "--zm-sidebar-bg": "#496580",
+        "--zm-sidebar-fg": "#F5F2EC",
+        "--zm-sidebar-fg-muted": "#B9CADB",
+        "--zm-sidebar-fg-faint": "#8BA3BA",
+        "--zm-sidebar-icon": "#9EB7CD",
+        "--zm-sidebar-accent": "#E0A659",
+        "--zm-sidebar-active-bg": "rgba(245, 242, 236, 0.12)",
+        "--zm-sidebar-hover-bg": "rgba(245, 242, 236, 0.07)",
+        "--zm-sidebar-line": "rgba(245, 242, 236, 0.12)"
+      },
+      "elevation": {
+        "--zm-shadow-1": "0 1px 0 rgba(30, 41, 59, 0.03), 0 2px 6px rgba(30, 41, 59, 0.06)",
+        "--zm-shadow-2": "0 1px 0 rgba(30, 41, 59, 0.03), 0 8px 18px rgba(30, 41, 59, 0.07), 0 1px 4px rgba(30, 41, 59, 0.05)",
+        "--zm-shadow-3": "0 18px 42px rgba(30, 41, 59, 0.12), 0 4px 12px rgba(30, 41, 59, 0.06)",
+        "--zm-shadow-pop": "0 24px 60px rgba(30, 41, 59, 0.20), 0 6px 18px rgba(30, 41, 59, 0.10)",
+        "--zm-glass": "0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 1px 2px rgba(30, 41, 59, 0.04), 0 8px 24px rgba(30, 41, 59, 0.07)",
+        "--zm-ring-focus": "0 0 0 3px rgba(73, 101, 128, 0.22)",
+        "--zm-glass-bg": "rgba(255, 255, 255, 0.72)",
+        "--zm-glass-border": "rgba(255, 255, 255, 0.6)",
+        "--zm-glass-blur": "blur(16px)"
+      },
+      "radius": {
+        "--zm-r-1": "4px",
+        "--zm-r-2": "6px",
+        "--zm-r-3": "10px",
+        "--zm-r-4": "14px",
+        "--zm-r-5": "20px",
+        "--zm-r-pill": "999px"
+      },
+      "space": {
+        "--zm-s-1": "4px",
+        "--zm-s-2": "8px",
+        "--zm-s-3": "12px",
+        "--zm-s-4": "16px",
+        "--zm-s-5": "24px",
+        "--zm-s-6": "32px",
+        "--zm-s-7": "48px",
+        "--zm-s-8": "64px",
+        "--zm-s-9": "96px"
+      },
+      "motion": {
+        "--zm-ease": "cubic-bezier(0.2, 0.7, 0.2, 1)",
+        "--zm-ease-out": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "--zm-ease-emp": "cubic-bezier(0.32, 0.72, 0.18, 1)",
+        "--zm-dur-1": "120ms",
+        "--zm-dur-2": "200ms",
+        "--zm-dur-3": "360ms",
+        "--zm-dur-4": "520ms"
+      },
+      "type": {
+        "--zm-font-display": "'Plus Jakarta Sans', 'Space Grotesk', system-ui, sans-serif",
+        "--zm-font-serif": "'Instrument Serif', 'Newsreader', Georgia, serif",
+        "--zm-font-body": "'Inter', system-ui, -apple-system, sans-serif",
+        "--zm-font-mono": "'JetBrains Mono', 'SF Mono', 'Menlo', monospace",
+        "--zm-fs-hero": "56px",
+        "--zm-fs-h1": "40px",
+        "--zm-fs-h2": "28px",
+        "--zm-fs-h3": "20px",
+        "--zm-fs-h4": "16px",
+        "--zm-fs-body": "14px",
+        "--zm-fs-lg": "16px",
+        "--zm-fs-sm": "13px",
+        "--zm-fs-xs": "12px",
+        "--zm-fs-2xs": "11px",
+        "--zm-fs-num-hero": "48px",
+        "--zm-fs-num-lg": "22px",
+        "--zm-fs-num": "14px",
+        "--zm-fs-num-sm": "12px",
+        "--zm-lh-tight": "1.12",
+        "--zm-lh-snug": "1.28",
+        "--zm-lh-normal": "1.5",
+        "--zm-lh-relaxed": "1.65",
+        "--zm-tracking-tight": "-0.02em",
+        "--zm-tracking-snug": "-0.01em",
+        "--zm-tracking-wide": "0.08em",
+        "--zm-tracking-eyebrow": "0.14em"
+      }
+    },
+    "dark": {
+      "color": {
+        "--zm-bg": "#0B0B12",
+        "--zm-bg-2": "#11111A",
+        "--zm-surface": "#16161F",
+        "--zm-surface-2": "#1B1B28",
+        "--zm-surface-hover": "#383869",
+        "--zm-surface-sunken": "#0F0F18",
+        "--zm-line": "#28283A",
+        "--zm-line-strong": "#3A3A50",
+        "--zm-line-faint": "#1E1E2C",
+        "--zm-grid": "rgba(238, 232, 220, 0.05)",
+        "--zm-grid-strong": "rgba(238, 232, 220, 0.085)",
+        "--zm-fg": "#EDE6D8",
+        "--zm-fg-2": "#C8C0B0",
+        "--zm-fg-3": "#9E9684",
+        "--zm-fg-4": "#6E6757",
+        "--zm-fg-inv": "#0B0B12",
+        "--zm-accent": "#8FB6DE",
+        "--zm-accent-hover": "#A6C7E8",
+        "--zm-accent-press": "#6F9CC9",
+        "--zm-accent-soft": "rgba(143, 182, 222, 0.14)",
+        "--zm-accent-line": "rgba(143, 182, 222, 0.34)",
+        "--zm-accent-on": "#0B0B12",
+        "--zm-cta-bg": "#8FB6DE",
+        "--zm-cta-bg-hover": "#A6C7E8",
+        "--zm-cta-fg": "#0B0B12",
+        "--zm-brand-peach": "rgba(255, 219, 187, 0.16)",
+        "--zm-brand-blue": "rgba(186, 221, 255, 0.16)",
+        "--zm-brand-mint": "rgba(186, 255, 245, 0.16)",
+        "--zm-brand-slate": "#2A3A4D",
+        "--zm-brand-on-pastel": "var(--zm-fg)",
+        "--zm-brand-on-slate": "#EDE6D8",
+        "--zm-copper": "#E0A659",
+        "--zm-copper-hover": "#ECBA77",
+        "--zm-copper-soft": "rgba(224, 166, 89, 0.12)",
+        "--zm-copper-line": "rgba(224, 166, 89, 0.32)",
+        "--zm-plum": "#B197D2",
+        "--zm-plum-soft": "rgba(177, 151, 210, 0.14)",
+        "--zm-success": "#5BCB8C",
+        "--zm-success-soft": "rgba(91, 203, 140, 0.12)",
+        "--zm-warning": "#E0A659",
+        "--zm-warning-soft": "rgba(224, 166, 89, 0.12)",
+        "--zm-danger": "#ED7B7B",
+        "--zm-danger-soft": "rgba(237, 123, 123, 0.14)",
+        "--zm-info": "#7BA5F0",
+        "--zm-info-soft": "rgba(123, 165, 240, 0.14)",
+        "--zm-stage-draft": "#807868",
+        "--zm-stage-shortlist": "#7BA5F0",
+        "--zm-stage-bd": "#8FB6DE",
+        "--zm-stage-loi": "#E0A659",
+        "--zm-stage-payment": "#5BCB8C",
+        "--zm-stage-legal": "#B197D2",
+        "--zm-stage-handover": "#E090BC"
+      },
+      "elevation": {
+        "--zm-shadow-1": "0 1px 0 rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)",
+        "--zm-shadow-2": "0 1px 0 rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.5)",
+        "--zm-shadow-3": "0 12px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(238, 230, 216, 0.04)",
+        "--zm-shadow-pop": "0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(238, 230, 216, 0.06)",
+        "--zm-glass": "0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 32px rgba(0, 0, 0, 0.5)",
+        "--zm-ring-focus": "0 0 0 3px rgba(143, 182, 222, 0.25)",
+        "--zm-glass-bg": "rgba(22, 22, 31, 0.66)",
+        "--zm-glass-border": "rgba(255, 255, 255, 0.08)",
+        "--zm-glass-blur": "blur(18px)"
+      }
+    }
+  },
+  "counts": {
+    "light": 118,
+    "dark": 61
+  },
+  "driftVsDesignSystemPackage": {
+    "light": [
+      {
+        "token": "--zm-sidebar-bg",
+        "app": "#496580",
+        "designSystem": null
+      },
+      {
+        "token": "--zm-sidebar-fg",
+        "app": "#F5F2EC",
+        "designSystem": null
+      },
+      {
+        "token": "--zm-sidebar-fg-muted",
+        "app": "#B9CADB",
+        "designSystem": null
+      },
+      {
+        "token": "--zm-sidebar-fg-faint",
+        "app": "#8BA3BA",
+        "designSystem": null
+      },
+      {
+        "token": "--zm-sidebar-icon",
+        "app": "#9EB7CD",
+        "designSystem": null
+      },
+      {
+        "token": "--zm-sidebar-accent",
+        "app": "#E0A659",
+        "designSystem": null
+      },
+      {
+        "token": "--zm-sidebar-active-bg",
+        "app": "rgba(245, 242, 236, 0.12)",
+        "designSystem": null
+      },
+      {
+        "token": "--zm-sidebar-hover-bg",
+        "app": "rgba(245, 242, 236, 0.07)",
+        "designSystem": null
+      },
+      {
+        "token": "--zm-sidebar-line",
+        "app": "rgba(245, 242, 236, 0.12)",
+        "designSystem": null
+      }
+    ],
+    "dark": [
+      {
+        "token": "--zm-surface-hover",
+        "app": "#383869",
+        "designSystem": "#1F1F2D"
+      }
+    ],
+    "note": "frontend/public/colors_and_type.css (shipped) vs z-matrix-design-system/project/colors_and_type.css (design-system source); most differences in the raw files are whitespace only — listed here are VALUE differences."
+  }
+}

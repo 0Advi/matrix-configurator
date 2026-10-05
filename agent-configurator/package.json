@@ -1,0 +1,17 @@
+{
+  "name": "@matrix-configurator/agent-configurator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Programmatic Workspace Configurator: op_* operations as a CLI and an MCP server, editing the same v5 drafts as the visual configurator and publishing through the Matrix app's platform API.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "bin": { "matrix-cfg": "bin/cfg.mjs" },
+  "scripts": {
+    "test": "node --test",
+    "mcp": "node mcp-server.mjs",
+    "cfg": "node bin/cfg.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.0"
+  }
+}

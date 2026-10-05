@@ -1,0 +1,265 @@
+Pager usage is off.
+BEGIN
+== D1 migration ledger vs origin/main (63 files) ==
+ filename | status 
+----------+--------
+
+ ledger_rows |         first_applied         |         last_applied          
+-------------+-------------------------------+-------------------------------
+          63 | 2026-10-04 04:06:46.164073+00 | 2026-10-04 04:06:58.156349+00
+
+== D2 column drift (expected per migrations; schema.sql/verified.sql differ where noted) ==
+           tbl           |               col               | expectation |                      actual                       |                                   note                                    
+-------------------------+---------------------------------+-------------+---------------------------------------------------+---------------------------------------------------------------------------
+ launch_approvals        | rent_start_date                 | present     | date null=YES                                     | 20260819 (latest migration)
+ notification_outbox     | tenant_id                       | any         | uuid null=YES                                     | verified.sql: nullable; schema.sql: NOT NULL
+ password_reset_requests | reset_token_hash                | present     | text null=YES                                     | 202606123; MISSING from schema.sql
+ password_reset_requests | token_expires_at                | present     | timestamp with time zone null=YES                 | 202606123; MISSING from schema.sql
+ project_reviews         | qa_reports_viewed_by_project_at | present     | timestamp with time zone null=YES                 | 20260804; ORM maps it; MISSING from schema.sql
+ site_details            | completion_pct                  | any         | integer null=YES GENERATED                        | out-of-band generated column (verified.sql); not in schema.sql/migrations
+ site_files              | onedrive_item_id                | absent      | absent                                            | 20260815 dropped; schema.sql still lists it
+ site_files              | onedrive_synced_at              | absent      | absent                                            | 20260815 dropped; schema.sql still lists it
+ sites                   | address                         | absent      | absent                                            | 20260815 dropped; schema.sql still lists it
+ sites                   | area_sqft                       | numeric     | numeric(12,2) null=NO                             | 20260801 widened integer->numeric(12,2); schema.sql says integer
+ sites                   | expected_escalation_years       | any         | smallint null=YES                                 | verified.sql: smallint; schema.sql: integer
+ sites                   | financial_closure_status        | present     | text null=NO                                      | 202606144; ORM maps it; MISSING from schema.sql
+ sites                   | notes                           | absent      | absent                                            | 20260815 dropped; schema.sql still lists it
+ sites                   | project_excellence_status       | present     | text null=NO                                      | 202606134; ORM maps it; MISSING from schema.sql
+ sites                   | spoc_email                      | absent      | absent                                            | 20260815 dropped; schema.sql still lists it
+ sites                   | spoc_phone                      | absent      | absent                                            | 20260815 dropped; schema.sql still lists it
+ user_module_memberships | has_executive_access            | present     | boolean null=NO                                   | 202606231
+ workspace_requests      | status                          | any         | USER-DEFINED null=NO udt=workspace_request_status | verified.sql: enum workspace_request_status; schema.sql: text+CHECK
+
+== D3 every CHECK constraint in public (NOT VALID ones are invisible in verified.sql) ==
+          table_name           |                   conname                    | validated |                                                                                                                                                    definition                                                                                                                                                     
+-------------------------------+----------------------------------------------+-----------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ design_deliverables           | design_deliverables_admin_status_check       |           | CHECK ((admin_status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))
+ design_deliverables           | design_deliverables_kind_check               |           | CHECK ((kind = ANY (ARRAY['recce'::text, '2d'::text, '3d'::text, 'boq'::text])))
+ design_deliverables           | design_deliverables_status_check             |           | CHECK ((status = ANY (ARRAY['pending'::text, 'submitted'::text, 'approved'::text, 'rejected'::text])))
+ design_reviews                | design_reviews_current_stage_check           |           | CHECK ((current_stage = ANY (ARRAY['recce'::text, '2d'::text, '3d'::text, 'boq'::text, 'gfc'::text, 'done'::text])))
+ design_reviews                | design_reviews_gfc_status_check              |           | CHECK ((gfc_status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))
+ launch_approvals              | chk_la_revshare_delivery_range               |           | CHECK (((revshare_delivery_pct IS NULL) OR ((revshare_delivery_pct >= (0)::numeric) AND (revshare_delivery_pct <= (100)::numeric))))
+ launch_approvals              | chk_la_revshare_dinein_range                 |           | CHECK (((revshare_dinein_pct IS NULL) OR ((revshare_dinein_pct >= (0)::numeric) AND (revshare_dinein_pct <= (100)::numeric))))
+ launch_approvals              | chk_la_staggered_escalation                  |           | CHECK (is_valid_staggered_escalation(staggered_escalation))
+ launch_approvals              | chk_launch_approval_status                   |           | CHECK ((status = ANY (ARRAY['pending_admin_review'::text, 'under_exec_review'::text, 'under_supervisor_review'::text, 'pending_admin_final'::text, 'ready_to_launch'::text, 'launched'::text])))
+ launch_approvals              | chk_launch_exec_verdict                      |           | CHECK (((exec_verdict IS NULL) OR (exec_verdict = ANY (ARRAY['approved'::text, 'rejected'::text]))))
+ launch_approvals              | chk_launch_supervisor_verdict                |           | CHECK (((supervisor_verdict IS NULL) OR (supervisor_verdict = ANY (ARRAY['approved'::text, 'rejected'::text]))))
+ legal_change_requests         | legal_change_requests_status_check           |           | CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))
+ legal_change_requests         | legal_change_requests_target_table_check     |           | CHECK ((target_table = ANY (ARRAY['legal_dd_checklist'::text, 'site_agreement'::text, 'site_licensing'::text])))
+ legal_dd_checklist            | legal_dd_checklist_commercial_use_check      |           | CHECK ((commercial_use = ANY (ARRAY['pending'::text, 'yes'::text, 'no'::text, 'na'::text])))
+ legal_dd_checklist            | legal_dd_checklist_electricity_check         |           | CHECK ((electricity = ANY (ARRAY['pending'::text, 'yes'::text, 'no'::text, 'na'::text])))
+ legal_dd_checklist            | legal_dd_checklist_final_verdict_check       |           | CHECK ((final_verdict = ANY (ARRAY['pending'::text, 'positive'::text, 'negative'::text])))
+ legal_dd_checklist            | legal_dd_checklist_fire_noc_check            |           | CHECK ((fire_noc = ANY (ARRAY['pending'::text, 'yes'::text, 'no'::text, 'na'::text])))
+ legal_dd_checklist            | legal_dd_checklist_oc_cc_check               |           | CHECK ((oc_cc = ANY (ARRAY['pending'::text, 'yes'::text, 'no'::text, 'na'::text])))
+ legal_dd_checklist            | legal_dd_checklist_other_1_check             |           | CHECK ((other_1 = ANY (ARRAY['pending'::text, 'yes'::text, 'no'::text, 'na'::text])))
+ legal_dd_checklist            | legal_dd_checklist_other_2_check             |           | CHECK ((other_2 = ANY (ARRAY['pending'::text, 'yes'::text, 'no'::text, 'na'::text])))
+ legal_dd_checklist            | legal_dd_checklist_property_tax_check        |           | CHECK ((property_tax = ANY (ARRAY['pending'::text, 'yes'::text, 'no'::text, 'na'::text])))
+ legal_dd_checklist            | legal_dd_checklist_sanctioned_plan_check     |           | CHECK ((sanctioned_plan = ANY (ARRAY['pending'::text, 'yes'::text, 'no'::text, 'na'::text])))
+ legal_dd_checklist            | legal_dd_checklist_stage_check               |           | CHECK ((stage = ANY (ARRAY['draft'::text, 'pending_review'::text, 'published'::text])))
+ legal_dd_checklist            | legal_dd_checklist_title_doc_check           |           | CHECK ((title_doc = ANY (ARRAY['pending'::text, 'yes'::text, 'no'::text, 'na'::text])))
+ module_codes                  | chk_module_codes_module                      |           | CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'payment'::text, 'project_excellence'::text])))
+ notification_outbox           | notification_outbox_channel_check            |           | CHECK ((channel = ANY (ARRAY['email'::text, 'slack'::text, 'in_app'::text])))
+ notification_outbox           | notification_outbox_status_check             |           | CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'failed'::text, 'skipped'::text])))
+ nso_reviews                   | nso_reviews_current_stage_check              |           | CHECK ((current_stage = ANY (ARRAY['stage_one'::text, 'stage_two'::text, 'stage_three'::text, 'final'::text, 'done'::text])))
+ nso_reviews                   | nso_reviews_dry_stock_order_status_check     |           | CHECK ((dry_stock_order_status = ANY (ARRAY['pending'::text, 'ordered'::text, 'received'::text])))
+ nso_reviews                   | nso_reviews_fire_noc_status_check            |           | CHECK ((fire_noc_status = ANY (ARRAY['pending'::text, 'done'::text])))
+ nso_reviews                   | nso_reviews_fssai_status_check               |           | CHECK ((fssai_status = ANY (ARRAY['pending'::text, 'done'::text])))
+ nso_reviews                   | nso_reviews_health_trade_status_check        |           | CHECK ((health_trade_status = ANY (ARRAY['pending'::text, 'done'::text])))
+ nso_reviews                   | nso_reviews_nso_status_check                 |           | CHECK ((nso_status = ANY (ARRAY['pending'::text, 'in_progress'::text, 'complete'::text])))
+ nso_reviews                   | nso_reviews_online_delivery_status_check     |           | CHECK ((online_delivery_status = ANY (ARRAY['pending'::text, 'ready'::text, 'active'::text])))
+ nso_reviews                   | nso_reviews_shops_estab_status_check         |           | CHECK ((shops_estab_status = ANY (ARRAY['pending'::text, 'done'::text])))
+ nso_reviews                   | nso_reviews_storage_license_status_check     |           | CHECK ((storage_license_status = ANY (ARRAY['pending'::text, 'done'::text])))
+ password_reset_requests       | password_reset_status_chk                    |           | CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'completed'::text, 'rejected'::text])))
+ project_excellence_items      | chk_pe_item_idx                              |           | CHECK (((idx >= 1) AND (idx <= 11)))
+ project_excellence_reviews    | chk_pe_budget_status                         |           | CHECK ((budget_status = ANY (ARRAY['draft'::text, 'pending_supervisor'::text, 'pending_admin'::text, 'approved'::text, 'rejected'::text])))
+ project_excellence_reviews    | chk_pe_current_stage                         |           | CHECK ((current_stage = ANY (ARRAY['budget'::text, 'done'::text])))
+ project_excellence_reviews    | chk_pe_excellence_status                     |           | CHECK ((excellence_status = ANY (ARRAY['pending'::text, 'allocated'::text, 'budgeting'::text, 'approved'::text, 'done'::text])))
+ project_reviews               | chk_project_current_stage                    |           | CHECK ((current_stage = ANY (ARRAY['execution'::text, 'done'::text])))
+ project_reviews               | chk_project_expected_completion_status       |           | CHECK ((expected_completion_status = ANY (ARRAY['pending'::text, 'submitted'::text, 'approved'::text, 'rejected'::text])))
+ project_reviews               | chk_project_initialization_status            |           | CHECK ((initialization_status = ANY (ARRAY['pending'::text, 'proposed'::text, 'submitted'::text, 'approved'::text, 'rejected'::text])))
+ project_reviews               | chk_project_nso_status                       |           | CHECK ((nso_status = ANY (ARRAY['pending'::text, 'pushed'::text])))
+ project_reviews               | chk_project_quality_status                   |           | CHECK ((quality_audit_status = ANY (ARRAY['pending'::text, 'submitted'::text, 'supervisor_approved'::text, 'approved'::text, 'rejected'::text])))
+ project_reviews               | chk_project_status                           |           | CHECK ((project_status = ANY (ARRAY['pending'::text, 'allocated'::text, 'budgeting'::text, 'in_progress'::text, 'done'::text])))
+ quality_audit_reports         | chk_qa_report_kind                           |           | CHECK ((kind = ANY (ARRAY['before'::text, 'after'::text])))
+ site_budget_items             | chk_site_budget_item_idx                     |           | CHECK (((idx >= 1) AND (idx <= 11)))
+ site_budget_items             | chk_site_budget_item_phase                   |           | CHECK ((phase = ANY (ARRAY['gfc'::text, 'closure'::text])))
+ site_budgets                  | chk_site_budget_phase                        |           | CHECK ((phase = ANY (ARRAY['gfc'::text, 'closure'::text])))
+ site_budgets                  | chk_site_budget_status                       |           | CHECK ((status = ANY (ARRAY['draft'::text, 'pending_supervisor'::text, 'pending_admin'::text, 'approved'::text, 'rejected'::text])))
+ site_delegations              | chk_site_delegations_module                  |           | CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'project_excellence'::text, 'financial_closure'::text, 'quality_audit'::text])))
+ site_details                  | chk_site_details_rent_type                   |           | CHECK (((rent_type = ANY (ARRAY['fixed'::text, 'revshare'::text, 'mg_revshare'::text, 'staggered'::text])) OR (rent_type IS NULL)))
+ site_files                    | chk_site_files_file_type                     |           | CHECK ((file_type = ANY (ARRAY['loi'::text, 'photo'::text, 'quality_audit'::text, 'excellence'::text, 'closure'::text])))
+ site_licensing                | site_licensing_fire_noc_check                |           | CHECK ((fire_noc = ANY (ARRAY['pending'::text, 'yes'::text, 'no'::text, 'na'::text])))
+ site_licensing                | site_licensing_fssai_check                   |           | CHECK ((fssai = ANY (ARRAY['pending'::text, 'yes'::text, 'no'::text, 'na'::text])))
+ site_licensing                | site_licensing_health_trade_check            |           | CHECK ((health_trade = ANY (ARRAY['pending'::text, 'yes'::text, 'no'::text, 'na'::text])))
+ site_licensing                | site_licensing_shops_estab_reg_check         |           | CHECK ((shops_estab_reg = ANY (ARRAY['pending'::text, 'yes'::text, 'no'::text, 'na'::text])))
+ site_licensing                | site_licensing_stage_check                   |           | CHECK ((stage = ANY (ARRAY['draft'::text, 'pending_review'::text, 'published'::text])))
+ site_licensing                | site_licensing_storage_license_check         |           | CHECK ((storage_license = ANY (ARRAY['pending'::text, 'yes'::text, 'no'::text, 'na'::text])))
+ sites                         | chk_area_sqft_positive                       |           | CHECK ((area_sqft >= (0)::numeric))
+ sites                         | chk_revshare_delivery_range                  |           | CHECK (((revshare_delivery_pct IS NULL) OR ((revshare_delivery_pct >= (0)::numeric) AND (revshare_delivery_pct <= (100)::numeric))))
+ sites                         | chk_revshare_dinein_range                    |           | CHECK (((revshare_dinein_pct IS NULL) OR ((revshare_dinein_pct >= (0)::numeric) AND (revshare_dinein_pct <= (100)::numeric))))
+ sites                         | chk_sites_rent_type                          |           | CHECK (((rent_type = ANY (ARRAY['fixed'::text, 'revshare'::text, 'mg_revshare'::text, 'staggered'::text])) OR (rent_type IS NULL)))
+ sites                         | chk_sites_status                             | NOT VALID | CHECK ((status = ANY (ARRAY['draft_submitted'::text, 'shortlisted'::text, 'details_submitted'::text, 'approved'::text, 'loi_uploaded'::text, 'legal_review'::text, 'legal_approved'::text, 'legal_rejected'::text, 'pushed_to_payments'::text, 'rejected'::text, 'archived'::text, 'launched'::text]))) NOT VALID
+ sites                         | chk_staggered_escalation                     |           | CHECK (is_valid_staggered_escalation(staggered_escalation))
+ sites                         | sites_agreement_status_check                 |           | CHECK ((agreement_status = ANY (ARRAY['pending'::text, 'signed'::text, 'registered'::text])))
+ sites                         | sites_design_status_check                    |           | CHECK ((design_status = ANY (ARRAY['pending'::text, 'allocated'::text, 'in_progress'::text, 'gfc_pending'::text, 'approved'::text, 'rejected'::text])))
+ sites                         | sites_finance_status_check                   |           | CHECK ((finance_status = ANY (ARRAY['pending'::text, 'awaiting_supervisor'::text, 'awaiting_admin'::text, 'approved'::text])))
+ sites                         | sites_legal_dd_status_check                  |           | CHECK ((legal_dd_status = ANY (ARRAY['pending'::text, 'in_review'::text, 'positive'::text, 'negative'::text])))
+ sites                         | sites_licensing_status_check                 |           | CHECK ((licensing_status = ANY (ARRAY['pending'::text, 'partial'::text, 'complete'::text])))
+ sites                         | sites_project_status_check                   |           | CHECK ((project_status = ANY (ARRAY['pending'::text, 'allocated'::text, 'budgeting'::text, 'in_progress'::text, 'done'::text])))
+ stage_events                  | chk_stage_events_actor_role                  | NOT VALID | CHECK (((actor_role = ANY (ARRAY['business_admin'::text, 'supervisor'::text, 'executive'::text, 'system'::text])) OR (actor_role IS NULL))) NOT VALID
+ supervisor_executive_requests | supervisor_executive_requests_module_check   |           | CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'project_excellence'::text])))
+ supervisor_executive_requests | supervisor_executive_requests_status_check   |           | CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))
+ supervisor_invite_codes       | chk_supervisor_invite_codes_module           |           | CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'payment'::text, 'project_excellence'::text])))
+ user_module_memberships       | chk_user_module_memberships_module           |           | CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'payment'::text, 'project_excellence'::text])))
+ user_module_memberships       | user_module_memberships_role_in_module_check |           | CHECK ((role_in_module = ANY (ARRAY['supervisor'::text, 'executive'::text])))
+ users                         | users_role_check                             |           | CHECK ((role = ANY (ARRAY['business_admin'::text, 'observer'::text, 'supervisor'::text, 'executive'::text])))
+
+== D4 the module-key constraints (expected: one IN-list CHECK per table; site_delegations incl. quality_audit; three incl. payment) ==
+          table_name           |                     conname                      |                                                                                      definition                                                                                       | convalidated 
+-------------------------------+--------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------
+ module_codes                  | chk_module_codes_module                          | CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'payment'::text, 'project_excellence'::text])))                                  | t
+ module_codes                  | module_codes_tenant_id_module_key                | UNIQUE (tenant_id, module)                                                                                                                                                            | t
+ site_delegations              | chk_site_delegations_module                      | CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'project_excellence'::text, 'financial_closure'::text, 'quality_audit'::text]))) | t
+ supervisor_executive_requests | supervisor_executive_requests_module_check       | CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'project_excellence'::text])))                                                   | t
+ supervisor_invite_codes       | chk_supervisor_invite_codes_module               | CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'payment'::text, 'project_excellence'::text])))                                  | t
+ supervisor_invite_codes       | supervisor_invite_codes_supervisor_id_module_key | UNIQUE (supervisor_id, module)                                                                                                                                                        | t
+ user_module_memberships       | chk_user_module_memberships_module               | CHECK ((module = ANY (ARRAY['bd'::text, 'legal'::text, 'design'::text, 'project'::text, 'nso'::text, 'payment'::text, 'project_excellence'::text])))                                  | t
+
+ table_name |           conname            |                                                                                                                                                    definition                                                                                                                                                     | convalidated 
+------------+------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------
+ sites      | chk_sites_status             | CHECK ((status = ANY (ARRAY['draft_submitted'::text, 'shortlisted'::text, 'details_submitted'::text, 'approved'::text, 'loi_uploaded'::text, 'legal_review'::text, 'legal_approved'::text, 'legal_rejected'::text, 'pushed_to_payments'::text, 'rejected'::text, 'archived'::text, 'launched'::text]))) NOT VALID | f
+ sites      | sites_agreement_status_check | CHECK ((agreement_status = ANY (ARRAY['pending'::text, 'signed'::text, 'registered'::text])))                                                                                                                                                                                                                     | t
+ sites      | sites_design_status_check    | CHECK ((design_status = ANY (ARRAY['pending'::text, 'allocated'::text, 'in_progress'::text, 'gfc_pending'::text, 'approved'::text, 'rejected'::text])))                                                                                                                                                           | t
+ sites      | sites_finance_status_check   | CHECK ((finance_status = ANY (ARRAY['pending'::text, 'awaiting_supervisor'::text, 'awaiting_admin'::text, 'approved'::text])))                                                                                                                                                                                    | t
+ sites      | sites_legal_dd_status_check  | CHECK ((legal_dd_status = ANY (ARRAY['pending'::text, 'in_review'::text, 'positive'::text, 'negative'::text])))                                                                                                                                                                                                   | t
+ sites      | sites_licensing_status_check | CHECK ((licensing_status = ANY (ARRAY['pending'::text, 'partial'::text, 'complete'::text])))                                                                                                                                                                                                                      | t
+ sites      | sites_project_status_check   | CHECK ((project_status = ANY (ARRAY['pending'::text, 'allocated'::text, 'budgeting'::text, 'in_progress'::text, 'done'::text])))                                                                                                                                                                                  | t
+
+== D5 RLS flags and policies ==
+            relname            | rls_enabled | rls_forced | policies 
+-------------------------------+-------------+------------+----------
+ approvals                     | f           | f          |        0
+ audit_logs                    | f           | f          |        0
+ business_admins               | f           | f          |        0
+ design_deliverables           | f           | f          |        0
+ design_reviews                | f           | f          |        0
+ launch_approvals              | t           | f          |        0
+ launch_review_events          | t           | f          |        0
+ legal_change_requests         | f           | f          |        0
+ legal_dd_checklist            | f           | f          |        0
+ module_codes                  | f           | f          |        0
+ notification_outbox           | f           | f          |        0
+ nso_reviews                   | t           | f          |        0
+ observer_codes                | f           | f          |        0
+ password_reset_requests       | t           | f          |        0
+ project_excellence_items      | f           | f          |        0
+ project_excellence_reviews    | t           | f          |        1
+ project_reviews               | f           | f          |        0
+ quality_audit_reports         | t           | f          |        1
+ reversible_actions            | f           | f          |        0
+ schema_migrations             | f           | f          |        0
+ shortlist_delegations         | t           | f          |        1
+ site_agreement                | f           | f          |        0
+ site_budget_items             | t           | f          |        1
+ site_budgets                  | t           | f          |        1
+ site_delegations              | f           | f          |        0
+ site_details                  | f           | f          |        0
+ site_files                    | f           | f          |        0
+ site_licensing                | f           | f          |        0
+ sites                         | f           | f          |        0
+ stage_events                  | f           | f          |        0
+ supervisor_executive_requests | t           | f          |        0
+ supervisor_invite_codes       | f           | f          |        0
+ tenants                       | f           | f          |        0
+ user_module_memberships       | f           | f          |        0
+ users                         | f           | f          |        0
+ workspace_requests            | t           | f          |        0
+
+         tablename          |               policyname               | cmd |  roles   |                 qual                  |            with_check             
+----------------------------+----------------------------------------+-----+----------+---------------------------------------+-----------------------------------
+ project_excellence_reviews | tenant_isolation                       | ALL | {public} | (tenant_id = current_tenant_id())     | (tenant_id = current_tenant_id())
+ quality_audit_reports      | tenant_isolation                       | ALL | {public} | (tenant_id = current_tenant_id())     | 
+ shortlist_delegations      | tenant_isolation_shortlist_delegations | ALL | {public} | (tenant_id = get_current_tenant_id()) | 
+ site_budget_items          | tenant_isolation                       | ALL | {public} | (tenant_id = current_tenant_id())     | (tenant_id = current_tenant_id())
+ site_budgets               | tenant_isolation                       | ALL | {public} | (tenant_id = current_tenant_id())     | (tenant_id = current_tenant_id())
+
+== D6 functions / views referenced by migrations but defined out-of-band ==
+            proname            |   args    | security_definer |             body_md5             
+-------------------------------+-----------+------------------+----------------------------------
+ current_tenant_id             |           | f                | 059c8f30d66064e584f4953024bd207b
+ get_current_tenant_id         |           | f                | 64b0b96f69a3c43291cc23b36f3d7bf7
+ handle_new_auth_user          |           | t                | f567a059a3eb8f920b98fc285d5890e4
+ is_valid_staggered_escalation | arr jsonb | f                | 5e72c8513c8f085107f0722c60473a39
+
+    view_name     
+------------------
+ pipeline_summary
+ stuck_sites
+
+    view_name     |       reloptions        
+------------------+-------------------------
+ pipeline_summary | {security_invoker=true}
+ stuck_sites      | {security_invoker=true}
+
+        enum_type         |          labels           
+--------------------------+---------------------------
+ workspace_request_status | pending,approved,rejected
+
+== D7 disputed objects (present?) ==
+             name              | present |                                        note                                        
+-------------------------------+---------+------------------------------------------------------------------------------------
+ observer_codes                | t       | 20260817
+ project_budget_items          | f       | 202606134/202606145 drop it
+ project_excellence_items      | t       | 202606134
+ project_excellence_reviews    | t       | 202606134 creates; 202606144 says "never applied"; 20260802 says it exists on live
+ project_executions            | f       | 202606131 drops it
+ quality_audit_reports         | t       | 20260804; MISSING from schema.sql + verified.sql
+ reversible_actions            | t       | 20260812
+ schema_migrations             | t       | created by the ledger runner (d1e99c6, 2026-07-11)
+ supervisor_executive_requests | t       | 202606231
+
+== D8 indexes from 202606133 (CREATE INDEX CONCURRENTLY: fails inside the runner txn) ==
+                  index_name                  | present 
+----------------------------------------------+---------
+ idx_design_deliverables_tenant_id            | f
+ idx_launch_review_events_tenant_id           | f
+ idx_notification_outbox_site_id              | f
+ idx_project_budget_items_tenant_id           | f
+ idx_supervisor_invite_codes_tenant_id        | f
+ idx_workspace_requests_provisioned_tenant_id | f
+
+== D9 the connecting role: does RLS apply to the backend at all? ==
+   role   | rolsuper | rolbypassrls | jwt_claims_guc 
+----------+----------+--------------+----------------
+ postgres | t        | t            | 
+
+== D10 data facts the proposed backfill depends on (counts / vocabularies only) ==
+ tenants 
+---------
+       0
+
+ t | module | count 
+---+--------+-------
+
+ status | count 
+--------+-------
+
+ finance_status | design_status | project_excellence_status | financial_closure_status | count 
+----------------+---------------+---------------------------+--------------------------+-------
+
+== D11 proposed object names must not exist yet ==
+    proposed_object     | existing 
+------------------------+----------
+ tenant_config_releases | 
+ tenant_config_live     | 
+ module_catalog         | 
+ tenant_modules         | 
+ module_records         | 
+ module_stage_states    | 
+ module_approvals       | 
+ site_module_outcomes   | 
+
+ proposed_column_already_present | table_name 
+---------------------------------+------------
+
+ROLLBACK

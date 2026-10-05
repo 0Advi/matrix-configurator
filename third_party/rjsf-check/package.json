@@ -1,0 +1,18 @@
+{
+  "name": "matrix-rjsf-check",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Proof that @rjsf/core renders and validates the JSON Schemas compiled from real Matrix stage fields (third_party/matrix-adapters/forms.py). Not shipped; F4 adds the same exact versions to app/frontend.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "scripts": {
+    "check": "node render-check.mjs"
+  },
+  "dependencies": {
+    "@rjsf/core": "6.11.0",
+    "@rjsf/utils": "6.11.0",
+    "@rjsf/validator-ajv8": "6.11.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}

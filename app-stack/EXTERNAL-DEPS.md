@@ -1,0 +1,22 @@
+# External dependencies of the Matrix app — and what the sandbox does instead
+
+Inventory of everything `app/` (origin/main 3d4f277) talks to outside its own backend +
+database, found by reading `backend/app/**` (all `httpx` call sites, settings) and grepping
+`frontend/` for `VITE_*` vars and absolute URLs. Status is as verified on 2026-10-04.
+
+| # | Dependency | Used by / for | Config | In production | In the sandbox | Needed for onboarding? |
+|---|---|---|---|---|---|---|
+| 1 | **Hosted Supabase Postgres** | everything | `DATABASE_URL` | Supabase transaction pooler (:6543) | **Local Postgres 16** in docker (`app-stack/docker-compose.yml`, project `matrix-app`, `127.0.0.1:54330`) + `db-init/00-supabase-shim.sql` (roles `anon`/`authenticated`/`service_role`, `uuid-ossp`/`pgcrypto` in schema `extensions`, `auth.jwt()/uid()/role()/email()`, Supabase default grants). Built by `reset-db.sh`. | **yes** — done |
+| 2 | **Supabase Auth (GoTrue)** | nothing at runtime | `SUPABASE_JWT_SECRET` | not called: the backend mints its own HS256 JWTs (`core/security.py`) | not needed — random local `SUPABASE_JWT_SECRET` | n/a |
+| 3 | **Supabase Storage REST** (`/storage/v1/object/...`, `/object/sign/...`) | LOI PDFs, site photos, design deliverables, quality-audit reports, project-excellence/closure files, site documents, **tenant branding logo** (`services/storage_service.py`) | `SUPABASE_PROJECT_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET` | Supabase bucket `site-files` | **`app-stack/storage-stub.mjs`** (zero-dep Node, `127.0.0.1:54331`): PUT/POST upload (honours `x-upsert`), DELETE, POST sign → `{signedURL}`, GET signed download with HMAC+expiry token, service-key auth. Files under `app-stack/run/storage/`. Verified: branding logo upload → signed URL → byte-identical download; tampered token → 400; the logo renders on the branded login page. | no (but every file-upload stage of the flows is, so it is set up) |
+| 4 | **Resend email API** (`https://api.resend.com/emails`, hard-coded) | draining `notification_outbox` (workspace-provisioned mail, workflow notifications) — `services/notification_service.py`, loop only starts when `RESEND_API_KEY` is set | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | sends mail | **unset → nothing is sent**; rows stay `pending` in `public.notification_outbox` (startup logs a warning). Mailpit would not help without a code change (the URL is hard-coded and it is an HTTP API, not SMTP). Inspect mail with `docker exec matrix-app-db-1 psql -U postgres -d matrix -c "select type, recipient_email, subject, status from notification_outbox order by created_at desc limit 20"`. | **no** — approve returns the workspace code + setup code in the API response; supervisors/executives set their own first password (`/auth/password-setup`) |
+| 5 | **Supabase Edge Function `resolve-maps-url`** | frontend only: expanding *short* Google-Maps links (`maps.app.goo.gl/...`) into coordinates (`frontend/src/lib/googleMaps.js`) | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Supabase Functions | **unset** → short links show "Missing env variables for maps resolver"; full Google-Maps URLs and raw `lat, lng` are parsed client-side and still work. A local stand-in would itself need internet (it follows Google redirects), so none is provided. | no |
+| 6 | Hero video (CloudFront) + Google Fonts (`fonts.googleapis.com`) + `unpkg.com` (static landing sub-pages under `public/landing/`) | landing-page cosmetics, loaded by the *browser* | none | CDN | fetched by the browser when online; offline the landing page falls back to a plain background / system fonts. No server-side dependency. | no |
+| 7 | Supabase PostgREST / Realtime / supabase-js | **not used** (frontend talks only to FastAPI; `supabaseAuth.js` is a historical name, no SDK) | — | — | nothing to do | n/a |
+| 8 | Live-only DB objects referenced by migrations: views `pipeline_summary`, `stuck_sites`; trigger fn `handle_new_auth_user()` on `auth.users` | only `ALTER VIEW`/`REVOKE` in `202606122`; never used by the app | — | exist on the live DB | not recreated (no definition in the repo) — the 4 statements fail harmlessly during bootstrap | no |
+
+## Notes
+- The backend makes **no other outbound calls** (only the two `httpx` clients above).
+- The rate limiter is in-process memory (no Redis) — nothing external.
+- `PLATFORM_ADMIN_*` is local: the portal login checks env values and mints a 30-minute
+  admin JWT signed with `SUPABASE_JWT_SECRET`.

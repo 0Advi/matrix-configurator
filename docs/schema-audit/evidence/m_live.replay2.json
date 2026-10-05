@@ -1,0 +1,417 @@
+{
+ "database": "m_live",
+ "label": "pass 2 (convergence)",
+ "files": [
+  {
+   "file": "202605221_add_workspace_requests.sql",
+   "statements": 10,
+   "failed": [
+    {
+     "index": 0,
+     "head": "-- Workspace-request capture + employee-join enablement. -- -- Flow: -- 1. Anyone posts to POST /api/tenancy/request-workspace from the landing -- page \u2192 row in",
+     "error": "ProgrammingError: <class 'asyncpg.exceptions.DuplicateObjectError'>: type \"workspace_request_status\" already exists"
+    },
+    {
+     "index": 1,
+     "head": "CREATE TABLE public.workspace_requests ( id uuid PRIMARY KEY DEFAULT uuid_generate_v4(), company text NOT NULL, admin_email text NOT NULL, -- Free-text bucket t",
+     "error": "ProgrammingError: <class 'asyncpg.exceptions.DuplicateTableError'>: relation \"workspace_requests\" already exists"
+    },
+    {
+     "index": 2,
+     "head": "CREATE INDEX workspace_requests_status_created_idx ON public.workspace_requests (status, created_at DESC);",
+     "error": "ProgrammingError: <class 'asyncpg.exceptions.DuplicateTableError'>: relation \"workspace_requests_status_created_idx\" already exists"
+    },
+    {
+     "index": 3,
+     "head": "CREATE INDEX workspace_requests_admin_email_idx ON public.workspace_requests (lower(admin_email));",
+     "error": "ProgrammingError: <class 'asyncpg.exceptions.DuplicateTableError'>: relation \"workspace_requests_admin_email_idx\" already exists"
+    }
+   ]
+  },
+  {
+   "file": "202605241_role_canonicalization_and_lifecycle.sql",
+   "statements": 19,
+   "failed": [
+    {
+     "index": 18,
+     "head": "-- Matches the tenant_isolation pattern used by the newer policies on -- sites / approvals / audit_logs / notification_outbox / stage_events. CREATE POLICY tena",
+     "error": "ProgrammingError: <class 'asyncpg.exceptions.DuplicateObjectError'>: policy \"tenant_isolation_shortlist_delegations\" for table \"shortlist_delegations\" already exists"
+    }
+   ]
+  },
+  {
+   "file": "202605261_role_three_tier_business_admin.sql",
+   "statements": 3,
+   "failed": []
+  },
+  {
+   "file": "202605262_business_admins_table.sql",
+   "statements": 2,
+   "failed": []
+  },
+  {
+   "file": "202605263_module_codes_table.sql",
+   "statements": 2,
+   "failed": []
+  },
+  {
+   "file": "202605264_supervisor_invite_codes_table.sql",
+   "statements": 2,
+   "failed": []
+  },
+  {
+   "file": "202605265_user_module_memberships_table.sql",
+   "statements": 3,
+   "failed": []
+  },
+  {
+   "file": "202605266_shortlist_delegations_executive_check.sql",
+   "statements": 1,
+   "failed": []
+  },
+  {
+   "file": "202605267_users_notes_column.sql",
+   "statements": 1,
+   "failed": []
+  },
+  {
+   "file": "202605268_legal_workflow_tables.sql",
+   "statements": 4,
+   "failed": []
+  },
+  {
+   "file": "202605269_legal_change_requests_table.sql",
+   "statements": 4,
+   "failed": []
+  },
+  {
+   "file": "202605271_site_delegations.sql",
+   "statements": 3,
+   "failed": []
+  },
+  {
+   "file": "202605272_checklist_stage.sql",
+   "statements": 4,
+   "failed": []
+  },
+  {
+   "file": "202606020_pipeline_rent_fields.sql",
+   "statements": 3,
+   "failed": []
+  },
+  {
+   "file": "202606033_project_execution_foundation.sql",
+   "statements": 16,
+   "failed": [
+    {
+     "index": 13,
+     "head": "CREATE INDEX IF NOT EXISTS idx_project_reviews_budget_status ON project_reviews (tenant_id, budget_status);",
+     "error": "ProgrammingError: <class 'asyncpg.exceptions.UndefinedColumnError'>: column \"budget_status\" does not exist"
+    }
+   ]
+  },
+  {
+   "file": "202606081_passwords_branding_reset.sql",
+   "statements": 7,
+   "failed": []
+  },
+  {
+   "file": "202606091_project_budget_11_heads_area_covers.sql",
+   "statements": 6,
+   "failed": []
+  },
+  {
+   "file": "202606092_project_execution_flow.sql",
+   "statements": 8,
+   "failed": []
+  },
+  {
+   "file": "202606093_drop_stale_budget_idx_10_constraint.sql",
+   "statements": 1,
+   "failed": []
+  },
+  {
+   "file": "202606094_launch_approvals.sql",
+   "statements": 7,
+   "failed": []
+  },
+  {
+   "file": "20260609_nso_module.sql",
+   "statements": 14,
+   "failed": []
+  },
+  {
+   "file": "202606121_launch_validation_loop.sql",
+   "statements": 14,
+   "failed": []
+  },
+  {
+   "file": "202606122_security_posture_lockdown.sql",
+   "statements": 13,
+   "failed": []
+  },
+  {
+   "file": "202606123_reset_token_binding.sql",
+   "statements": 1,
+   "failed": []
+  },
+  {
+   "file": "202606131_drop_duplicate_approvals_indexes.sql",
+   "statements": 2,
+   "failed": []
+  },
+  {
+   "file": "202606131_drop_project_executions.sql",
+   "statements": 1,
+   "failed": []
+  },
+  {
+   "file": "202606132_drop_duplicate_indexes_sweep.sql",
+   "statements": 3,
+   "failed": []
+  },
+  {
+   "file": "202606132_retire_payment_module.sql",
+   "statements": 10,
+   "failed": []
+  },
+  {
+   "file": "202606133_fk_index_sweep.sql",
+   "statements": 6,
+   "failed": [
+    {
+     "index": 0,
+     "head": "-- Migration: Index the highest-value unindexed FK columns (issue #167) -- -- Postgres does not auto-index FK columns. Unindexed FKs mean: -- \u2022 Sequential scan ",
+     "error": "Error: <class 'asyncpg.exceptions.ActiveSQLTransactionError'>: CREATE INDEX CONCURRENTLY cannot run inside a transaction block"
+    },
+    {
+     "index": 1,
+     "head": "-- launch_review_events \u2014 tenant_id join path CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_launch_review_events_tenant_id ON public.launch_review_events (tenant_",
+     "error": "Error: <class 'asyncpg.exceptions.ActiveSQLTransactionError'>: CREATE INDEX CONCURRENTLY cannot run inside a transaction block"
+    },
+    {
+     "index": 2,
+     "head": "-- project_budget_items \u2014 tenant_id join path CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_project_budget_items_tenant_id ON public.project_budget_items (tenant_",
+     "error": "Error: <class 'asyncpg.exceptions.ActiveSQLTransactionError'>: CREATE INDEX CONCURRENTLY cannot run inside a transaction block"
+    },
+    {
+     "index": 3,
+     "head": "-- supervisor_invite_codes \u2014 tenant_id join path (also helps module-lookup JOINs) CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_supervisor_invite_codes_tenant_id ",
+     "error": "Error: <class 'asyncpg.exceptions.ActiveSQLTransactionError'>: CREATE INDEX CONCURRENTLY cannot run inside a transaction block"
+    },
+    {
+     "index": 4,
+     "head": "-- workspace_requests \u2014 provisioned_tenant_id FK (reverse-lookup after provisioning) CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_workspace_requests_provisioned_",
+     "error": "Error: <class 'asyncpg.exceptions.ActiveSQLTransactionError'>: CREATE INDEX CONCURRENTLY cannot run inside a transaction block"
+    },
+    {
+     "index": 5,
+     "head": "-- notification_outbox \u2014 site_id (queried on every per-site notification flush) CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_notification_outbox_site_id ON publi",
+     "error": "Error: <class 'asyncpg.exceptions.ActiveSQLTransactionError'>: CREATE INDEX CONCURRENTLY cannot run inside a transaction block"
+    }
+   ]
+  },
+  {
+   "file": "202606134_project_excellence_module.sql",
+   "statements": 14,
+   "failed": []
+  },
+  {
+   "file": "202606140_drop_redundant_approvals_indexes.sql",
+   "statements": 4,
+   "failed": []
+  },
+  {
+   "file": "202606141_drop_legacy_enum_types.sql",
+   "statements": 19,
+   "failed": [
+    {
+     "index": 1,
+     "head": "-- \u2500\u2500 1. site_status \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 -- sites.status ALTER TABLE public.sites ALTER COLUMN status TYPE text USING s",
+     "error": "Error: <class 'asyncpg.exceptions.FeatureNotSupportedError'>: cannot alter type of a column used by a view or rule"
+    },
+    {
+     "index": 8,
+     "head": "ALTER TABLE public.stage_events ADD CONSTRAINT chk_stage_events_actor_role CHECK (actor_role IN ('business_admin', 'supervisor', 'executive', 'system') OR actor",
+     "error": "ProgrammingError: <class 'asyncpg.exceptions.DuplicateObjectError'>: constraint \"chk_stage_events_actor_role\" for relation \"stage_events\" already exists"
+    },
+    {
+     "index": 10,
+     "head": "-- \u2500\u2500 3. rent_type \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 -- site_details.rent_type (sites.rent_type already text + CHECK since 202606020",
+     "error": "Error: <class 'asyncpg.exceptions.FeatureNotSupportedError'>: cannot alter type of a column used by a generated column"
+    },
+    {
+     "index": 15,
+     "head": "ALTER TABLE public.site_files ADD CONSTRAINT chk_site_files_file_type CHECK (file_type IN ('loi', 'photo', 'quality_audit')) NOT VALID;",
+     "error": "ProgrammingError: <class 'asyncpg.exceptions.DuplicateObjectError'>: constraint \"chk_site_files_file_type\" for relation \"site_files\" already exists"
+    }
+   ]
+  },
+  {
+   "file": "202606142_widen_module_checks_project_excellence.sql",
+   "statements": 9,
+   "failed": []
+  },
+  {
+   "file": "202606144_shared_site_budgets.sql",
+   "statements": 16,
+   "failed": []
+  },
+  {
+   "file": "202606145_drop_legacy_project_budget.sql",
+   "statements": 2,
+   "failed": []
+  },
+  {
+   "file": "202606146_nso_handover_pushed_at.sql",
+   "statements": 1,
+   "failed": []
+  },
+  {
+   "file": "202606147_financial_closure_delegation.sql",
+   "statements": 2,
+   "failed": []
+  },
+  {
+   "file": "202606231_supervisor_executive_requests.sql",
+   "statements": 6,
+   "failed": [
+    {
+     "index": 5,
+     "head": "-- Idempotent creation of tenant_isolation policy (CodeAnt review \u2013 Major severity) DO $$ BEGIN IF NOT EXISTS ( SELECT 1 FROM pg_policy WHERE schemaname = 'publ",
+     "error": "ProgrammingError: <class 'asyncpg.exceptions.UndefinedColumnError'>: column \"schemaname\" does not exist"
+    }
+   ]
+  },
+  {
+   "file": "202607081_add_sqft_and_staggered_rent.sql",
+   "statements": 11,
+   "failed": []
+  },
+  {
+   "file": "20260713_add_na_to_legal_checklists.sql",
+   "statements": 29,
+   "failed": []
+  },
+  {
+   "file": "20260715_add_staggered_rent_type_and_sqft.sql",
+   "statements": 11,
+   "failed": []
+  },
+  {
+   "file": "20260730_extend_rent_type_constraint.sql",
+   "statements": 3,
+   "failed": []
+  },
+  {
+   "file": "20260731_fix_staggered_escalation_json_null.sql",
+   "statements": 1,
+   "failed": []
+  },
+  {
+   "file": "20260801_widen_area_sqft_to_numeric.sql",
+   "statements": 2,
+   "failed": []
+  },
+  {
+   "file": "20260802_complete_rls_defense_in_depth.sql",
+   "statements": 3,
+   "failed": []
+  },
+  {
+   "file": "20260803_notification_outbox_drain_index.sql",
+   "statements": 1,
+   "failed": []
+  },
+  {
+   "file": "20260803_rls_site_budgets.sql",
+   "statements": 2,
+   "failed": []
+  },
+  {
+   "file": "20260804_quality_audit_reports.sql",
+   "statements": 4,
+   "failed": []
+  },
+  {
+   "file": "20260805_qa_module_site_delegation.sql",
+   "statements": 2,
+   "failed": []
+  },
+  {
+   "file": "20260806_site_files_excellence_type.sql",
+   "statements": 2,
+   "failed": []
+  },
+  {
+   "file": "20260807_loi_send_back_note.sql",
+   "statements": 1,
+   "failed": []
+  },
+  {
+   "file": "20260808_site_files_closure_type.sql",
+   "statements": 2,
+   "failed": []
+  },
+  {
+   "file": "20260809_add_revshare_split_and_extend_staggered.sql",
+   "statements": 7,
+   "failed": []
+  },
+  {
+   "file": "20260810_launch_approvals_revshare_split.sql",
+   "statements": 6,
+   "failed": []
+  },
+  {
+   "file": "20260811_launch_approvals_staggered_schedule.sql",
+   "statements": 4,
+   "failed": []
+  },
+  {
+   "file": "20260812_reversible_actions.sql",
+   "statements": 3,
+   "failed": []
+  },
+  {
+   "file": "20260813_unique_ca_code_per_tenant.sql",
+   "statements": 2,
+   "failed": []
+  },
+  {
+   "file": "20260814_site_delete_cascades.sql",
+   "statements": 11,
+   "failed": []
+  },
+  {
+   "file": "20260815_drop_dead_bd_columns.sql",
+   "statements": 6,
+   "failed": []
+  },
+  {
+   "file": "20260816_add_observer_role.sql",
+   "statements": 2,
+   "failed": []
+  },
+  {
+   "file": "20260817_observer_codes.sql",
+   "statements": 3,
+   "failed": []
+  },
+  {
+   "file": "20260818_multi_supervisor_executives.sql",
+   "statements": 3,
+   "failed": []
+  },
+  {
+   "file": "20260819_launch_rent_start_date.sql",
+   "statements": 3,
+   "failed": []
+  }
+ ],
+ "summary": {
+  "files": 63,
+  "ok": 57,
+  "with_failures": 6
+ }
+}

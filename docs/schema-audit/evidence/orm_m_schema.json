@@ -1,0 +1,12 @@
+{
+ "database": "m_schema",
+ "orm_tables": 25,
+ "missing_tables": [
+  "quality_audit_reports"
+ ],
+ "missing_columns": [
+  "project_reviews.qa_reports_viewed_by_project_at",
+  "sites.project_excellence_status",
+  "sites.financial_closure_status"
+ ]
+}

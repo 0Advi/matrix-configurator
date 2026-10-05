@@ -21,6 +21,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import transaction
+from app.services import module_registry_service as registry
 from app.services.audit_service import write_audit_event
 
 
@@ -48,8 +49,12 @@ async def get_my_code(session: AsyncSession, supervisor_id: str, module: str) ->
 async def rotate_my_code(
     session: AsyncSession, tenant_id: str, supervisor_id: str, module: str,
 ) -> dict:
-    """Mint or regenerate this supervisor's invite code for the module and stamp rotated_at."""
+    """Mint or regenerate this supervisor's invite code for the module and stamp rotated_at.
+
+    A module the tenant has not registered, has disabled or that has no teams
+    mints no code (404/403, module_registry_service)."""
     async with transaction(session):
+        await registry.require_membership_module(session, tenant_id, module)
         row = (await session.execute(
             text(
                 "INSERT INTO supervisor_invite_codes (tenant_id, supervisor_id, module, code) "
@@ -92,14 +97,6 @@ async def approve_my_pending_exec(
     module: str,
 ) -> None:
     """Activate a pending executive and bind them to this supervisor, enforcing ownership."""
-    # NSO is a supervisor-only module (canonical list:
-    # business_admin_service._SUPERVISOR_ONLY_MODULES) — it has no executive role,
-    # so refuse to activate one there even if a stray pending row exists.
-    if module == "nso":
-        raise HTTPException(
-            status_code=http_status.HTTP_400_BAD_REQUEST,
-            detail="NSO is a supervisor-only module — it has no executive role.",
-        )
     # Ownership re-check (#86): the approve path must enforce the same
     # `notes` marker the list query scopes by — otherwise any supervisor in
     # the tenant can activate ANY pending user and bind them under themself.
@@ -109,6 +106,17 @@ async def approve_my_pending_exec(
         detail="No pending executive with that id awaits your approval.",
     )
     async with transaction(session):
+        # Supervisor-only modules (tenant_modules.supervisor_only: NSO by default,
+        # or any module whose published manifest sets tiers.executive=false) have
+        # no executive role, so refuse to activate one there even if a stray
+        # pending row exists. Was the literal `if module == "nso"`. A disabled /
+        # unregistered module grants no new membership either (404/403).
+        reg = await registry.require_membership_module(session, tenant_id, module)
+        if reg["supervisor_only"]:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail=f"{reg['label']} is a supervisor-only module — it has no executive role.",
+            )
         target = (await session.execute(
             text("SELECT is_active, role, notes FROM users WHERE id = :uid AND tenant_id = :tid"),
             {"uid": user_id, "tid": tenant_id},

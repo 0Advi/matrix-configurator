@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workspace Configurator</title>
+<!-- In-app copy of web/public (F4b). Served by the Matrix app at /configurator/ and embedded in
+     the platform-admin portal (/#/admin → Workspaces). Paths are prefixed with /configurator;
+     /cfg is proxied by the Vite dev server to the configurator server on 127.0.0.1:4300. -->
+<link rel="stylesheet" href="/configurator/vendor/fonts/ibm-plex.css">
+<style>
+  html, body { margin: 0; padding: 0; background: #0B0C10; color: #F2F3F7; }
+  body { font-family: 'IBM Plex Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  #cfg-loading { position: fixed; inset: 0; display: grid; place-items: center; z-index: 2147482000;
+    background: #0B0C10; font: 500 11px/1.5 'IBM Plex Mono', ui-monospace, monospace; color: #6E7382;
+    letter-spacing: .04em; transition: opacity .2s ease; }
+  #cfg-loading.err { color: #FF9B9B; white-space: pre-wrap; padding: 24px; text-align: left; }
+  #cfg-loading.gone { opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="cfg-loading" role="status">Loading configurator&hellip;</div>
+<!-- storage-bridge.js hydrates localStorage first, then boot.js mounts the v5 document -->
+<script type="module" src="/configurator/main.js"></script>
+</body>
+</html>

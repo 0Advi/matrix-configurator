@@ -1,0 +1,3 @@
+failing statements: 301
+_verify_schema: FAIL (SystemExit 1)
+[INFO] startup-migrations: 7 new migration file(s), 66 statement(s) applied; 0 already in ledger

@@ -1,0 +1,12 @@
+name: json-logic-js
+version: 2.0.5
+licence: MIT (LICENSE, Copyright (c) 2015 Jeremy Wadhams)
+upstream: https://github.com/jwadhams/json-logic-js
+commit: c5c73601c90b11e98f6846609bac4dec203d1c18 (2024-07-09, HEAD of master = npm 2.0.5)
+release artefact: https://registry.npmjs.org/json-logic-js/-/json-logic-js-2.0.5.tgz
+npm dist.shasum (sha1 of the .tgz): 55f0c687dd6f56b02ccdcfdd64171ed998ab5499 (verified with `npm pack` 2026-10-04)
+files copied verbatim from the tarball: logic.js, LICENSE, package.json, README.md
+sha256 logic.js: 73a6dc521e8990c2eed330dcfdb35605d7e1065a6e19d26673cb7ad4cd09d881
+modifications: none (logic.js is byte-identical to both the npm tarball and git commit above)
+maintenance: dormant since 2024-07 (1.5k stars); semantics are the de-facto JsonLogic reference
+used by: third_party/matrix-adapters/gates.mjs, jl-eval.mjs (frontend gate evaluation)

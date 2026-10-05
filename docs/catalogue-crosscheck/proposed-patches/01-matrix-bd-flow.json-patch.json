@@ -1,0 +1,428 @@
+[
+ {
+  "op": "test",
+  "path": "/modules/0/stages/0/x-matrix/note",
+  "value": "A supervisor-created draft starts at shortlisted (skips this review).",
+  "x-g2": "F-01/D04"
+ },
+ {
+  "op": "replace",
+  "path": "/modules/0/stages/0/x-matrix/note",
+  "value": "Every draft, executive- or supervisor-created, enters as draft_submitted: there is no supervisor auto-shortlist (removed in Matrix-bd cd70220, 2026-07-14). A supervisor may then shortlist its own draft (_assert_not_self_approval exempts supervisors and business admins).",
+  "x-g2": "F-01/D04"
+ },
+ {
+  "op": "test",
+  "path": "/modules/0/stages/0/x-matrix/sources/1",
+  "value": "backend/app/services/bd_service.py svc_create_draft",
+  "x-g2": "F-01/D04"
+ },
+ {
+  "op": "replace",
+  "path": "/modules/0/stages/0/x-matrix/sources/1",
+  "value": "backend/app/services/bd_service.py svc_create_draft, _assert_not_self_approval",
+  "x-g2": "F-01/D04"
+ },
+ {
+  "op": "add",
+  "path": "/modules/1/x-matrix/gateTriple",
+  "value": {
+   "source": "bd",
+   "stage": "LOI",
+   "event": "send_to_legal",
+   "statusSet": [
+    "legal_review",
+    "legal_rejected"
+   ],
+   "v5Approximation": "bd:done",
+   "evidence": "backend/app/services/bd_service.py svc_push_to_payments (LOI_UPLOADED → LEGAL_REVIEW)"
+  },
+  "x-g2": "F-02/D03"
+ },
+ {
+  "op": "add",
+  "path": "/modules/2/x-matrix/gateTriple",
+  "value": {
+   "source": "bd",
+   "stage": "LOI",
+   "event": "loi_uploaded",
+   "statusSet": [
+    "loi_uploaded",
+    "legal_review",
+    "legal_approved",
+    "pushed_to_payments"
+   ],
+   "closedWhile": [
+    "legal_rejected"
+   ],
+   "v5Approximation": "bd:done",
+   "evidence": "backend/app/services/finance_service.py _LOI_AND_BEYOND, svc_save_finance_draft, svc_finance_request_approval"
+  },
+  "x-g2": "F-02/D03"
+ },
+ {
+  "op": "add",
+  "path": "/modules/4/stages/2/fields/0",
+  "value": {
+   "key": "pex_initialization_date",
+   "label": "Project initialization date",
+   "kind": "date",
+   "required": true,
+   "validation": "required to approve",
+   "affects_outcome": false,
+   "x-matrix": {
+    "column": "project_reviews.initialization_date",
+    "note": "set by the business admin on approval; seeds Project initialization as proposed"
+   }
+  },
+  "x-g2": "F-03/D10"
+ },
+ {
+  "op": "test",
+  "path": "/modules/4/stages/2/x-matrix/realState",
+  "value": "pending_admin → approved | rejected",
+  "x-g2": "F-03/D10"
+ },
+ {
+  "op": "replace",
+  "path": "/modules/4/stages/2/x-matrix/realState",
+  "value": "pending_admin → approved (+ project_reviews.initialization_status=proposed) | rejected",
+  "x-g2": "F-03/D10"
+ },
+ {
+  "op": "test",
+  "path": "/modules/4/stages/2/x-matrix/actors/0/action",
+  "value": "approve / reject",
+  "x-g2": "F-03/D10"
+ },
+ {
+  "op": "replace",
+  "path": "/modules/4/stages/2/x-matrix/actors/0/action",
+  "value": "approve (initialization date required) / reject",
+  "x-g2": "F-03/D10"
+ },
+ {
+  "op": "add",
+  "path": "/modules/4/stages/2/x-matrix/handover",
+  "value": "approval is the hand-over into Project: it proposes the initialization date the project executive then accepts or rejects",
+  "x-g2": "F-03/D10"
+ },
+ {
+  "op": "add",
+  "path": "/modules/4/stages/2/x-matrix/sources/-",
+  "value": "backend/app/services/project_service.py seed_initialization_from_pe",
+  "x-g2": "F-03/D10"
+ },
+ {
+  "op": "test",
+  "path": "/modules/5/stages/0/x-matrix/actors",
+  "value": [
+   {
+    "role": "supervisor",
+    "action": "propose",
+    "route": "POST /api/project/{site_id}/initialization/propose"
+   },
+   {
+    "role": "executive",
+    "action": "accept / reject",
+    "route": "POST /api/project/{site_id}/initialization/respond"
+   },
+   {
+    "role": "supervisor",
+    "action": "finalise after rejection",
+    "route": "POST /api/project/{site_id}/initialization/finalize"
+   }
+  ],
+  "x-g2": "F-04/D10"
+ },
+ {
+  "op": "replace",
+  "path": "/modules/5/stages/0/x-matrix/actors",
+  "value": [
+   {
+    "role": "business_admin",
+    "action": "propose while approving the PE budget (primary path)",
+    "route": "POST /api/project-excellence/{site_id}/budget/admin-review"
+   },
+   {
+    "role": "supervisor",
+    "action": "propose (recovery path when no date was seeded)",
+    "route": "POST /api/project/{site_id}/initialization/propose"
+   },
+   {
+    "role": "executive",
+    "action": "accept / reject",
+    "route": "POST /api/project/{site_id}/initialization/respond"
+   },
+   {
+    "role": "supervisor",
+    "action": "finalise after rejection",
+    "route": "POST /api/project/{site_id}/initialization/finalize"
+   }
+  ],
+  "x-g2": "F-04/D10"
+ },
+ {
+  "op": "test",
+  "path": "/modules/5/stages/0/x-matrix/sources/0",
+  "value": "backend/app/services/project_service.py svc_propose/respond/finalize_initialization",
+  "x-g2": "F-04/D10"
+ },
+ {
+  "op": "replace",
+  "path": "/modules/5/stages/0/x-matrix/sources/0",
+  "value": "backend/app/services/project_service.py seed_initialization_from_pe, svc_propose/respond/finalize_initialization",
+  "x-g2": "F-04/D10"
+ },
+ {
+  "op": "test",
+  "path": "/modules/5/stages/3/approvers",
+  "value": [
+   "supervisor",
+   "business_admin"
+  ],
+  "x-g2": "F-05/D11"
+ },
+ {
+  "op": "replace",
+  "path": "/modules/5/stages/3/approvers",
+  "value": [
+   "supervisor"
+  ],
+  "x-g2": "F-05/D11"
+ },
+ {
+  "op": "test",
+  "path": "/modules/5/stages/3/x-matrix/actors",
+  "value": [
+   {
+    "role": "executive|supervisor",
+    "action": "record inspection date",
+    "route": "POST /api/project/{site_id}/quality-audit/inspection-date"
+   },
+   {
+    "role": "supervisor",
+    "action": "approve",
+    "route": "POST /api/project/{site_id}/quality-audit/supervisor-approve"
+   },
+   {
+    "role": "business_admin",
+    "action": "confirm → project completes",
+    "route": "POST /api/project/{site_id}/quality-audit/admin-confirm"
+   }
+  ],
+  "x-g2": "F-05/D11"
+ },
+ {
+  "op": "replace",
+  "path": "/modules/5/stages/3/x-matrix/actors",
+  "value": [
+   {
+    "role": "executive|supervisor",
+    "action": "record inspection date",
+    "route": "POST /api/project/{site_id}/quality-audit/inspection-date"
+   },
+   {
+    "role": "supervisor",
+    "action": "approve",
+    "route": "POST /api/project/{site_id}/quality-audit/supervisor-approve"
+   },
+   {
+    "role": "supervisor (project_excellence)",
+    "action": "Completed — tier-2 sign-off → project completes",
+    "route": "POST /api/project-excellence/{site_id}/quality-audit/complete"
+   },
+   {
+    "role": "business_admin",
+    "action": "confirm → project completes (LEGACY: route kept, admin UI read-only)",
+    "route": "POST /api/project/{site_id}/quality-audit/admin-confirm"
+   }
+  ],
+  "x-g2": "F-05/D11"
+ },
+ {
+  "op": "add",
+  "path": "/modules/5/stages/3/x-matrix/coOwner",
+  "value": {
+   "module": "pex",
+   "role": "supervisor",
+   "action": "tier-2 sign-off (svc_pe_complete_quality_audit replaced the business-admin confirmation)"
+  },
+  "x-g2": "F-05/D11"
+ },
+ {
+  "op": "test",
+  "path": "/modules/5/stages/3/x-matrix/alternative",
+  "value": "Project Excellence supervisor completion / QA report push also completes the project (two modules co-own this stage)",
+  "x-g2": "F-05/D11"
+ },
+ {
+  "op": "replace",
+  "path": "/modules/5/stages/3/x-matrix/alternative",
+  "value": "pushing the PE 'before' QA report, or the final_completion_date milestone, also completes the project",
+  "x-g2": "F-05/D11"
+ },
+ {
+  "op": "test",
+  "path": "/modules/5/stages/3/x-matrix/sources",
+  "value": [
+   "backend/app/services/project_service.py svc_submit_inspection_date, svc_supervisor_approve_quality_audit, svc_admin_confirm_quality_audit"
+  ],
+  "x-g2": "F-05/D11"
+ },
+ {
+  "op": "replace",
+  "path": "/modules/5/stages/3/x-matrix/sources",
+  "value": [
+   "backend/app/services/project_service.py svc_submit_inspection_date, svc_supervisor_approve_quality_audit, svc_pe_complete_quality_audit, svc_admin_confirm_quality_audit",
+   "frontend/src/modules/business-admin/approval/SiteApprovalPanel.jsx QualityAuditBlock"
+  ],
+  "x-g2": "F-05/D11"
+ },
+ {
+  "op": "add",
+  "path": "/modules/6/stages/3/x-matrix/fieldsCapturedAt",
+  "value": "final_signoff_1/2 are saved by the stage-three form (svc_save_stage_three) by the NSO supervisor; final approval only checks _stage_three_complete",
+  "x-g2": "F-06/D30"
+ },
+ {
+  "op": "test",
+  "path": "/modules/6/stages/3/x-matrix/sources/0",
+  "value": "backend/app/services/nso_service.py svc_final_approval",
+  "x-g2": "F-06/D30"
+ },
+ {
+  "op": "replace",
+  "path": "/modules/6/stages/3/x-matrix/sources/0",
+  "value": "backend/app/services/nso_service.py svc_final_approval, svc_save_stage_three, _stage_three_complete",
+  "x-g2": "F-06/D30"
+ },
+ {
+  "op": "add",
+  "path": "/modules/7/stages/1/x-matrix/creatorRule",
+  "value": {
+   "identity": "sites.submitted_by OR sites.assigned_to",
+   "roles": [
+    "executive",
+    "supervisor"
+   ],
+   "appliesToAnyRole": true,
+   "businessAdminBypass": false,
+   "scope": "exec-review verdict; rent_start_date while under_exec_review",
+   "frontendDivergence": "LaunchPage.jsx Review tab matches submitted_by only"
+  },
+  "x-g2": "F-08/D15"
+ },
+ {
+  "op": "add",
+  "path": "/modules/8/stages/0/x-matrix/stageGate",
+  "value": "site launched AND an approved Project Excellence (GFC) budget exists (svc_send_for_financial_closure)",
+  "x-g2": "F-07/D17"
+ },
+ {
+  "op": "test",
+  "path": "/modules/8/x-matrix/realGate",
+  "value": "sites.is_launched AND business_admin 'send for financial closure' (financial_closure_status != 'pending')",
+  "x-g2": "F-07/D17"
+ },
+ {
+  "op": "replace",
+  "path": "/modules/8/x-matrix/realGate",
+  "value": "sites.is_launched AND business_admin 'send for financial closure' (financial_closure_status != 'pending') AND an approved Project Excellence (GFC) budget as baseline",
+  "x-g2": "F-07/D17"
+ },
+ {
+  "op": "add",
+  "path": "/x-matrix/executiveScope",
+  "value": {
+   "bd": {
+    "rule": "an executive sees and acts on a site only if sites.submitted_by = me OR sites.assigned_to = me",
+    "appliesTo": [
+     "bd (lists, reads, details, LOI)",
+     "finance_ca (save / request approval)",
+     "legal change requests (raise)",
+     "launch_approval creator review (any role)"
+    ],
+    "handoff": "POST /api/bd/shortlist/{site_id}/reassign sets assigned_to; the submitter keeps access",
+    "sources": [
+     "backend/app/services/_common.py apply_role_scope, assert_executive_owns_site",
+     "backend/app/services/bd_service.py _assert_can_edit_details",
+     "backend/app/services/loi_service.py svc_upload_loi",
+     "backend/app/services/launch_service.py _assert_is_site_creator"
+    ]
+   },
+   "modules": {
+    "rule": "module executives act only on sites delegated to them (site_delegations.module, revocable; a supervisor may take a site itself)",
+    "appliesTo": [
+     "legal",
+     "design",
+     "pex",
+     "project",
+     "financial_closure",
+     "quality_audit"
+    ],
+    "sources": [
+     "backend/app/services/delegation_service.py svc_is_delegated",
+     "backend/app/services/legal_service.py _require_executive_legal_delegation"
+    ]
+   },
+   "tenantWide": [
+    "supervisor",
+    "business_admin",
+    "observer"
+   ]
+  },
+  "x-g2": "F-09/D26"
+ },
+ {
+  "op": "add",
+  "path": "/x-matrix/stageLevelGates/-",
+  "value": {
+   "module": "financial_closure",
+   "stage": "Send for closure",
+   "gate": "site launched AND an approved Project Excellence (GFC) budget exists (svc_send_for_financial_closure)"
+  },
+  "x-g2": "F-07/D17"
+ },
+ {
+  "op": "test",
+  "path": "/comparisonWithV5Seed/summary/approverMatchesOnSharedStages",
+  "value": 10,
+  "x-g2": "computed (consequence of F-05)"
+ },
+ {
+  "op": "replace",
+  "path": "/comparisonWithV5Seed/summary/approverMatchesOnSharedStages",
+  "value": 9,
+  "x-g2": "computed (consequence of F-05)"
+ },
+ {
+  "op": "test",
+  "path": "/comparisonWithV5Seed/modules/5/approversOnSharedStages/0/real",
+  "value": [
+   "supervisor",
+   "business_admin"
+  ],
+  "x-g2": "computed (consequence of F-05)"
+ },
+ {
+  "op": "replace",
+  "path": "/comparisonWithV5Seed/modules/5/approversOnSharedStages/0/real",
+  "value": [
+   "supervisor"
+  ],
+  "x-g2": "computed (consequence of F-05)"
+ },
+ {
+  "op": "test",
+  "path": "/comparisonWithV5Seed/modules/5/approversOnSharedStages/0/match",
+  "value": true,
+  "x-g2": "computed (consequence of F-05)"
+ },
+ {
+  "op": "replace",
+  "path": "/comparisonWithV5Seed/modules/5/approversOnSharedStages/0/match",
+  "value": false,
+  "x-g2": "computed (consequence of F-05)"
+ }
+]

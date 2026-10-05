@@ -175,6 +175,13 @@ _NO_SESSION_ALLOWLIST = {
     "/tenancy/requests/{request_id}/approve",
     "/tenancy/requests/{request_id}/reject",
     "/tenancy/tenants/{tenant_id}/branding",
+    # Phase 2: configurator workspaces — authenticated by X-Platform-Admin-Key
+    # (routers/platform.py platform_admin), like the /tenancy/requests/* routes.
+    "/platform/workspaces",
+    "/platform/workspaces/{ref}/releases",
+    "/platform/workspaces/{ref}/releases/validate",
+    # Phase 2b (G3): "migrate running cases" — same platform-admin authority.
+    "/platform/workspaces/{ref}/migrations",
 }
 
 _MUTATING = {"POST", "PUT", "PATCH", "DELETE"}

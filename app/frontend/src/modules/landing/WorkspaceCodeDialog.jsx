@@ -4,6 +4,7 @@ import LottiePanel from './LottiePanel.jsx';
 import { PRODUCT_NAME } from '../../router/routes.js';
 import { getWorkspaceBranding } from '../../services/api/supabaseAuth.js';
 import { getStoredWorkspaceCodes, getLastWorkspaceCode, addWorkspaceCode } from '../../utils/workspaceStorage.js';
+import { isUnknownWorkspace } from './workspaceLookup.js';
 import communityAnim from '../../assets/lottie/workspace-community.json';
 import './branded-auth.css';
 
@@ -117,22 +118,29 @@ export default function WorkspaceCodeDialog({ open, onClose }) {
       return;
     }
     setBusy(true); setError('');
+    let branding;
     try {
-      // Warm branding for the next page. We no longer treat an unknown code as
-      // a hard error here: /tenancy/branding intentionally returns a uniform
-      // response for known vs unknown codes so it can't be used to enumerate
-      // valid workspaces (#84). Whether the code is real is revealed on the
-      // login page (a wrong code lands on the soft "pending" message), not by
-      // this lookup. A thrown error now means a genuine network failure.
-      await getWorkspaceBranding(c);
-      addWorkspaceCode(c);
-      onClose?.();
-      navigate(`/login/${encodeURIComponent(c)}`);
+      branding = await getWorkspaceBranding(c);
     } catch {
+      // A thrown error means a genuine network failure, not an unknown code.
       setError('Could not reach the server right now. Please try again.');
-    } finally {
       setBusy(false);
+      return;
     }
+    setBusy(false);
+    // Workspace-code authenticity (F4b). /tenancy/branding answers a real code with the
+    // company name and an unknown one with an explicit `name: null` — so the lookup this
+    // dialog already made tells them apart, and saying so here reveals nothing that endpoint
+    // does not (it stays rate limited; #84). Stop before the user reaches a sign-in form for
+    // a workspace that does not exist. A response with no `name` key at all (an older,
+    // uniform backend) cannot tell, so it keeps the previous behaviour and continues.
+    if (isUnknownWorkspace(branding)) {
+      setError('We couldn’t find a workspace with that code. Check it with your admin — codes look like BTOKAI-7X9F.');
+      return;
+    }
+    addWorkspaceCode(c);
+    onClose?.();
+    navigate(`/login/${encodeURIComponent(c)}`);
   };
 
   return (

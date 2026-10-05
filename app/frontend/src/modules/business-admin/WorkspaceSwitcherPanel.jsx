@@ -1,7 +1,8 @@
 // skipcq: JS-0833
 import React, { useState } from 'react';
 import { activateOverride, deactivateOverride, getStoredOverride } from '../../services/api/adminOverride.js';
-import { WORKSPACE_MODULES as MODULES, workspaceModule } from '../shared/workspaceModules.js';
+import { switcherModules, workspaceModule } from '../shared/workspaceModules.js';
+import { useWorkspaceModules } from '../../state/useWorkspaceModules.js';
 import { T, Icon } from './ui/kit.jsx';
 
 const ROLES = [
@@ -42,13 +43,17 @@ const COPY = {
 
 export default function WorkspaceSwitcherPanel({ variant = 'business_admin' }) {
   const copy = COPY[variant] || COPY.business_admin;
+  // F4b: the tenant's enabled modules from its published release (custom modules included,
+  // disabled ones gone), falling back to the static list until it answers.
+  const { modules: apiModules } = useWorkspaceModules();
+  const MODULES = switcherModules(apiModules);
   const existing = getStoredOverride();
   const [selectedRole, setSelectedRole] = useState(existing?.role || 'supervisor');
   const [selectedModule, setSelectedModule] = useState(existing?.module || 'bd');
   const [active, setActive] = useState(existing);
 
   const handleEnter = () => {
-    const mod = workspaceModule(selectedModule);
+    const mod = workspaceModule(selectedModule, MODULES);
     const override = { role: selectedRole, module: selectedModule };
     activateOverride(override);
     setActive(override);

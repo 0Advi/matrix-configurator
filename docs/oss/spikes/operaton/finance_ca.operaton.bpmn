@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:operaton="http://operaton.org/schema/1.0/bpmn" targetNamespace="urn:matrix:finance_ca" id="defs_finance_ca">
+  <process id="finance_ca" name="CA / Commercial Code" isExecutable="true" operaton:historyTimeToLive="P180D">
+    <startEvent id="start"/>
+    <userTask id="s1_0_executive" name="CA code &amp; KYC · executive" operaton:candidateGroups="executive">
+      <extensionElements><operaton:formData>
+        <operaton:formField id="kyc_verified" label="KYC verified" type="boolean"><operaton:validation><operaton:constraint name="required"/></operaton:validation></operaton:formField>
+        <operaton:formField id="ca_code" label="CA / Commercial code" type="string"><operaton:validation><operaton:constraint name="required"/></operaton:validation></operaton:formField>
+        <operaton:formField id="finance_amount" label="Amount" type="long"><operaton:validation><operaton:constraint name="required"/></operaton:validation></operaton:formField>
+      </operaton:formData></extensionElements>
+    </userTask>
+    <userTask id="s2_0_supervisor" name="Supervisor review · supervisor" operaton:candidateGroups="supervisor">
+    </userTask>
+    <exclusiveGateway id="gw_s2_0_supervisor" default="gw_s2_0_supervisor_fwd"/>
+    <userTask id="s3_0_business_admin" name="Admin approval · business_admin" operaton:candidateGroups="business_admin">
+    </userTask>
+    <exclusiveGateway id="gw_s3_0_business_admin" default="gw_s3_0_business_admin_fwd"/>
+    <endEvent id="end"/>
+    <sequenceFlow id="f1" sourceRef="start" targetRef="s1_0_executive"/>
+    <sequenceFlow id="f2" sourceRef="s1_0_executive" targetRef="s2_0_supervisor"/>
+    <sequenceFlow id="f3" sourceRef="s2_0_supervisor" targetRef="gw_s2_0_supervisor"/>
+    <sequenceFlow id="gw_s2_0_supervisor_back" sourceRef="gw_s2_0_supervisor" targetRef="s1_0_executive"><conditionExpression xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="tFormalExpression"><![CDATA[${decision == 'send_back'}]]></conditionExpression></sequenceFlow>
+    <sequenceFlow id="gw_s2_0_supervisor_fwd" sourceRef="gw_s2_0_supervisor" targetRef="s3_0_business_admin"/>
+    <sequenceFlow id="f6" sourceRef="s3_0_business_admin" targetRef="gw_s3_0_business_admin"/>
+    <sequenceFlow id="gw_s3_0_business_admin_back" sourceRef="gw_s3_0_business_admin" targetRef="s2_0_supervisor"><conditionExpression xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="tFormalExpression"><![CDATA[${decision == 'send_back'}]]></conditionExpression></sequenceFlow>
+    <sequenceFlow id="gw_s3_0_business_admin_fwd" sourceRef="gw_s3_0_business_admin" targetRef="end"/>
+  </process>
+</definitions>

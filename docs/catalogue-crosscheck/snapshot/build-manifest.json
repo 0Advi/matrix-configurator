@@ -1,0 +1,674 @@
+{
+ "$comment": "Structural extract of operaton-plat build/ (generated BPMN + form names) at the pinned commit. Produced by G2 from the downloaded files; no credentials (workspace.json, which holds demo passwords, was NOT vendored).",
+ "repo": "Adityashandilya555/operaton-plat",
+ "sha": "fc65499834cfa8d5e47ca2bb5266899117555d36",
+ "bpmn": {
+  "matrix_site.bpmn": {
+   "processId": "matrix_site",
+   "sha256": "107e6d41039b18e77c0b1010451e9d3e08fe08d510e20302ae15d28b4f3806fa",
+   "userTasks": [],
+   "callActivities": [
+    {
+     "id": "call_bd_qualification",
+     "calledElement": "matrix_site__bd_qualification"
+    },
+    {
+     "id": "call_bd_loi",
+     "calledElement": "matrix_site__bd_loi"
+    },
+    {
+     "id": "call_legal",
+     "calledElement": "matrix_site__legal"
+    },
+    {
+     "id": "call_finance",
+     "calledElement": "matrix_site__finance"
+    },
+    {
+     "id": "call_design",
+     "calledElement": "matrix_site__design"
+    },
+    {
+     "id": "call_pe_budget",
+     "calledElement": "matrix_site__pe_budget"
+    },
+    {
+     "id": "call_project",
+     "calledElement": "matrix_site__project"
+    },
+    {
+     "id": "call_nso",
+     "calledElement": "matrix_site__nso"
+    },
+    {
+     "id": "call_launch",
+     "calledElement": "matrix_site__launch"
+    },
+    {
+     "id": "call_closure",
+     "calledElement": "matrix_site__closure"
+    }
+   ],
+   "parallelGateways": [
+    "split_bd_loi",
+    "join_design"
+   ],
+   "sequenceFlows": [
+    [
+     "start",
+     "call_bd_qualification"
+    ],
+    [
+     "closed_bd_qualification",
+     "closed_bd_qualification_end"
+    ],
+    [
+     "call_bd_qualification",
+     "call_bd_loi"
+    ],
+    [
+     "closed_bd_loi",
+     "closed_bd_loi_end"
+    ],
+    [
+     "call_bd_loi",
+     "split_bd_loi"
+    ],
+    [
+     "split_bd_loi",
+     "call_legal"
+    ],
+    [
+     "split_bd_loi",
+     "call_finance"
+    ],
+    [
+     "closed_legal",
+     "closed_legal_end"
+    ],
+    [
+     "call_legal",
+     "join_design"
+    ],
+    [
+     "closed_finance",
+     "closed_finance_end"
+    ],
+    [
+     "call_finance",
+     "join_design"
+    ],
+    [
+     "join_design",
+     "call_design"
+    ],
+    [
+     "closed_design",
+     "closed_design_end"
+    ],
+    [
+     "call_design",
+     "call_pe_budget"
+    ],
+    [
+     "closed_pe_budget",
+     "closed_pe_budget_end"
+    ],
+    [
+     "call_pe_budget",
+     "call_project"
+    ],
+    [
+     "closed_project",
+     "closed_project_end"
+    ],
+    [
+     "call_project",
+     "call_nso"
+    ],
+    [
+     "closed_nso",
+     "closed_nso_end"
+    ],
+    [
+     "call_nso",
+     "call_launch"
+    ],
+    [
+     "closed_launch",
+     "closed_launch_end"
+    ],
+    [
+     "call_launch",
+     "call_closure"
+    ],
+    [
+     "closed_closure",
+     "closed_closure_end"
+    ],
+    [
+     "call_closure",
+     "completed_end"
+    ]
+   ]
+  },
+  "matrix_site__bd_loi.bpmn": {
+   "processId": "matrix_site__bd_loi",
+   "sha256": "d87d391ec99b56462c1c9d2cf66892a55ab8d60817c3829e2d90cbafcec5b7d2",
+   "userTasks": [
+    {
+     "id": "bd_upload_loi",
+     "form": "bd_upload_loi",
+     "binding": {
+      "assignee": "${initiator}"
+     }
+    },
+    {
+     "id": "bd_send_legal",
+     "form": "bd_send_legal",
+     "binding": {
+      "candidateGroups": "bdSupervisor"
+     }
+    }
+   ],
+   "callActivities": [],
+   "parallelGateways": []
+  },
+  "matrix_site__bd_qualification.bpmn": {
+   "processId": "matrix_site__bd_qualification",
+   "sha256": "14212a263f41d98323bde48c8b566454c6765871deaddd372be15f7be697415f",
+   "userTasks": [
+    {
+     "id": "bd_review_draft",
+     "form": "bd_review_draft",
+     "binding": {
+      "candidateGroups": "bdSupervisor"
+     }
+    },
+    {
+     "id": "bd_site_details",
+     "form": "bd_site_details",
+     "binding": {
+      "assignee": "${initiator}"
+     }
+    },
+    {
+     "id": "bd_approve_details",
+     "form": "bd_approve_details",
+     "binding": {
+      "candidateGroups": "bdSupervisor"
+     }
+    }
+   ],
+   "callActivities": [],
+   "parallelGateways": []
+  },
+  "matrix_site__closure.bpmn": {
+   "processId": "matrix_site__closure",
+   "sha256": "6d7fee7742514af34a7265426cfaabbec126f9416d6f96bc7df8678664dcac65",
+   "userTasks": [
+    {
+     "id": "fc_send",
+     "form": "fc_send",
+     "binding": {
+      "candidateGroups": "businessAdmin"
+     }
+    },
+    {
+     "id": "fc_actuals",
+     "form": "fc_actuals",
+     "binding": {
+      "assignee": "${projectExec}"
+     }
+    },
+    {
+     "id": "fc_review",
+     "form": "fc_review",
+     "binding": {
+      "candidateGroups": "projectSupervisor"
+     }
+    },
+    {
+     "id": "fc_admin",
+     "form": "fc_admin",
+     "binding": {
+      "candidateGroups": "businessAdmin"
+     }
+    }
+   ],
+   "callActivities": [],
+   "parallelGateways": []
+  },
+  "matrix_site__design.bpmn": {
+   "processId": "matrix_site__design",
+   "sha256": "5dd74e4b523cf644543ea2f84b2c003e6c580f6c6c030a6830f47b130a4a1a2d",
+   "userTasks": [
+    {
+     "id": "design_allocate",
+     "form": "design_allocate",
+     "binding": {
+      "candidateGroups": "designSupervisor"
+     }
+    },
+    {
+     "id": "design_recce",
+     "form": "design_recce",
+     "binding": {
+      "assignee": "${designExec}"
+     }
+    },
+    {
+     "id": "design_recce_review",
+     "form": "design_recce_review",
+     "binding": {
+      "candidateGroups": "designSupervisor"
+     }
+    },
+    {
+     "id": "design_2d",
+     "form": "design_2d",
+     "binding": {
+      "assignee": "${designExec}"
+     }
+    },
+    {
+     "id": "design_2d_review",
+     "form": "design_2d_review",
+     "binding": {
+      "candidateGroups": "designSupervisor"
+     }
+    },
+    {
+     "id": "design_2d_admin",
+     "form": "design_2d_admin",
+     "binding": {
+      "candidateGroups": "businessAdmin"
+     }
+    },
+    {
+     "id": "design_3d",
+     "form": "design_3d",
+     "binding": {
+      "assignee": "${designExec}"
+     }
+    },
+    {
+     "id": "design_3d_review",
+     "form": "design_3d_review",
+     "binding": {
+      "candidateGroups": "designSupervisor"
+     }
+    },
+    {
+     "id": "design_gfc",
+     "form": "design_gfc",
+     "binding": {
+      "candidateGroups": "businessAdmin"
+     }
+    },
+    {
+     "id": "design_boq",
+     "form": "design_boq",
+     "binding": {
+      "assignee": "${designExec}"
+     }
+    },
+    {
+     "id": "design_boq_review",
+     "form": "design_boq_review",
+     "binding": {
+      "candidateGroups": "designSupervisor"
+     }
+    },
+    {
+     "id": "design_final",
+     "form": "design_final",
+     "binding": {
+      "candidateGroups": "businessAdmin"
+     }
+    }
+   ],
+   "callActivities": [],
+   "parallelGateways": []
+  },
+  "matrix_site__finance.bpmn": {
+   "processId": "matrix_site__finance",
+   "sha256": "a15a8906b3bdc80b8da95d4831f240fbb538e9e7804807dabd15d6b5affcc9b5",
+   "userTasks": [
+    {
+     "id": "fin_ca_entry",
+     "form": "fin_ca_entry",
+     "binding": {
+      "assignee": "${initiator}"
+     }
+    },
+    {
+     "id": "fin_supervisor",
+     "form": "fin_supervisor",
+     "binding": {
+      "candidateGroups": "bdSupervisor"
+     }
+    },
+    {
+     "id": "fin_admin",
+     "form": "fin_admin",
+     "binding": {
+      "candidateGroups": "businessAdmin"
+     }
+    }
+   ],
+   "callActivities": [],
+   "parallelGateways": []
+  },
+  "matrix_site__launch.bpmn": {
+   "processId": "matrix_site__launch",
+   "sha256": "9e7b216238522d93af6fad5cc2e608e4b52f51d056df5620f01d336b97ed0c3a",
+   "userTasks": [
+    {
+     "id": "launch_send",
+     "form": "launch_send",
+     "binding": {
+      "candidateGroups": "businessAdmin"
+     }
+    },
+    {
+     "id": "launch_exec_verdict",
+     "form": "launch_exec_verdict",
+     "binding": {
+      "assignee": "${initiator}"
+     }
+    },
+    {
+     "id": "launch_sup_verdict",
+     "form": "launch_sup_verdict",
+     "binding": {
+      "candidateGroups": "bdSupervisor"
+     }
+    },
+    {
+     "id": "launch_confirm",
+     "form": "launch_confirm",
+     "binding": {
+      "candidateGroups": "businessAdmin"
+     }
+    },
+    {
+     "id": "launch_go",
+     "form": "launch_go",
+     "binding": {
+      "candidateGroups": "businessAdmin"
+     }
+    }
+   ],
+   "callActivities": [],
+   "parallelGateways": []
+  },
+  "matrix_site__legal.bpmn": {
+   "processId": "matrix_site__legal",
+   "sha256": "eaa0d063adedcf6a4030c4a9d06700b5135b5984705dc41926097c5188115bb9",
+   "userTasks": [
+    {
+     "id": "legal_dd_checklist",
+     "form": "legal_dd_checklist",
+     "binding": {
+      "candidateGroups": "legalExecutive"
+     }
+    },
+    {
+     "id": "legal_dd_verdict",
+     "form": "legal_dd_verdict",
+     "binding": {
+      "candidateGroups": "legalSupervisor"
+     }
+    },
+    {
+     "id": "legal_change_request",
+     "form": "legal_change_request",
+     "binding": {
+      "candidateGroups": "bdSupervisor"
+     }
+    },
+    {
+     "id": "legal_review_cr",
+     "form": "legal_review_cr",
+     "binding": {
+      "candidateGroups": "legalSupervisor"
+     }
+    },
+    {
+     "id": "legal_agreement",
+     "form": "legal_agreement",
+     "binding": {
+      "candidateGroups": "legalSupervisor"
+     }
+    },
+    {
+     "id": "legal_licensing",
+     "form": "legal_licensing",
+     "binding": {
+      "candidateGroups": "legalSupervisor"
+     }
+    }
+   ],
+   "callActivities": [],
+   "parallelGateways": []
+  },
+  "matrix_site__nso.bpmn": {
+   "processId": "matrix_site__nso",
+   "sha256": "854ee5ba23a0c3e37cc13665bc939f13026fc8a10f58772e638417fad3866182",
+   "userTasks": [
+    {
+     "id": "nso_comms",
+     "form": "nso_comms",
+     "binding": {
+      "candidateGroups": "nsoExecutive"
+     }
+    },
+    {
+     "id": "nso_readiness",
+     "form": "nso_readiness",
+     "binding": {
+      "candidateGroups": "nsoExecutive"
+     }
+    },
+    {
+     "id": "nso_signoff",
+     "form": "nso_signoff",
+     "binding": {
+      "candidateGroups": "nsoSupervisor"
+     }
+    },
+    {
+     "id": "nso_project_signoff",
+     "form": "nso_project_signoff",
+     "binding": {
+      "candidateGroups": "projectSupervisor"
+     }
+    },
+    {
+     "id": "nso_launch_ready",
+     "form": "nso_launch_ready",
+     "binding": {
+      "candidateGroups": "nsoSupervisor"
+     }
+    }
+   ],
+   "callActivities": [],
+   "parallelGateways": [
+    "split2",
+    "join2"
+   ]
+  },
+  "matrix_site__pe_budget.bpmn": {
+   "processId": "matrix_site__pe_budget",
+   "sha256": "d00a81ff8d5f4e3f951fe5438d13c2d39195f73c883116b81bddc54a05ebdf1d",
+   "userTasks": [
+    {
+     "id": "pe_delegate",
+     "form": "pe_delegate",
+     "binding": {
+      "candidateGroups": "peSupervisor"
+     }
+    },
+    {
+     "id": "pe_fill",
+     "form": "pe_fill",
+     "binding": {
+      "assignee": "${peExec}"
+     }
+    },
+    {
+     "id": "pe_review",
+     "form": "pe_review",
+     "binding": {
+      "candidateGroups": "peSupervisor"
+     }
+    },
+    {
+     "id": "pe_admin",
+     "form": "pe_admin",
+     "binding": {
+      "candidateGroups": "businessAdmin"
+     }
+    }
+   ],
+   "callActivities": [],
+   "parallelGateways": []
+  },
+  "matrix_site__project.bpmn": {
+   "processId": "matrix_site__project",
+   "sha256": "c0653d38a71882f598c4c88df6dca61ca94373f49e751665c6bf90dbca632b65",
+   "userTasks": [
+    {
+     "id": "prj_allocate",
+     "form": "prj_allocate",
+     "binding": {
+      "candidateGroups": "projectSupervisor"
+     }
+    },
+    {
+     "id": "prj_accept",
+     "form": "prj_accept",
+     "binding": {
+      "assignee": "${projectExec}"
+     }
+    },
+    {
+     "id": "prj_expected",
+     "form": "prj_expected",
+     "binding": {
+      "assignee": "${projectExec}"
+     }
+    },
+    {
+     "id": "prj_expected_review",
+     "form": "prj_expected_review",
+     "binding": {
+      "candidateGroups": "projectSupervisor"
+     }
+    },
+    {
+     "id": "prj_mid_visit",
+     "form": "prj_mid_visit",
+     "binding": {
+      "candidateGroups": "projectSupervisor"
+     }
+    },
+    {
+     "id": "prj_inspection",
+     "form": "prj_inspection",
+     "binding": {
+      "assignee": "${projectExec}"
+     }
+    },
+    {
+     "id": "prj_qa_review",
+     "form": "prj_qa_review",
+     "binding": {
+      "candidateGroups": "projectSupervisor"
+     }
+    },
+    {
+     "id": "prj_qa_signoff",
+     "form": "prj_qa_signoff",
+     "binding": {
+      "candidateGroups": "businessAdmin"
+     }
+    },
+    {
+     "id": "prj_complete",
+     "form": "prj_complete",
+     "binding": {
+      "assignee": "${projectExec}"
+     }
+    },
+    {
+     "id": "prj_push_nso",
+     "form": "prj_push_nso",
+     "binding": {
+      "candidateGroups": "projectSupervisor"
+     }
+    }
+   ],
+   "callActivities": [],
+   "parallelGateways": []
+  }
+ },
+ "forms": [
+  "bd_approve_details",
+  "bd_review_draft",
+  "bd_send_legal",
+  "bd_site_details",
+  "bd_upload_loi",
+  "design_2d",
+  "design_2d_admin",
+  "design_2d_review",
+  "design_3d",
+  "design_3d_review",
+  "design_allocate",
+  "design_boq",
+  "design_boq_review",
+  "design_final",
+  "design_gfc",
+  "design_recce",
+  "design_recce_review",
+  "fc_actuals",
+  "fc_admin",
+  "fc_review",
+  "fc_send",
+  "fin_admin",
+  "fin_ca_entry",
+  "fin_supervisor",
+  "launch_confirm",
+  "launch_exec_verdict",
+  "launch_go",
+  "launch_send",
+  "launch_sup_verdict",
+  "legal_agreement",
+  "legal_change_request",
+  "legal_dd_checklist",
+  "legal_dd_verdict",
+  "legal_licensing",
+  "legal_review_cr",
+  "nso_comms",
+  "nso_launch_ready",
+  "nso_project_signoff",
+  "nso_readiness",
+  "nso_signoff",
+  "pe_admin",
+  "pe_delegate",
+  "pe_fill",
+  "pe_review",
+  "prj_accept",
+  "prj_allocate",
+  "prj_complete",
+  "prj_expected",
+  "prj_expected_review",
+  "prj_inspection",
+  "prj_mid_visit",
+  "prj_push_nso",
+  "prj_qa_review",
+  "prj_qa_signoff",
+  "start"
+ ]
+}

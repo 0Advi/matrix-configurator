@@ -1,0 +1,26 @@
+{
+ "$comment": "Provenance of the vendored operaton-plat snapshot (the user's own public repo). catalogue.json is byte-identical to the file at this commit; it carries no passwords (those live only in workspace.json / README.md, which were not vendored).",
+ "repo": "https://github.com/Adityashandilya555/operaton-plat",
+ "ref": "main",
+ "sha": "fc65499834cfa8d5e47ca2bb5266899117555d36",
+ "commitDate": "2026-10-04T08:43:08Z",
+ "retrievedVia": "gh api repos/Adityashandilya555/operaton-plat/contents/<path>?ref=<sha> (Accept: application/vnd.github.raw)",
+ "retrievedOn": "2026-10-05",
+ "files": {
+  "catalogue.json": {
+   "sha256": "e360bb13dd9d1abdcd4438e3578345a8c9ebbf4766ea9228468a5c722629abc7",
+   "bytes": 20160
+  },
+  "build-manifest.json": {
+   "derivedFrom": "build/*.bpmn + build/forms/*.html",
+   "sha256": "f9841ba7a41a73ed26477dc56541fbb80081855309c54768b0e19c65f8c6c629"
+  }
+ },
+ "upstreamSha256": {
+  "catalogue.json": "e360bb13dd9d1abdcd4438e3578345a8c9ebbf4766ea9228468a5c722629abc7",
+  "README.md": "fa8ab5a129254265d9bec51b7f6db3a318fe21c959456a6e4823b0b125f3c75d",
+  "docs/PLATFORM.md": "b79962e467019c10fe17d2721c6259e7ba87a32224cd1acb384147cdd3d7897f",
+  "matrix.py": "4cf46f5ebdb0bc76cd96e9e29bb820c18d8d17d14bf060b36ac3e6bcaffd38c8"
+ },
+ "workspaceJsonEqualsCatalogueMinusPasswords": true
+}

@@ -173,7 +173,14 @@ async def get_current_user(
                    AND req.tenant_id = :tid
                    AND req.module = :mod
                    AND req.status = 'pending'
-               ) AS has_pending_executive_request
+               ) AS has_pending_executive_request,
+               -- Phase 2: modules this tenant has switched OFF (tenant_modules,
+               -- 20261004_2). require_module refuses them for every role. Folded
+               -- into this per-request read so it costs no extra round trip.
+               ARRAY(
+                 SELECT tm.module_key FROM tenant_modules tm
+                  WHERE tm.tenant_id = :tid AND NOT tm.enabled
+               ) AS disabled_modules
         FROM users u
         LEFT JOIN user_module_memberships umm
           ON u.id = umm.user_id
@@ -204,6 +211,7 @@ async def get_current_user(
     claims["real_role"] = db_role
     claims["has_executive_access"] = row.get("has_executive_access", False)
     claims["has_pending_executive_request"] = row.get("has_pending_executive_request", False)
+    claims["disabled_modules"] = list(row.get("disabled_modules") or [])
     _apply_workspace_override(
         claims,
         db_role=db_role,

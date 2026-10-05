@@ -1,0 +1,1584 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0B0C10; --card:#13141B; --card2:#171923; --card3:#1C1F29;
+  --line:rgba(255,255,255,.14); --line2:rgba(255,255,255,.07);
+  --fg:#F2F3F7; --fg2:#A2A6B4; --fg3:#6E7382;
+  --sup:#6E9BFF; --exec:#4FC3A1; --admin:#C58CF5; --obs:#8A909E;
+  --danger:#FF6B6B; --warn:#E8B65A; --ok:#4FC3A1; --accent:#6E9BFF;
+  --dot:rgba(255,255,255,.06);
+  --shadow:0 1px 2px rgba(0,0,0,.6),0 12px 34px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#0B0C10}
+body{color:#F2F3F7;font-family:'IBM Plex Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none} a:hover{color:#fff}
+input,select,button,textarea{font-family:inherit;color:inherit}
+input,select,textarea{background:#0E0F15;border:1px solid var(--line);border-radius:6px}
+input:focus,select:focus,textarea:focus{outline:1px solid var(--accent);outline-offset:0}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.13);border-radius:8px;border:3px solid transparent;background-clip:content-box}
+@keyframes pulsering{0%{box-shadow:0 0 0 0 rgba(110,155,255,.55)}70%{box-shadow:0 0 0 8px rgba(110,155,255,0)}100%{box-shadow:0 0 0 0 rgba(110,155,255,0)}}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+<div ref="{{ rootRef }}" tabindex="0" onKeyDown="{{ onKey }}" style="position:relative;height:100vh;width:100%;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);outline:none">
+
+  <sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;inset:0;z-index:80;background:var(--bg);display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:0 24px">
+      <div style="width:100%;max-width:840px;padding:64px 0 40px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <div style="width:24px;height:24px;border-radius:7px;background:var(--accent);display:grid;place-items:center;font-size:10px;font-weight:600;color:#0B0C10">M</div>
+          <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--fg3);letter-spacing:.04em">matrix / platform admin console</span>
+        </div>
+        <h1 style="margin:0 0 6px;font-size:24px;font-weight:600;letter-spacing:-.02em">Workspaces</h1>
+        <p style="margin:0 0 26px;font-size:13px;color:var(--fg2);max-width:520px;line-height:1.55">Pick a tenant to configure. Everything past this point is scoped to that workspace and edits a draft manifest — nothing reaches customers until you publish.</p>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ workspaces }}" as="w" hint-placeholder-count="3">
+            <button onClick="{{ w.onOpen }}" style="display:flex;align-items:center;gap:18px;width:100%;text-align:left;padding:16px 18px;border-radius:12px;border:1px solid var(--line);background:var(--card);cursor:pointer" style-hover="border-color:var(--accent);background:var(--card2)">
+              <div style="{{ w.avatarStyle }}">{{ w.initials }}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:14px;font-weight:600;letter-spacing:-.01em">{{ w.name }}</div>
+                <div style="font-size:11.5px;font-family:'IBM Plex Mono',monospace;color:var(--fg3);margin-top:3px">{{ w.domain }}</div>
+              </div>
+              <div style="display:flex;gap:26px;flex:0 0 auto">
+                <div style="text-align:right"><div style="font-size:14px;font-family:'IBM Plex Mono',monospace">{{ w.modules }}</div><div style="font-size:10px;color:var(--fg3);letter-spacing:.05em;text-transform:uppercase">modules</div></div>
+                <div style="text-align:right"><div style="font-size:14px;font-family:'IBM Plex Mono',monospace">{{ w.users }}</div><div style="font-size:10px;color:var(--fg3);letter-spacing:.05em;text-transform:uppercase">users</div></div>
+                <div style="text-align:right;min-width:132px"><div style="font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--fg2)">{{ w.published }}</div><div style="font-size:10px;color:var(--fg3);letter-spacing:.05em;text-transform:uppercase">last published</div></div>
+              </div>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <header style="flex:0 0 52px;display:flex;align-items:center;gap:14px;padding:0 12px;background:var(--card);border-bottom:1px solid var(--line);z-index:40">
+    <button onClick="{{ onBackToList }}" title="Back to workspaces" style="flex:0 0 auto;height:28px;padding:0 10px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--fg2);font-size:12px;cursor:pointer;white-space:nowrap" style-hover="color:var(--fg);border-color:var(--accent)">← Workspaces</button>
+    <div style="display:flex;align-items:center;gap:9px;flex:1 1 auto;min-width:0;overflow:hidden">
+      <div style="{{ wsAvatarStyle }}">{{ wsInitials }}</div>
+      <div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:7px;min-width:0">
+          <span style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ wsName }}</span>
+          <span style="{{ draftBadgeStyle }}">{{ draftBadge }}</span>
+        </div>
+        <span style="font-size:10.5px;font-family:'IBM Plex Mono',monospace;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ wsDomain }} · configuring as platform admin</span>
+      </div>
+    </div>
+    <div style="display:flex;padding:2px;gap:2px;background:#0E0F15;border:1px solid var(--line);border-radius:8px;flex:0 0 auto">
+      <sc-for list="{{ views }}" as="v" hint-placeholder-count="3">
+        <button onClick="{{ v.onClick }}" style="{{ v.style }}">{{ v.label }}</button>
+      </sc-for>
+    </div>
+    <div style="display:flex;align-items:center;gap:7px;flex:0 0 auto">
+      <div style="display:flex;padding:2px;gap:2px;background:#0E0F15;border:1px solid var(--line);border-radius:8px">
+        <button onClick="{{ onShowDraft }}" style="{{ draftTabStyle }}">Draft</button>
+        <button onClick="{{ onShowLive }}" style="{{ liveTabStyle }}">Live</button>
+      </div>
+      <sc-if value="{{ showRailToggle }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ onToggleRail }}" style="{{ railToggleStyle }}">{{ railToggleLabel }}</button>
+      </sc-if>
+      <button onClick="{{ onToggleManifest }}" style="{{ manifestBtnStyle }}">Manifest</button>
+      <button onClick="{{ onPublish }}" style="height:28px;padding:0 12px;border-radius:7px;border:1px solid transparent;background:var(--accent);color:#0B0C10;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex:0 0 auto" style-hover="filter:brightness(1.1)">Review &amp; publish</button>
+    </div>
+  </header>
+
+  <div style="flex:1;display:flex;min-height:0">
+
+    <sc-if value="{{ isFlow }}" hint-placeholder-val="{{ true }}">
+      <div style="{{ paletteStyle }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 12px;border-bottom:1px solid var(--line2)">
+          <span style="font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--fg3);font-weight:600">{{ paletteTitle }}</span>
+          <button onClick="{{ onTogglePalette }}" style="width:22px;height:22px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--fg3);font-size:11px;cursor:pointer" style-hover="color:var(--fg)">{{ paletteChevron }}</button>
+        </div>
+        <sc-if value="{{ paletteOpen }}" hint-placeholder-val="{{ true }}">
+          <div style="flex:1;min-height:0;overflow-y:auto;padding:10px 12px 20px">
+            <div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg3);font-weight:600;margin:2px 0 8px">Drag onto canvas</div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <sc-for list="{{ paletteItems }}" as="p" hint-placeholder-count="4">
+                <div onPointerDown="{{ p.onDown }}" title="{{ p.hint }}" style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;border:1px dashed var(--line);background:var(--card2);cursor:grab" style-hover="border-color:var(--accent);background:var(--card3)">
+                  <div style="{{ p.iconStyle }}">{{ p.icon }}</div>
+                  <div style="min-width:0"><div style="font-size:12px;font-weight:500">{{ p.label }}</div><div style="font-size:10px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.sub }}</div></div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg3);font-weight:600;margin:18px 0 8px">Templates</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <sc-for list="{{ templates }}" as="t" hint-placeholder-count="3">
+                <button onClick="{{ t.onClick }}" style="text-align:left;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;cursor:pointer;font-size:12px" style-hover="border-color:var(--accent);background:var(--card2)">{{ t.label }}<div style="font-size:10px;color:var(--fg3);margin-top:2px">{{ t.sub }}</div></button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+
+      <div ref="{{ canvasRef }}" onPointerDown="{{ onCanvasDown }}" style="position:relative;flex:1;min-width:0;overflow:hidden;background:var(--bg);touch-action:none;user-select:none">
+        <div style="{{ gridStyle }}"></div>
+
+        <div style="{{ viewportStyle }}">
+          <svg width="6000" height="3600" style="position:absolute;left:0;top:0;overflow:visible;pointer-events:none">
+            <defs>
+              <marker id="a_fwd" markerWidth="7" markerHeight="7" refX="6.4" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="rgba(255,255,255,.42)"></path></marker>
+              <marker id="a_bad" markerWidth="7" markerHeight="7" refX="6.4" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#FF6B6B"></path></marker>
+              <marker id="a_hi" markerWidth="7" markerHeight="7" refX="6.4" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#6E9BFF"></path></marker>
+            </defs>
+            <sc-for list="{{ edges }}" as="e" hint-placeholder-count="10">
+              <g>
+                <path d="{{ e.d }}" fill="none" stroke="{{ e.stroke }}" stroke-width="{{ e.width }}" stroke-dasharray="{{ e.dash }}" marker-end="{{ e.marker }}" stroke-opacity="{{ e.opacity }}"></path>
+                <path d="{{ e.d }}" fill="none" stroke="transparent" stroke-width="16" onClick="{{ e.onClick }}" onMouseEnter="{{ e.onEnter }}" onMouseLeave="{{ e.onLeave }}" style="pointer-events:stroke;cursor:pointer"></path>
+              </g>
+            </sc-for>
+            <sc-if value="{{ linkPath }}" hint-placeholder-val="{{ false }}">
+              <path d="{{ linkPath }}" fill="none" stroke="#6E9BFF" stroke-width="1.8" stroke-dasharray="5 5"></path>
+            </sc-if>
+          </svg>
+
+          <sc-for list="{{ edgePills }}" as="p" hint-placeholder-count="8">
+            <div onClick="{{ p.onClick }}" onMouseEnter="{{ p.onEnter }}" onMouseLeave="{{ p.onLeave }}" style="{{ p.style }}">
+              <span style="{{ p.dotStyle }}"></span>{{ p.label }}
+            </div>
+          </sc-for>
+
+          <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="12">
+            <div data-node="{{ n.id }}" onPointerDown="{{ n.onDown }}" style="{{ n.wrap }}">
+              <div style="{{ n.accentStyle }}"></div>
+              <div style="display:flex;align-items:center;gap:8px;padding:0 11px 0 14px;height:{{ n.headH }}">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:12px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.title }}</div>
+                  <div style="font-size:9.5px;font-family:'IBM Plex Mono',monospace;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">{{ n.sub }}</div>
+                </div>
+                <sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}">
+                  <span style="{{ n.badgeStyle }}">{{ n.badge }}</span>
+                </sc-if>
+                <sc-if value="{{ n.isModule }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ n.onToggle }}" style="width:20px;height:20px;flex:0 0 20px;border-radius:5px;border:1px solid var(--line);background:transparent;color:var(--fg3);font-size:9px;cursor:pointer" style-hover="color:var(--fg)">{{ n.chevron }}</button>
+                </sc-if>
+              </div>
+              <sc-if value="{{ n.expanded }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:2px 11px 9px 14px;display:flex;flex-direction:column;gap:3px">
+                  <sc-for list="{{ n.stages }}" as="st" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--fg2)">
+                      <span style="width:4px;height:4px;border-radius:50%;background:var(--fg3);flex:0 0 4px"></span>{{ st }}
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-for list="{{ n.ports }}" as="pt" hint-placeholder-count="2">
+                <div data-port="{{ pt.key }}" data-node="{{ n.id }}" data-ptype="{{ pt.type }}" onPointerDown="{{ pt.onDown }}" onClick="{{ pt.onClick }}" title="{{ pt.title }}" style="{{ pt.style }}"></div>
+              </sc-for>
+              <sc-if value="{{ n.portLabel }}" hint-placeholder-val="{{ false }}">
+                <span style="{{ n.portLabelStyle }}">{{ n.portLabel }}</span>
+              </sc-if>
+            </div>
+          </sc-for>
+
+          <sc-if value="{{ hint }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ hintStyle }}">{{ hint }}</div>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ popover }}" hint-placeholder-val="{{ false }}">
+          <div data-nopan="1" style="{{ popoverStyle }}">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="flex:1;font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ popover.route }}</span>
+              <button onClick="{{ onClosePopover }}" style="width:20px;height:20px;border-radius:5px;border:1px solid var(--line);background:transparent;color:var(--fg3);font-size:11px;cursor:pointer">×</button>
+            </div>
+            <label style="display:block;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--fg3);font-weight:600;margin-bottom:5px">Transition label</label>
+            <input value="{{ popover.label }}" onChange="{{ onPopLabel }}" style="width:100%;font-size:12px;padding:6px 8px;margin-bottom:11px">
+            <label style="display:block;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--fg3);font-weight:600;margin-bottom:5px">Who can perform it</label>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:11px">
+              <sc-for list="{{ popover.actors }}" as="a" hint-placeholder-count="4">
+                <button onClick="{{ a.onToggle }}" style="{{ a.style }}">{{ a.label }}</button>
+              </sc-for>
+            </div>
+            <label style="display:block;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--fg3);font-weight:600;margin-bottom:5px">Condition (optional)</label>
+            <input value="{{ popover.condition }}" onChange="{{ onPopCondition }}" placeholder="e.g. dd_verdict is positive" style="width:100%;font-size:12px;padding:6px 8px;margin-bottom:12px;font-family:'IBM Plex Mono',monospace">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:10px;color:var(--fg3)">Esc to close</span>
+              <button onClick="{{ onDeleteEdge }}" style="height:26px;padding:0 10px;border-radius:6px;border:1px solid rgba(255,107,107,.4);background:rgba(255,107,107,.12);color:var(--danger);font-size:11px;font-weight:600;cursor:pointer">Delete transition</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <div data-nopan="1" style="position:absolute;left:12px;top:12px;display:flex;align-items:center;gap:7px">
+          <input value="{{ search }}" onChange="{{ onSearch }}" placeholder="Search stages and modules" style="width:212px;height:28px;font-size:11.5px;padding:0 9px">
+          <sc-if value="{{ connectHint }}" hint-placeholder-val="{{ false }}">
+            <div style="height:28px;display:flex;align-items:center;gap:8px;padding:0 10px;border-radius:7px;border:1px solid var(--accent);background:rgba(110,155,255,.14);color:var(--accent);font-size:11.5px;font-weight:500;animation:fadein .18s ease">
+              {{ connectHint }}
+              <button onClick="{{ onCancelConnect }}" style="border:none;background:transparent;color:var(--accent);font-size:11px;text-decoration:underline;cursor:pointer;padding:0">cancel</button>
+            </div>
+          </sc-if>
+        </div>
+
+        <div data-nopan="1" style="position:absolute;left:12px;bottom:12px;display:flex;align-items:center;gap:4px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow)">
+          <button onClick="{{ onZoomOut }}" style="width:26px;height:26px;border-radius:6px;border:none;background:transparent;color:var(--fg2);font-size:14px;cursor:pointer" style-hover="background:var(--card3)">−</button>
+          <span style="min-width:42px;text-align:center;font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--fg2)">{{ zoomLabel }}</span>
+          <button onClick="{{ onZoomIn }}" style="width:26px;height:26px;border-radius:6px;border:none;background:transparent;color:var(--fg2);font-size:14px;cursor:pointer" style-hover="background:var(--card3)">+</button>
+          <div style="width:1px;height:16px;background:var(--line)"></div>
+          <button onClick="{{ onFit }}" style="height:26px;padding:0 9px;border-radius:6px;border:none;background:transparent;color:var(--fg2);font-size:11px;cursor:pointer" style-hover="background:var(--card3)">Fit</button>
+          <div style="width:1px;height:16px;background:var(--line)"></div>
+          <button onClick="{{ onUndo }}" style="{{ undoStyle }}">{{ undoLabel }}</button>
+          <button onClick="{{ onRedo }}" style="{{ redoStyle }}">{{ redoLabel }}</button>
+        </div>
+
+        <div data-nopan="1" style="{{ minimapStyle }}" data-minimap="1">
+          <sc-for list="{{ minimap }}" as="mm" hint-placeholder-count="10">
+            <div style="{{ mm.style }}"></div>
+          </sc-for>
+          <div style="{{ minimapViewStyle }}"></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isNav }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;min-width:0;display:flex;min-height:0;overflow-x:auto">
+        <div style="flex:0 0 150px;border-right:1px solid var(--line);background:var(--card);overflow-y:auto;padding:10px 8px">
+          <div style="font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--fg3);font-weight:600;padding:2px 6px 8px">Modules</div>
+          <sc-for list="{{ navModules }}" as="m" hint-placeholder-count="6">
+            <button onClick="{{ m.onClick }}" style="{{ m.style }}">
+              <span style="{{ m.dotStyle }}"></span>
+              <span style="flex:1;min-width:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name }}</span>
+              <span style="font-size:9.5px;font-family:'IBM Plex Mono',monospace;color:var(--fg3)">{{ m.count }}</span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="flex:1;min-width:0;display:flex;min-height:0;overflow-x:auto">
+          <div style="flex:0 0 300px;border-right:1px solid var(--line);overflow-y:auto;padding:14px 14px 30px;background:var(--bg)">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
+              <div><div style="font-size:13px;font-weight:600">Sidebar structure</div><div style="font-size:10.5px;color:var(--fg3);margin-top:2px">Drag sections and items to reorder</div></div>
+              <button onClick="{{ onAddSection }}" style="height:24px;padding:0 9px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--fg2);font-size:11px;cursor:pointer;white-space:nowrap" style-hover="border-color:var(--accent);color:var(--fg)">+ Section</button>
+            </div>
+            <sc-for list="{{ navSections }}" as="sec" hint-placeholder-count="3">
+              <div data-navsec="{{ sec.idx }}" style="{{ sec.style }}">
+                <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
+                  <div onPointerDown="{{ sec.onDrag }}" title="Drag to reorder section" style="flex:0 0 14px;cursor:grab;color:var(--fg3);font-size:10px;letter-spacing:1px">⋮⋮</div>
+                  <input value="{{ sec.title }}" onChange="{{ sec.onTitle }}" style="flex:1;min-width:0;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:4px 6px;background:transparent;border-color:transparent" style-hover="border-color:var(--line)">
+                  <button onClick="{{ sec.onAddItem }}" title="Add item" style="width:22px;height:22px;border-radius:5px;border:1px solid var(--line);background:transparent;color:var(--fg3);font-size:12px;cursor:pointer" style-hover="color:var(--fg)">+</button>
+                  <button onClick="{{ sec.onDel }}" title="Delete section" style="width:22px;height:22px;border-radius:5px;border:1px solid var(--line);background:transparent;color:var(--fg3);font-size:11px;cursor:pointer" style-hover="color:var(--danger);border-color:rgba(255,107,107,.4)">×</button>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <sc-for list="{{ sec.items }}" as="it" hint-placeholder-count="4">
+                    <div data-navitem="{{ it.key }}" style="{{ it.style }}">
+                      <div style="display:flex;align-items:center;gap:5px">
+                        <div onPointerDown="{{ it.onDrag }}" title="Drag to reorder or move between sections" style="flex:0 0 12px;cursor:grab;color:var(--fg3);font-size:10px">⋮</div>
+                        <input value="{{ it.icon }}" onChange="{{ it.onIcon }}" title="Icon" style="flex:0 0 30px;width:30px;text-align:center;font-size:9.5px;font-family:'IBM Plex Mono',monospace;padding:4px 0;color:var(--fg2)">
+                        <input value="{{ it.label }}" onChange="{{ it.onLabel }}" style="flex:1 1 auto;min-width:90px;font-size:11.5px;padding:4px 6px">
+                        <button onClick="{{ it.onDel }}" style="flex:0 0 20px;width:20px;height:20px;border-radius:5px;border:1px solid var(--line);background:transparent;color:var(--fg3);font-size:10px;cursor:pointer" style-hover="color:var(--danger);border-color:rgba(255,107,107,.4)">×</button>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:5px;padding-left:17px">
+                        <input value="{{ it.route }}" onChange="{{ it.onRoute }}" title="Destination route" style="flex:1 1 auto;min-width:0;font-size:9.5px;font-family:'IBM Plex Mono',monospace;padding:3px 5px;color:var(--fg3)">
+                        <sc-if value="{{ it.badge }}" hint-placeholder-val="{{ false }}">
+                          <span title="Badge source" style="flex:0 0 auto;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--warn);padding:2px 5px;border-radius:4px;background:rgba(232,182,90,.12);white-space:nowrap">{{ it.badge }}</span>
+                        </sc-if>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="flex:1 0 400px;min-width:400px;overflow:auto;padding:14px 16px 30px">
+            <div style="font-size:13px;font-weight:600">Role visibility</div>
+            <div style="font-size:10.5px;color:var(--fg3);margin:2px 0 12px">{{ matrixNote }}</div>
+            <div style="display:inline-block;min-width:100%;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)">
+              <div style="{{ matrixHeadStyle }}">
+                <div style="font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--fg3);font-weight:600">Nav item</div>
+                <sc-for list="{{ matrixCols }}" as="c" hint-placeholder-count="4">
+                  <div style="{{ c.style }}" title="{{ c.tip }}">{{ c.label }}</div>
+                </sc-for>
+              </div>
+              <sc-for list="{{ matrixRows }}" as="r" hint-placeholder-count="8">
+                <div style="{{ r.rowStyle }}">
+                  <div style="display:flex;align-items:center;gap:7px;min-width:0">
+                    <span style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--fg3);flex:0 0 auto">{{ r.icon }}</span>
+                    <span style="font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.label }}</span>
+                  </div>
+                  <sc-for list="{{ r.cells }}" as="cell" hint-placeholder-count="4">
+                    <button onClick="{{ cell.onClick }}" title="{{ cell.tip }}" style="{{ cell.style }}">{{ cell.glyph }}</button>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isRoles }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;min-width:0;overflow:auto;padding:18px 20px 40px">
+        <div style="max-width:900px">
+          <div style="font-size:15px;font-weight:600;letter-spacing:-.01em">Action permissions</div>
+          <div style="font-size:11.5px;color:var(--fg2);margin:4px 0 14px;line-height:1.55;max-width:620px">The same grants the edge popovers write to. Changing an actor here renames nothing on the canvas — it changes who the transition permits, and the edge pill recolours to the first granted role.</div>
+          <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)">
+            <div style="{{ permHeadStyle }}">
+              <div style="font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--fg3);font-weight:600">Action</div>
+              <sc-for list="{{ matrixCols }}" as="c" hint-placeholder-count="4">
+                <div style="{{ c.style }}">{{ c.label }}</div>
+              </sc-for>
+              <div style="font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--fg3);font-weight:600;text-align:right">Used by</div>
+            </div>
+            <sc-for list="{{ permRows }}" as="p" hint-placeholder-count="15">
+              <div style="{{ p.rowStyle }}">
+                <div style="font-size:11.5px;font-family:'IBM Plex Mono',monospace;color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.action }}</div>
+                <sc-for list="{{ p.cells }}" as="cell" hint-placeholder-count="4">
+                  <button onClick="{{ cell.onClick }}" title="{{ cell.tip }}" style="{{ cell.style }}">{{ cell.glyph }}</button>
+                </sc-for>
+                <button onClick="{{ p.onUsed }}" style="{{ p.usedStyle }}">{{ p.used }}</button>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
+      <aside style="{{ railStyle }}">
+
+        <div style="flex:0 0 auto;padding:12px 16px 14px;border-bottom:1px solid var(--line)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+            <span style="font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--fg3);font-weight:600;flex:1">Live preview · {{ previewModuleName }}</span>
+            <div style="display:flex;padding:2px;gap:2px;background:#0E0F15;border:1px solid var(--line);border-radius:7px">
+              <sc-for list="{{ previewRoles }}" as="r" hint-placeholder-count="4">
+                <button onClick="{{ r.onClick }}" title="{{ r.tip }}" style="{{ r.style }}">{{ r.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="{{ previewFrameStyle }}">
+            <div style="{{ previewScaleStyle }}">
+              <div style="width:780px;height:470px;display:flex;background:#0E0F15;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.09)">
+                <div style="flex:0 0 196px;background:#13141B;border-right:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column;padding:14px 10px">
+                  <div style="display:flex;align-items:center;gap:8px;padding:0 6px 14px">
+                    <div style="{{ previewLogoStyle }}">{{ previewLogo }}</div>
+                    <span style="font-size:14px;font-weight:600">{{ previewModuleName }}</span>
+                  </div>
+                  <sc-if value="{{ previewEmpty }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin:10px 6px;padding:14px;border-radius:9px;border:1px dashed rgba(255,107,107,.4);background:rgba(255,107,107,.07);color:#FF9B9B;font-size:12px;line-height:1.5">{{ previewEmpty }}</div>
+                  </sc-if>
+                  <sc-for list="{{ previewNav }}" as="ps" hint-placeholder-count="3">
+                    <div style="margin-bottom:14px">
+                      <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#5C6070;font-weight:600;padding:0 6px 7px">{{ ps.title }}</div>
+                      <sc-for list="{{ ps.items }}" as="pi" hint-placeholder-count="4">
+                        <div style="{{ pi.style }}">
+                          <span style="{{ pi.iconStyle }}">{{ pi.icon }}</span>
+                          <span style="flex:1;min-width:0;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pi.label }}</span>
+                          <sc-if value="{{ pi.count }}" hint-placeholder-val="{{ false }}">
+                            <span style="font-size:10.5px;font-family:'IBM Plex Mono',monospace;color:#7E8496;background:rgba(255,255,255,.06);padding:1px 6px;border-radius:9px">{{ pi.count }}</span>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+                  <div style="flex:0 0 46px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid rgba(255,255,255,.07);background:#12131A">
+                    <span style="font-size:13px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ wsName }}</span>
+                    <span style="{{ previewRoleChipStyle }}">{{ previewRoleLabel }}</span>
+                  </div>
+                  <div style="flex:1;min-height:0;padding:16px;display:flex;flex-direction:column;gap:12px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span style="font-size:15px;font-weight:600">Sites</span>
+                      <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:#7E8496">{{ previewStage }}</span>
+                    </div>
+                    <div style="border:1px solid rgba(255,255,255,.08);border-radius:8px;overflow:hidden">
+                      <div style="{{ previewHeadStyle }}">
+                        <sc-for list="{{ previewCols }}" as="c" hint-placeholder-count="5">
+                          <div style="font-size:10.5px;font-weight:600;color:#8B90A0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c }}</div>
+                        </sc-for>
+                      </div>
+                      <sc-for list="{{ previewRows }}" as="row" hint-placeholder-count="3">
+                        <div style="{{ row.style }}">
+                          <sc-for list="{{ row.cells }}" as="cv" hint-placeholder-count="5">
+                            <div style="font-size:11.5px;color:#C9CDDA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cv }}</div>
+                          </sc-for>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                      <sc-for list="{{ previewActions }}" as="a" hint-placeholder-count="2">
+                        <div style="{{ a.style }}">{{ a.label }}</div>
+                      </sc-for>
+                      <sc-if value="{{ previewNoActions }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-size:12px;color:#7E8496;font-style:italic">{{ previewNoActions }}</span>
+                      </sc-if>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex:0 0 auto;padding:12px 16px 0;border-bottom:1px solid var(--line)">
+          <div style="display:flex;align-items:center;gap:9px">
+            <div style="{{ selIconStyle }}">{{ selInitials }}</div>
+            <input value="{{ selName }}" onChange="{{ onSelName }}" style="flex:1;min-width:0;font-size:14px;font-weight:600;padding:4px 7px;background:transparent;border-color:transparent" style-hover="border-color:var(--line)">
+            <sc-if value="{{ selProvisioning }}" hint-placeholder-val="{{ false }}">
+              <span style="font-size:9px;font-weight:600;letter-spacing:.05em;padding:3px 6px;border-radius:5px;background:rgba(232,182,90,.14);color:var(--warn);border:1px solid rgba(232,182,90,.35);white-space:nowrap">Pending provisioning</span>
+            </sc-if>
+          </div>
+          <div style="display:flex;align-items:flex-end;gap:10px;margin:9px 0 11px">
+            <div style="flex:0 0 auto">
+              <label style="display:block;font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--fg3);font-weight:600;margin-bottom:4px">Module key</label>
+              <input value="{{ selKey }}" onChange="{{ onSelKey }}" style="width:150px;font-size:11px;font-family:'IBM Plex Mono',monospace;padding:5px 7px;color:var(--fg2)">
+            </div>
+            <div style="flex:1;min-width:0;font-size:10px;color:var(--fg3);line-height:1.4;padding-bottom:5px">used in URLs and API calls — cannot be changed after publish</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">
+            <button onClick="{{ onToggleExec }}" title="{{ execTip }}" style="{{ execSwitchStyle }}"><span style="{{ execKnobStyle }}"></span></button>
+            <div style="min-width:0">
+              <div style="font-size:11.5px;font-weight:500">Executives enabled</div>
+              <div style="font-size:10px;color:var(--fg3)">{{ execState }}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:2px">
+            <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+              <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:13px 16px 30px">
+          <sc-if value="{{ isFieldsTab }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <div style="display:flex;align-items:baseline;justify-content:space-between">
+                <span style="font-size:11px;color:var(--fg3)">{{ fieldSummary }}</span>
+                <button onClick="{{ onAddField }}" style="height:24px;padding:0 9px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--fg2);font-size:11px;cursor:pointer" style-hover="border-color:var(--accent);color:var(--fg)">+ Add field</button>
+              </div>
+              <sc-for list="{{ fields }}" as="f" hint-placeholder-count="6">
+                <div style="border:1px solid var(--line2);border-radius:9px;background:var(--card2);padding:8px">
+                  <div style="display:flex;gap:6px;align-items:center">
+                    <span style="font-size:9.5px;font-family:'IBM Plex Mono',monospace;color:var(--fg3);flex:0 0 16px">{{ f.num }}</span>
+                    <input value="{{ f.label }}" onChange="{{ f.onLabel }}" style="flex:1;min-width:0;font-size:11.5px;padding:5px 7px">
+                    <button onClick="{{ f.onReq }}" style="{{ f.reqStyle }}">{{ f.reqLabel }}</button>
+                    <button onClick="{{ f.onDel }}" style="flex:0 0 22px;width:22px;height:22px;border-radius:5px;border:1px solid var(--line);background:transparent;color:var(--fg3);font-size:10px;cursor:pointer" style-hover="color:var(--danger);border-color:rgba(255,107,107,.4)">×</button>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;padding-left:22px">
+                    <input value="{{ f.key }}" onChange="{{ f.onKey }}" style="min-width:0;font-size:10.5px;font-family:'IBM Plex Mono',monospace;padding:5px 7px;color:var(--fg2)">
+                    <select value="{{ f.type }}" onChange="{{ f.onType }}" style="min-width:0;font-size:11px;padding:5px 6px">
+                      <sc-for list="{{ fieldTypes }}" as="ft" hint-placeholder-count="9">
+                        <option value="{{ ft.v }}">{{ ft.l }}</option>
+                      </sc-for>
+                    </select>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isChainTab }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <p style="margin:0 0 3px;font-size:11px;color:var(--fg3);line-height:1.5">Levels run top to bottom. Each adds a button to the preview above for the role it grants.</p>
+              <sc-for list="{{ chain }}" as="l" hint-placeholder-count="3">
+                <div data-chainrow="{{ l.idx }}" style="{{ l.rowStyle }}">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <div onPointerDown="{{ l.onDrag }}" style="flex:0 0 14px;cursor:grab;color:var(--fg3);font-size:10px;letter-spacing:1px">⋮⋮</div>
+                    <span style="{{ l.numStyle }}">{{ l.num }}</span>
+                    <input value="{{ l.name }}" onChange="{{ l.onName }}" style="flex:1;min-width:0;font-size:11.5px;padding:5px 7px">
+                    <button onClick="{{ l.onDel }}" style="flex:0 0 22px;width:22px;height:22px;border-radius:5px;border:1px solid var(--line);background:transparent;color:var(--fg3);font-size:10px;cursor:pointer" style-hover="color:var(--danger);border-color:rgba(255,107,107,.4)">×</button>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;padding-left:22px">
+                    <select value="{{ l.role }}" onChange="{{ l.onRole }}" style="min-width:0;font-size:11px;padding:5px 6px">
+                      <sc-for list="{{ roleOptions }}" as="ro" hint-placeholder-count="4">
+                        <option value="{{ ro.v }}">{{ ro.l }}</option>
+                      </sc-for>
+                    </select>
+                    <input value="{{ l.status }}" onChange="{{ l.onStatus }}" style="min-width:0;font-size:10.5px;font-family:'IBM Plex Mono',monospace;padding:5px 7px;color:var(--fg2)">
+                  </div>
+                  <sc-if value="{{ l.warn }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin:7px 0 0 22px;padding:6px 8px;border-radius:6px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#FF9B9B;font-size:10.5px;line-height:1.45">{{ l.warn }}</div>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <button onClick="{{ onAddLevel }}" style="height:30px;border-radius:8px;border:1px dashed var(--line);background:transparent;color:var(--fg2);font-size:11.5px;cursor:pointer" style-hover="border-color:var(--accent);color:var(--accent)">+ Add level</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isAccessTab }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div>
+                <div style="font-size:11.5px;font-weight:600;margin-bottom:3px">Availability</div>
+                <div style="font-size:11px;color:var(--fg3);line-height:1.5">{{ gateIntro }}</div>
+              </div>
+              <sc-if value="{{ gateHasToggle }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--fg3);font-weight:600">Match</span>
+                  <div style="display:flex;padding:2px;gap:2px;background:#0E0F15;border:1px solid var(--line);border-radius:7px">
+                    <button onClick="{{ onGateAll }}" style="{{ gateAllStyle }}">All</button>
+                    <button onClick="{{ onGateAny }}" style="{{ gateAnyStyle }}">Any</button>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-for list="{{ gateRows }}" as="g" hint-placeholder-count="1">
+                <div style="display:flex;align-items:center;gap:6px;padding:8px;border:1px solid var(--line2);border-radius:9px;background:var(--card2)">
+                  <span style="font-size:10px;color:var(--fg3);flex:0 0 auto">Available when</span>
+                  <select value="{{ g.mod }}" onChange="{{ g.onMod }}" style="flex:1;min-width:0;font-size:11px;padding:5px 6px">
+                    <sc-for list="{{ gateModOptions }}" as="gm" hint-placeholder-count="5">
+                      <option value="{{ gm.v }}">{{ gm.l }}</option>
+                    </sc-for>
+                  </select>
+                  <span style="font-size:10px;color:var(--fg3);flex:0 0 auto">is</span>
+                  <select value="{{ g.value }}" onChange="{{ g.onValue }}" style="flex:0 0 104px;width:104px;font-size:11px;padding:5px 6px">
+                    <sc-for list="{{ g.valueOptions }}" as="gv" hint-placeholder-count="3">
+                      <option value="{{ gv }}">{{ gv }}</option>
+                    </sc-for>
+                  </select>
+                  <button onClick="{{ g.onDel }}" style="flex:0 0 22px;width:22px;height:22px;border-radius:5px;border:1px solid var(--line);background:transparent;color:var(--fg3);font-size:10px;cursor:pointer" style-hover="color:var(--danger);border-color:rgba(255,107,107,.4)">×</button>
+                </div>
+              </sc-for>
+              <sc-if value="{{ gateCanAdd }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ onAddGate }}" style="height:30px;border-radius:8px;border:1px dashed var(--line);background:transparent;color:var(--fg2);font-size:11.5px;cursor:pointer" style-hover="border-color:var(--accent);color:var(--accent)">+ Add condition</button>
+              </sc-if>
+              <div style="margin-top:4px;padding:10px 11px;border-radius:9px;background:var(--card2);border:1px solid var(--line2)">
+                <div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg3);font-weight:600;margin-bottom:6px">Inbound transitions</div>
+                <sc-for list="{{ inbound }}" as="ib" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--fg2);padding:3px 0">
+                    <span style="{{ ib.dotStyle }}"></span>{{ ib.label }}
+                  </div>
+                </sc-for>
+                <sc-if value="{{ noInbound }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:11px;color:var(--warn)">{{ noInbound }}</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </aside>
+    </sc-if>
+  </div>
+
+  <div style="{{ validationBarStyle }}">
+    <button onClick="{{ onToggleValidation }}" style="display:flex;align-items:center;gap:9px;border:none;background:transparent;cursor:pointer;padding:0;flex:1;min-width:0;text-align:left">
+      <span style="{{ validationDotStyle }}"></span>
+      <span style="font-size:11.5px;font-weight:500;white-space:nowrap">{{ validationSummary }}</span>
+      <span style="font-size:10.5px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ validationPeek }}</span>
+    </button>
+    <span style="font-size:10.5px;font-family:'IBM Plex Mono',monospace;color:var(--fg3);flex:0 0 auto">{{ statusLine }}</span>
+  </div>
+  <sc-if value="{{ validationOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:0;right:0;bottom:30px;max-height:44vh;overflow-y:auto;z-index:55;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -14px 34px rgba(0,0,0,.5)">
+      <div style="padding:12px 16px 16px;display:flex;flex-direction:column;gap:7px">
+        <sc-for list="{{ findings }}" as="f" hint-placeholder-count="2">
+          <button onClick="{{ f.onClick }}" style="{{ f.style }}">
+            <span style="{{ f.tagStyle }}">{{ f.tag }}</span>
+            <span style="flex:1;min-width:0;font-size:11.5px;line-height:1.45;text-align:left">{{ f.text }}</span>
+            <span style="font-size:10px;color:var(--fg3);white-space:nowrap">{{ f.goto }}</span>
+          </button>
+        </sc-for>
+        <sc-if value="{{ noFindings }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:11.5px;color:var(--ok)">{{ noFindings }}</div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showManifest }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;top:52px;right:0;bottom:30px;width:560px;max-width:84vw;z-index:60;background:var(--card);border-left:1px solid var(--line);display:flex;flex-direction:column;box-shadow:-20px 0 44px rgba(0,0,0,.5)">
+      <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600">Draft manifest</div>
+          <div style="font-size:10.5px;font-family:'IBM Plex Mono',monospace;color:var(--fg3)">{{ manifestMeta }}</div>
+        </div>
+        <button onClick="{{ onCopyManifest }}" style="height:26px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--fg2);font-size:11px;cursor:pointer" style-hover="border-color:var(--accent);color:var(--fg)">{{ copyLabel }}</button>
+        <button onClick="{{ onToggleManifest }}" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--fg3);font-size:12px;cursor:pointer">×</button>
+      </div>
+      <pre style="flex:1;min-height:0;overflow:auto;margin:0;padding:14px 16px 40px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;line-height:1.6;color:var(--fg2);white-space:pre">{{ manifestJson }}</pre>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showDiff }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:70;background:rgba(6,7,10,.68);display:flex;align-items:center;justify-content:center;padding:32px">
+      <div style="width:660px;max-width:100%;max-height:100%;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden">
+        <div style="flex:0 0 auto;padding:16px 18px 13px;border-bottom:1px solid var(--line)">
+          <div style="font-size:15px;font-weight:600;letter-spacing:-.01em">Review changes before publishing</div>
+          <div style="font-size:11.5px;color:var(--fg2);margin-top:3px">{{ diffMeta }}</div>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:14px 18px">
+          <sc-for list="{{ diffs }}" as="d" hint-placeholder-count="3">
+            <div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line2)">
+              <span style="{{ d.tagStyle }}">{{ d.tag }}</span>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12px;line-height:1.45">{{ d.text }}</div>
+                <sc-if value="{{ d.impact }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:5px;padding:6px 9px;border-radius:7px;background:rgba(232,182,90,.1);border:1px solid rgba(232,182,90,.32);color:var(--warn);font-size:11px;line-height:1.45">{{ d.impact }}</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ noDiffs }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:18px 0;font-size:12px;color:var(--fg3)">{{ noDiffs }}</div>
+          </sc-if>
+        </div>
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:13px 18px;border-top:1px solid var(--line)">
+          <span style="flex:1;font-size:11px;color:var(--fg3);line-height:1.4">{{ publishNote }}</span>
+          <button onClick="{{ onCloseDiff }}" style="height:30px;padding:0 12px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--fg2);font-size:12px;cursor:pointer">Keep editing</button>
+          <button onClick="{{ onConfirmPublish }}" style="height:30px;padding:0 14px;border-radius:7px;border:1px solid transparent;background:var(--accent);color:#0B0C10;font-size:12px;font-weight:600;cursor:pointer">Publish to {{ wsName }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:50%;bottom:56px;transform:translateX(-50%);z-index:70;display:flex;align-items:center;gap:12px;padding:9px 14px;border-radius:9px;background:var(--card3);border:1px solid var(--line);color:var(--fg);font-size:11.5px;box-shadow:var(--shadow);animation:fadein .16s ease">{{ toast }}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultWorkspace&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;bluetokai&quot;,&quot;thirdwave&quot;,&quot;chaayos&quot;],&quot;default&quot;:&quot;bluetokai&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Seed&quot;},&quot;startView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;flow&quot;,&quot;nav&quot;,&quot;roles&quot;],&quot;default&quot;:&quot;flow&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Seed&quot;}}">
+class Component extends DCLogic {
+  static _c = 0;
+  constructor(props) {
+    super(props);
+    this.SW = 178; this.SH = 54; this.MW = 216; this.MH = 62;
+    this.canvasRef = React.createRef(); this.rootRef = React.createRef();
+    const seed = this.seed();
+    this.state = Object.assign({
+      pickerOpen: true, ws: 'bluetokai', view: 'flow', mode: 'draft',
+      selected: 'mod:bd', tab: 'fields', previewRole: 'supervisor',
+      navModule: 'bd', canvas: { x: 40, y: 40, z: 0.72 },
+      paletteOpen: true, search: '', hoverEdge: null, edgePopover: null,
+      connect: null, link: null, hintDone: false,
+      showManifest: false, showDiff: false, validationOpen: false,
+      toast: null, undo: [], redo: [], provisioning: []
+    }, seed, { live: JSON.parse(JSON.stringify({ modules: seed.modules, stages: seed.stages, edges: seed.edges, perms: seed.perms })) });
+  }
+  uid(p) { return p + '_' + (++Component._c); }
+  slug(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''); }
+
+  /* ---------------- seed ---------------- */
+  seed() {
+    const F = (label, key, type, req, options) => ({ id: this.uid('f'), label, key, type, required: !!req, options: options || null });
+    const L = (name, role, status) => ({ id: this.uid('l'), name, role, status });
+    const NI = (icon, label, route, roles, badge) => ({ id: this.uid('ni'), icon, label, route, roles, badge: badge || null });
+    const ALL = ['supervisor', 'executive', 'business_admin', 'observer'];
+    const SUP = ['supervisor', 'business_admin', 'observer'];
+
+    const modules = [
+      { key: 'bd', name: 'BD', full: 'Business Development', color: '#E8B65A', x: 2060, y: 30, executives: true, intake: true, collapsed: true,
+        stages: ['draft_submitted', 'shortlisted', 'details_submitted', 'approved', 'loi_uploaded'],
+        fields: [F('Carpet area (sqft)', 'carpet_area_sqft', 'number', true), F('Estimated monthly sales', 'est_monthly_sales', 'currency', true), F('Score', 'score', 'number'), F('Rent type', 'rent_type', 'dropdown', true, ['fixed', 'revshare', 'mg_revshare', 'staggered']), F('Fixed rent', 'fixed_rent_amount', 'currency'), F('Escalation %', 'escalation_pct', 'percent'), F('Security deposit', 'security_deposit', 'currency', true), F('Capex', 'capex', 'currency'), F('Lock-in (months)', 'lock_in_months', 'number'), F('Tenure (months)', 'tenure_months', 'number', true), F('Rent-free days', 'rent_free_days', 'number'), F('LOI document', 'loi_document', 'file', true)],
+        chain: [L('Supervisor review', 'supervisor', 'pending_review')],
+        nav: [
+          { id: this.uid('ns'), title: 'Overview', items: [NI('SI', 'Sites', '/bd/sites', ALL)] },
+          { id: this.uid('ns'), title: 'Workflow', items: [NI('PL', 'Pipeline', '/bd/pipeline', ALL, 'sites.pipeline'), NI('SH', 'Shortlisted sites', '/bd/shortlisted', ALL, 'sites.shortlisted'), NI('IP', 'Sites in process', '/bd/in-process', ALL, 'sites.in_process'), NI('AR', 'Archived / Rejected', '/bd/archived', SUP, 'sites.archived'), NI('DD', 'DDR negative', '/bd/ddr-negative', SUP), NI('PF', 'Process flow', '/bd/process', ALL), NI('PY', 'Payment', '/bd/payment', ['supervisor', 'business_admin', 'observer']), NI('LN', 'Launch', '/bd/launch', ALL)] },
+          { id: this.uid('ns'), title: 'Workspace', items: [NI('TM', 'Team', '/bd/team', SUP, 'team.count')] }
+        ] },
+      { key: 'legal', name: 'Legal', full: 'Legal & Compliance', color: '#6E9BFF', x: 2060, y: 130, executives: true, collapsed: true,
+        stages: ['legal_review', 'legal_approved', 'legal_rejected'],
+        fields: [F('DD — Title document', 'dd_title_document', 'ynna', true), F('DD — Sanctioned plan', 'dd_sanctioned_plan', 'ynna', true), F('DD — OC / CC', 'dd_oc_cc', 'ynna'), F('DD — Commercial use', 'dd_commercial_use', 'ynna'), F('DD — Property tax', 'dd_property_tax', 'ynna'), F('DD — Fire NOC', 'dd_fire_noc', 'ynna'), F('DD verdict', 'legal_dd_status', 'dropdown', true, ['pending', 'positive', 'negative']), F('Rejection reason', 'dd_rejection_reason', 'text'), F('Agreement signed', 'agreement_signed', 'dropdown', true, ['yes', 'no']), F('Agreement registered', 'agreement_registered', 'dropdown', true, ['yes', 'no']), F('Licensing — FSSAI', 'lic_fssai', 'ynna')],
+        chain: [L('DD review', 'supervisor', 'pending_review'), L('Publish DD', 'business_admin', 'pending_publish')],
+        nav: [{ id: this.uid('ns'), title: 'Legal', items: [NI('OV', 'Overview', '/legal', ALL), NI('SI', 'Sites', '/legal/sites', ALL), NI('CR', 'Change requests', '/legal/change-requests', ALL, 'cr.open'), NI('PF', 'Process flow', '/legal/process', ALL), NI('HI', 'History', '/legal/history', ALL)] }] },
+      { key: 'design', name: 'Design', full: 'Design & Drawings', color: '#4FC3A1', x: 2060, y: 230, executives: true, collapsed: true,
+        stages: ['recce', '2d', '3d', 'boq', 'gfc'],
+        fields: [F('Stage', 'design_stage', 'dropdown', true, ['recce', '2d', '3d', 'boq', 'gfc']), F('Deliverable file', 'deliverable_file', 'file', true), F('Estimated amount', 'deliverable_estimate', 'currency'), F('Supervisor comments', 'supervisor_comments', 'text'), F('Admin comments', 'admin_comments', 'text'), F('Deliverable status', 'design_status', 'dropdown', true, ['draft', 'pending_supervisor', 'pending_admin', 'approved', 'rejected'])],
+        chain: [L('Supervisor review', 'supervisor', 'pending_supervisor'), L('Final GFC approval', 'business_admin', 'pending_admin')],
+        nav: [{ id: this.uid('ns'), title: 'Design', items: [NI('OV', 'Overview', '/design', ALL), NI('SI', 'Sites', '/design/sites', ALL), NI('PF', 'Process flow', '/design/process', ALL), NI('HI', 'History', '/design/history', ALL)] }] },
+      { key: 'project', name: 'Project', full: 'Project Execution', color: '#C58CF5', x: 2060, y: 330, executives: true, collapsed: true,
+        stages: ['draft', 'pending_supervisor', 'pending_admin', 'approved'],
+        fields: [F('Budget total', 'project_budget_total', 'currency', true), F('Total indoor area (sqft)', 'project_indoor_area', 'number'), F('Total area (sqft)', 'project_total_area', 'number'), F('Covers', 'project_covers', 'number'), F('Initialization date', 'project_init_date', 'date'), F('Expected completion', 'project_expected_completion', 'date'), F('Budget line items', 'project_budget_lines', 'repeater', true), F('Project status', 'project_status', 'dropdown', true, ['draft', 'pending_supervisor', 'pending_admin', 'approved', 'rejected'])],
+        chain: [L('Draft submitted', 'executive', 'draft'), L('Supervisor review', 'supervisor', 'pending_supervisor'), L('Admin approval', 'business_admin', 'pending_admin')],
+        nav: [{ id: this.uid('ns'), title: 'Project', items: [NI('OV', 'Overview', '/project', ALL), NI('PL', 'Pipeline', '/project/pipeline', ALL, 'sites.pipeline'), NI('SI', 'Sites', '/project/sites', ALL), NI('NH', 'NSO Handover', '/project/handover', ALL), NI('FC', 'Financial Closure', '/project/closure', ['supervisor', 'business_admin', 'observer']), NI('PF', 'Process flow', '/project/process', ALL), NI('HI', 'History', '/project/history', ALL)] }] },
+      { key: 'nso', name: 'NSO', full: 'New Store Opening', color: '#8FD14F', x: 2060, y: 430, executives: false, collapsed: true,
+        stages: ['handover', 'licensing', 'launch_ready', 'launched'],
+        fields: [F('Property details', 'nso_property_details', 'text', true), F('Communication floated', 'nso_communication_floated', 'dropdown', true, ['yes', 'no']), F('FSSAI', 'nso_fssai', 'dropdown', true, ['pending', 'done']), F('Fire NOC', 'nso_fire_noc', 'dropdown', true, ['pending', 'done']), F('Dry stock order', 'nso_dry_stock', 'dropdown', true, ['pending', 'ordered', 'received']), F('Online delivery', 'nso_online_delivery', 'dropdown', true, ['pending', 'ready', 'active']), F('Launch date', 'nso_launch_date', 'date', true), F('Launch ready', 'nso_launch_ready', 'dropdown', true, ['yes', 'no'])],
+        chain: [L('Supervisor sign-off', 'supervisor', 'pending_review')],
+        nav: [{ id: this.uid('ns'), title: 'NSO', items: [NI('OV', 'Overview', '/nso', SUP), NI('SI', 'Sites', '/nso/sites', SUP), NI('PF', 'Process flow', '/nso/process', SUP), NI('HI', 'History', '/nso/history', SUP)] }] },
+      { key: 'pex', name: 'Project Excellence', full: 'Project Excellence', color: '#FF9F6B', x: 2060, y: 530, executives: true, collapsed: true,
+        stages: ['audit_pending', 'audit_done'],
+        fields: [F('Budget total', 'pex_budget_total', 'currency', true), F('Budget line items', 'pex_budget_lines', 'repeater'), F('Quality audit — before', 'qa_before_report', 'file'), F('Quality audit — after', 'qa_after_report', 'file')],
+        chain: [L('Supervisor review', 'supervisor', 'pending_supervisor'), L('Admin approval', 'business_admin', 'pending_admin')],
+        nav: [{ id: this.uid('ns'), title: 'Excellence', items: [NI('OV', 'Overview', '/pex', ALL), NI('PL', 'Pipeline', '/pex/pipeline', ALL), NI('QA', 'Quality Audit', '/pex/audit', ALL), NI('HI', 'History', '/pex/history', ALL)] }] }
+    ];
+
+    const S = (id, label, x, y, kind, count) => ({ id, label, x, y, kind: kind || 'stage', count: count || 0 });
+    const stages = [
+      S('draft_submitted', 'Draft submitted', 40, 250, 'stage', 23),
+      S('shortlisted', 'Shortlisted', 300, 250, 'stage', 17),
+      S('details_submitted', 'Details submitted', 560, 250, 'stage', 11),
+      S('approved', 'Approved', 820, 250, 'stage', 9),
+      S('loi_uploaded', 'LOI uploaded', 1080, 250, 'stage', 6),
+      S('legal_review', 'Legal review', 1340, 250, 'stage', 14),
+      S('legal_approved', 'Legal approved', 1620, 250, 'stage', 4),
+      S('pushed_to_payments', 'Pushed to payments', 1620, 400, 'stage', 3),
+      S('legal_rejected', 'Legal rejected', 1340, 420, 'stage', 2),
+      S('rejected', 'Rejected', 560, 560, 'terminal', 31),
+      S('archived', 'Archived', 820, 560, 'terminal', 12)
+    ];
+
+    const E = (from, to, label, actors, kind, cond) => ({ id: this.uid('e'), from, to, label, actors, kind: kind || 'forward', condition: cond || '' });
+    const edges = [
+      E('draft_submitted', 'shortlisted', 'Supervisor shortlists', ['supervisor']),
+      E('shortlisted', 'details_submitted', 'Executive submits details', ['executive']),
+      E('details_submitted', 'approved', 'Supervisor approves details', ['supervisor']),
+      E('approved', 'loi_uploaded', 'Executive uploads LOI', ['executive']),
+      E('loi_uploaded', 'legal_review', 'Supervisor sets LOI timeline', ['supervisor']),
+      E('loi_uploaded', 'approved', 'Send-back: wrong LOI file', ['supervisor'], 'sendback'),
+      E('legal_review', 'legal_approved', 'Legal supervisor clears DD', ['supervisor'], 'forward', 'dd_verdict is positive'),
+      E('legal_review', 'legal_rejected', 'Legal supervisor fails DD', ['supervisor'], 'sendback'),
+      E('legal_rejected', 'legal_review', 'Change request reopens DD', ['business_admin'], 'loop'),
+      E('legal_approved', 'pushed_to_payments', 'Business admin pushes to payments', ['business_admin']),
+      E('draft_submitted', 'rejected', 'Reject', ['supervisor'], 'sendback'),
+      E('shortlisted', 'rejected', 'Reject', ['supervisor'], 'sendback'),
+      E('details_submitted', 'rejected', 'Reject', ['supervisor'], 'sendback'),
+      E('approved', 'archived', 'Archive', ['business_admin'], 'sendback'),
+      E('legal_approved', 'mod:design', 'Unlocks Design', ['supervisor'], 'unlock'),
+      E('legal_approved', 'mod:project', 'Unlocks Project', ['supervisor'], 'unlock'),
+      E('legal_approved', 'mod:nso', 'Unlocks NSO', ['supervisor'], 'unlock'),
+      E('legal_approved', 'mod:pex', 'Unlocks Project Excellence', ['supervisor'], 'unlock')
+    ];
+
+    const acts = ['create_draft', 'save_draft_details', 'submit_details_for_review', 'upload_loi', 'shortlist', 'approve_details', 'reject', 'archive', 'set_loi_timeline', 'push_to_payments', 'reassign_site', 'legal_save_dd', 'legal_finalize_dd', 'legal_save_agreement', 'legal_save_licensing'];
+    const grant = { create_draft: ['executive', 'supervisor'], save_draft_details: ['executive', 'supervisor'], submit_details_for_review: ['executive'], upload_loi: ['executive', 'supervisor'], shortlist: ['supervisor'], approve_details: ['supervisor'], reject: ['supervisor', 'business_admin'], archive: ['business_admin'], set_loi_timeline: ['supervisor'], push_to_payments: ['business_admin'], reassign_site: ['supervisor', 'business_admin'], legal_save_dd: ['executive', 'supervisor'], legal_finalize_dd: ['supervisor'], legal_save_agreement: ['supervisor'], legal_save_licensing: ['supervisor', 'executive'] };
+    const perms = acts.map(a => ({ action: a, roles: grant[a] || [] }));
+    return { modules, stages, edges, perms };
+  }
+
+  /* ---------------- workspaces ---------------- */
+  wsList() { return [
+    { id: 'bluetokai', name: 'Blue Tokai', domain: 'scale.bluetokai.com', modules: 6, users: 48, published: '27 Aug 2026, 14:02', color: '#6E9BFF' },
+    { id: 'thirdwave', name: 'Third Wave', domain: 'tw-expansion', modules: 5, users: 31, published: '02 Sep 2026, 09:18', color: '#4FC3A1' },
+    { id: 'chaayos', name: 'Chaayos', domain: 'chaayos-ops', modules: 7, users: 64, published: '09 Sep 2026, 17:44', color: '#E8B65A' }
+  ]; }
+  ws() { return this.wsList().find(w => w.id === this.state.ws) || this.wsList()[0]; }
+
+  /* ---------------- history ---------------- */
+  snap() { const s = this.state; return JSON.parse(JSON.stringify({ modules: s.modules, stages: s.stages, edges: s.edges, perms: s.perms })); }
+  commit(fn, label) {
+    const before = this.snap();
+    this.setState(st => Object.assign({ undo: st.undo.concat([before]).slice(-40), redo: [] }, fn(st)));
+    if (label) this.toast(label);
+  }
+  doUndo() { const u = this.state.undo; if (!u.length) return; const prev = u[u.length - 1]; const cur = this.snap(); this.setState(st => Object.assign({ undo: st.undo.slice(0, -1), redo: st.redo.concat([cur]) }, prev)); this.toast('Undone'); }
+  doRedo() { const r = this.state.redo; if (!r.length) return; const nxt = r[r.length - 1]; const cur = this.snap(); this.setState(st => Object.assign({ redo: st.redo.slice(0, -1), undo: st.undo.concat([cur]) }, nxt)); this.toast('Redone'); }
+  toast(m) { this._t && clearTimeout(this._t); this.setState({ toast: m }); this._t = setTimeout(() => this.setState({ toast: null }), 3600); }
+
+  /* ---------------- lookups ---------------- */
+  mod(k) { return this.state.modules.find(m => m.key === k); }
+  nodeById(id) {
+    if (String(id).indexOf('mod:') === 0) { const m = this.mod(id.slice(4)); return m ? { id, x: m.x, y: m.y, w: this.MW, h: this.MH + (m.collapsed ? 0 : m.stages.length * 15 + 8), module: m } : null; }
+    const s = this.state.stages.find(x => x.id === id);
+    return s ? { id, x: s.x, y: s.y, w: this.SW, h: this.SH, stage: s } : null;
+  }
+  portType(id) { return String(id).indexOf('mod:') === 0 ? 'module' : 'stage'; }
+  portPos(id, key) {
+    const n = this.nodeById(id); if (!n) return { x: 0, y: 0 };
+    if (key === 'in') return { x: n.x, y: n.y + Math.min(n.h, this.SH) / 2 };
+    if (key === 'unlock') return { x: n.x + n.w / 2, y: n.y + n.h };
+    return { x: n.x + n.w, y: n.y + Math.min(n.h, this.SH) / 2 };
+  }
+  bez(a, b, curve) {
+    const dx = Math.max(48, Math.abs(b.x - a.x) * 0.42);
+    if (curve === 'v') { const dy = Math.max(40, Math.abs(b.y - a.y) * 0.5); return 'M' + a.x + ',' + a.y + ' C' + a.x + ',' + (a.y + dy) + ' ' + b.x + ',' + (b.y - dy) + ' ' + b.x + ',' + b.y; }
+    return 'M' + a.x + ',' + a.y + ' C' + (a.x + dx) + ',' + a.y + ' ' + (b.x - dx) + ',' + b.y + ' ' + b.x + ',' + b.y;
+  }
+
+  /* ---------------- canvas ---------------- */
+  componentDidMount() {
+    const el = this.canvasRef.current;
+    if (el) { this._wheel = e => this.onWheel(e); el.addEventListener('wheel', this._wheel, { passive: false }); }
+    if (this.rootRef.current) this.rootRef.current.focus();
+    this._rs = () => this.setState({ vw: window.innerWidth });
+    window.addEventListener('resize', this._rs);
+    this._rs();
+    setTimeout(() => this.fit(), 80);
+  }
+  componentWillUnmount() { const el = this.canvasRef.current; if (el && this._wheel) el.removeEventListener('wheel', this._wheel); if (this._rs) window.removeEventListener('resize', this._rs); }
+  componentDidUpdate() {
+    if (this._framed || this.state.pickerOpen || this.state.view !== 'flow') return;
+    clearTimeout(this._ft); this._ft = setTimeout(() => this.fit(), 60);
+  }
+  toGraph(cx, cy) { const r = this.canvasRef.current.getBoundingClientRect(), v = this.state.canvas; return { x: (cx - r.left - v.x) / v.z, y: (cy - r.top - v.y) / v.z }; }
+  onWheel(e) {
+    e.preventDefault();
+    const r = this.canvasRef.current.getBoundingClientRect(), v = this.state.canvas;
+    const z = Math.min(1.6, Math.max(0.3, v.z * Math.exp(-e.deltaY * 0.0016))), k = z / v.z;
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    this.setState({ canvas: { x: px - (px - v.x) * k, y: py - (py - v.y) * k, z } });
+  }
+  zoomBy(f) {
+    const el = this.canvasRef.current; if (!el) return;
+    const r = el.getBoundingClientRect(), v = this.state.canvas;
+    const z = Math.min(1.6, Math.max(0.3, v.z * f)), k = z / v.z, px = r.width / 2, py = r.height / 2;
+    this.setState({ canvas: { x: px - (px - v.x) * k, y: py - (py - v.y) * k, z } });
+  }
+  bounds() {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    this.allNodes().forEach(n => { x0 = Math.min(x0, n.x); y0 = Math.min(y0, n.y); x1 = Math.max(x1, n.x + n.w); y1 = Math.max(y1, n.y + n.h); });
+    return { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 };
+  }
+  fit() {
+    const el = this.canvasRef.current; if (!el) return;
+    const r = el.getBoundingClientRect(), b = this.bounds(), pad = 48, MIN = 0.62;
+    const raw = Math.min((r.width - pad * 2) / b.w, (r.height - pad * 2) / b.h);
+    const z = Math.min(1, Math.max(MIN, raw));
+    const clipX = b.w * z > r.width - pad * 2, clipY = b.h * z > r.height - pad * 2;
+    this._framed = true;
+    this.setState({ canvas: {
+      z,
+      x: clipX ? pad - b.x0 * z : (r.width - b.w * z) / 2 - b.x0 * z,
+      y: clipY ? pad - b.y0 * z : (r.height - b.h * z) / 2 - b.y0 * z
+    } });
+  }
+  panTo(id) {
+    const n = this.nodeById(id), el = this.canvasRef.current; if (!n || !el) return;
+    const r = el.getBoundingClientRect(), z = this.state.canvas.z;
+    this.setState({ canvas: { z, x: r.width / 2 - (n.x + n.w / 2) * z, y: r.height / 2 - (n.y + n.h / 2) * z } });
+  }
+  allNodes() {
+    const out = this.state.stages.map(s => ({ id: s.id, x: s.x, y: s.y, w: this.SW, h: this.SH, stage: s }));
+    this.state.modules.forEach(m => out.push({ id: 'mod:' + m.key, x: m.x, y: m.y, w: this.MW, h: this.MH + (m.collapsed ? 0 : m.stages.length * 15 + 8), module: m }));
+    return out;
+  }
+  moveNode(id, x, y) {
+    if (String(id).indexOf('mod:') === 0) { const k = id.slice(4); this.setState(st => ({ modules: st.modules.map(m => m.key === k ? Object.assign({}, m, { x, y }) : m) })); }
+    else this.setState(st => ({ stages: st.stages.map(s => s.id === id ? Object.assign({}, s, { x, y }) : s) }));
+  }
+  onCanvasDown(ev) {
+    const t = ev.target;
+    if (t.closest && (t.closest('[data-node]') || t.closest('[data-port]') || t.closest('[data-nopan]'))) return;
+    if (this.state.connect) this.setState({ connect: null });
+    if (this.state.edgePopover) this.setState({ edgePopover: null });
+    const st = { x: ev.clientX, y: ev.clientY, vx: this.state.canvas.x, vy: this.state.canvas.y };
+    let moved = false;
+    const move = e => { if (Math.abs(e.clientX - st.x) + Math.abs(e.clientY - st.y) > 3) moved = true; this.setState(s => ({ canvas: { z: s.canvas.z, x: st.vx + (e.clientX - st.x), y: st.vy + (e.clientY - st.y) } })); };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); if (!moved) this.setState({ selected: null }); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+  onNodeDown(id, ev) {
+    if (ev.target.closest && (ev.target.closest('[data-port]') || ev.target.tagName === 'BUTTON')) return;
+    ev.stopPropagation();
+    const n = this.nodeById(id); if (!n) return;
+    const st = { x: ev.clientX, y: ev.clientY, nx: n.x, ny: n.y }; let moved = false, pushed = false;
+    const move = e => {
+      const dx = (e.clientX - st.x) / this.state.canvas.z, dy = (e.clientY - st.y) / this.state.canvas.z;
+      if (Math.abs(e.clientX - st.x) + Math.abs(e.clientY - st.y) > 3) { if (!pushed) { pushed = true; const b = this.snap(); this.setState(s => ({ undo: s.undo.concat([b]).slice(-40), redo: [] })); } moved = true; }
+      if (moved) this.moveNode(id, Math.round(st.nx + dx), Math.round(st.ny + dy));
+    };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); if (!moved) this.selectNode(id); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+  selectNode(id) {
+    const patch = { selected: id, edgePopover: null };
+    if (String(id).indexOf('mod:') === 0) { patch.navModule = id.slice(4); }
+    this.setState(patch);
+  }
+  /* connect: drag or click-click */
+  beginPort(id, key, ev) {
+    ev.stopPropagation(); ev.preventDefault();
+    const p = this.portPos(id, key), type = key === 'unlock' ? 'module' : this.portType(id);
+    const g = this.toGraph(ev.clientX, ev.clientY);
+    let dragged = false;
+    this.setState({ link: { from: id, key, type, x1: p.x, y1: p.y, x2: g.x, y2: g.y } });
+    const move = e => { dragged = true; const q = this.toGraph(e.clientX, e.clientY); this.setState(s => s.link ? { link: Object.assign({}, s.link, { x2: q.x, y2: q.y }) } : null); };
+    const up = e => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+      if (!dragged) { this.setState({ link: null, connect: { from: id, key, type } }); return; }
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const card = el && el.closest ? el.closest('[data-node]') : null;
+      const target = card ? card.getAttribute('data-node') : null;
+      this.setState({ link: null });
+      if (target) this.tryConnect(id, key, type, target);
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+  clickPort(id, key, ev) {
+    ev.stopPropagation();
+    const c = this.state.connect;
+    if (!c) return;
+    if (key === 'in') this.tryConnect(c.from, c.key, c.type, id);
+  }
+  targetValid(id) {
+    const c = this.state.connect || this.state.link; if (!c) return true;
+    if (id === c.from) return false;
+    return this.portType(id) === c.type;
+  }
+  tryConnect(from, key, type, to) {
+    if (from === to) { this.setState({ connect: null }); return; }
+    if (this.portType(to) !== type) { this.toast('Blocked — a ' + type + ' port only connects to a ' + type + ' port'); this.setState({ connect: null }); return; }
+    if (this.state.edges.some(e => e.from === from && e.to === to)) { this.toast('That transition already exists'); this.setState({ connect: null }); return; }
+    const e = { id: this.uid('e'), from, to, label: 'New transition', actors: ['supervisor'], kind: key === 'unlock' ? 'unlock' : 'forward', condition: '' };
+    this.commit(st => ({ edges: st.edges.concat([e]), connect: null, hintDone: true, edgePopover: e.id }), 'Transition created — name it and pick who performs it');
+  }
+  deleteEdge(id) { this.commit(st => ({ edges: st.edges.filter(e => e.id !== id), edgePopover: null }), 'Transition deleted'); }
+  patchEdge(id, p) { this.setState(st => ({ edges: st.edges.map(e => e.id === id ? Object.assign({}, e, p) : e) })); }
+  toggleActor(id, role) {
+    const e = this.state.edges.find(x => x.id === id); if (!e) return;
+    const has = e.actors.indexOf(role) >= 0;
+    this.patchEdge(id, { actors: has ? e.actors.filter(r => r !== role) : e.actors.concat([role]) });
+  }
+  onKey(ev) {
+    const k = ev.key;
+    if ((ev.metaKey || ev.ctrlKey) && k.toLowerCase() === 'z') { ev.preventDefault(); if (ev.shiftKey) this.doRedo(); else this.doUndo(); return; }
+    if (k === 'Escape') { this.setState({ edgePopover: null, connect: null, showManifest: false, showDiff: false }); return; }
+    const sel = this.state.selected; if (!sel || this.state.view !== 'flow') return;
+    if (k === 'Delete' || k === 'Backspace') {
+      if (String(sel).indexOf('mod:') === 0) return;
+      ev.preventDefault();
+      this.commit(st => ({ stages: st.stages.filter(s => s.id !== sel), edges: st.edges.filter(e => e.from !== sel && e.to !== sel), selected: null }), 'Stage removed');
+    } else if (k.indexOf('Arrow') === 0) {
+      ev.preventDefault(); const n = this.nodeById(sel); if (!n) return;
+      const d = ev.shiftKey ? 40 : 10;
+      this.moveNode(sel, n.x + (k === 'ArrowRight' ? d : k === 'ArrowLeft' ? -d : 0), n.y + (k === 'ArrowDown' ? d : k === 'ArrowUp' ? -d : 0));
+    } else if (k === 'Tab') {
+      ev.preventDefault(); const all = this.allNodes(); const i = all.findIndex(n => n.id === sel);
+      const nx = all[(i + (ev.shiftKey ? -1 + all.length : 1)) % all.length]; this.selectNode(nx.id); this.panTo(nx.id);
+    } else if (k === 'Enter') {
+      ev.preventDefault(); if (String(sel).indexOf('mod:') === 0) this.setState({ tab: 'fields' }); else this.panTo(sel);
+    }
+  }
+  dropPalette(kind, ev) {
+    ev.preventDefault();
+    const move = e => { };
+    const up = e => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+      const el = this.canvasRef.current; if (!el) return;
+      const r = el.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return;
+      const g = this.toGraph(e.clientX, e.clientY);
+      const x = Math.round(g.x - 80), y = Math.round(g.y - 26);
+      if (kind === 'stage' || kind === 'gate') {
+        const id = this.slug(kind === 'gate' ? 'gate_' + (this.state.stages.length + 1) : 'new_stage_' + (this.state.stages.length + 1));
+        this.commit(st => ({ stages: st.stages.concat([{ id, label: kind === 'gate' ? 'Approval gate' : 'New stage', x, y, kind: 'stage', count: 0 }]), selected: id }), (kind === 'gate' ? 'Approval gate' : 'Stage') + ' added — drag a port to wire it in');
+      } else if (kind === 'module') {
+        this.provisionModule(x, y);
+      } else if (kind === 'lane') {
+        this.toast('Role lanes group nodes visually — drop more nodes inside to assign them');
+      }
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+  provisionModule(x, y) {
+    const n = this.state.modules.length + 1;
+    const key = 'new_module_' + n;
+    const m = { key, name: 'New module', full: 'New module', color: '#8A909E', x: x || 2060, y: y || 630, executives: true, collapsed: true, provisioning: true, stages: ['draft', 'pending_review', 'approved'], fields: [], chain: [{ id: this.uid('l'), name: 'Supervisor review', role: 'supervisor', status: 'pending_review' }], nav: [{ id: this.uid('ns'), title: 'New module', items: [{ id: this.uid('ni'), icon: 'OV', label: 'Overview', route: '/' + key, roles: ['supervisor', 'executive', 'business_admin', 'observer'], badge: null }] }] };
+    this.commit(st => ({ modules: st.modules.concat([m]), selected: 'mod:' + key, navModule: key, tab: 'fields', provisioning: st.provisioning.concat([key]) }), 'Module queued for provisioning');
+  }
+
+  ROLES() { return ['supervisor', 'executive', 'business_admin', 'observer']; }
+  BADGES() { return { 'sites.pipeline': 42, 'sites.shortlisted': 17, 'sites.in_process': 11, 'sites.archived': 31, 'team.count': 8, 'cr.open': 3 }; }
+  patchModule(key, p) { this.setState(st => ({ modules: st.modules.map(m => m.key === key ? Object.assign({}, m, p) : m) })); }
+  gateOf(m) {
+    if (m.gate) return m.gate;
+    const inb = this.state.edges.filter(e => e.to === 'mod:' + m.key);
+    return inb.length ? [{ mod: 'legal', value: 'approved' }] : [];
+  }
+
+  /* ---------- navigation ---------- */
+  navSecIdx(key) { const m = this.mod(this.state.navModule); return m ? m.nav : []; }
+  patchNav(fn) { const k = this.state.navModule; this.commit(st => ({ modules: st.modules.map(m => m.key === k ? Object.assign({}, m, { nav: fn(JSON.parse(JSON.stringify(m.nav))) }) : m) })); }
+  dragNavSection(idx, ev) {
+    ev.preventDefault();
+    const move = () => { };
+    const up = e => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const t = el && el.closest ? el.closest('[data-navsec]') : null; if (!t) return;
+      const to = Number(t.getAttribute('data-navsec')); if (to === idx) return;
+      this.patchNav(nav => { const [it] = nav.splice(idx, 1); nav.splice(to, 0, it); return nav; });
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+  dragNavItem(si, ii, ev) {
+    ev.preventDefault(); ev.stopPropagation();
+    const move = () => { };
+    const up = e => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const ti = el && el.closest ? el.closest('[data-navitem]') : null;
+      const ts = el && el.closest ? el.closest('[data-navsec]') : null;
+      if (!ts) return;
+      const tsi = Number(ts.getAttribute('data-navsec'));
+      let tii = ti ? Number(String(ti.getAttribute('data-navitem')).split(':')[1]) : 0;
+      if (tsi === si && tii === ii) return;
+      this.patchNav(nav => { const [it] = nav[si].items.splice(ii, 1); nav[tsi].items.splice(tii, 0, it); return nav; });
+      this.toast('Nav item moved');
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+  navVals() {
+    const s = this.state; if (s.view !== 'nav') return {};
+    const m = this.mod(s.navModule) || s.modules[0];
+    const roles = this.ROLES(), badges = this.BADGES();
+    const grid = 'minmax(0,1fr) repeat(4,72px)';
+    const flat = [];
+    m.nav.forEach((sec, si) => sec.items.forEach((it, ii) => flat.push({ sec, si, it, ii })));
+    return {
+      navModules: s.modules.map(x => ({
+        name: x.name, count: x.nav.reduce((a, sec) => a + sec.items.length, 0),
+        dotStyle: { width: 7, height: 7, borderRadius: 2, background: x.color, flex: '0 0 7px' },
+        style: { display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 8px', borderRadius: 7, border: '1px solid ' + (s.navModule === x.key ? 'var(--line)' : 'transparent'), background: s.navModule === x.key ? 'var(--card3)' : 'transparent', color: s.navModule === x.key ? 'var(--fg)' : 'var(--fg2)', fontSize: 12, cursor: 'pointer' },
+        onClick: () => this.setState({ navModule: x.key, selected: 'mod:' + x.key })
+      })),
+      onAddSection: () => this.patchNav(nav => nav.concat([{ id: this.uid('ns'), title: 'New section', items: [] }])),
+      navSections: m.nav.map((sec, si) => ({
+        idx: si, title: sec.title,
+        style: { border: '1px solid var(--line2)', borderRadius: 10, background: 'var(--card)', padding: 9, marginBottom: 9 },
+        onTitle: e => { const v = e.target.value; this.patchNav(nav => { nav[si].title = v; return nav; }); },
+        onDrag: e => this.dragNavSection(si, e),
+        onAddItem: () => this.patchNav(nav => { nav[si].items.push({ id: this.uid('ni'), icon: 'NW', label: 'New item', route: '/' + m.key + '/new', roles: roles.slice(), badge: null }); return nav; }),
+        onDel: () => this.patchNav(nav => { nav.splice(si, 1); return nav; }),
+        items: sec.items.map((it, ii) => ({
+          key: si + ':' + ii, icon: it.icon, label: it.label, route: it.route, badge: it.badge,
+          style: { display: 'flex', flexDirection: 'column', gap: 4, padding: '5px', borderRadius: 7, background: 'var(--card2)', border: '1px solid var(--line2)' },
+          onDrag: e => this.dragNavItem(si, ii, e),
+          onIcon: e => { const v = e.target.value.slice(0, 2).toUpperCase(); this.patchNav(nav => { nav[si].items[ii].icon = v; return nav; }); },
+          onLabel: e => { const v = e.target.value; this.patchNav(nav => { nav[si].items[ii].label = v; return nav; }); },
+          onRoute: e => { const v = e.target.value; this.patchNav(nav => { nav[si].items[ii].route = v; return nav; }); },
+          onDel: () => this.patchNav(nav => { nav[si].items.splice(ii, 1); return nav; })
+        }))
+      })),
+      matrixNote: m.executives ? 'Toggle a cell to show or hide the item for that role. The preview updates instantly.' : 'Executives are disabled for ' + m.name + ' — that column is locked.',
+      matrixHeadStyle: { display: 'grid', gridTemplateColumns: grid, gap: 8, alignItems: 'center', padding: '9px 12px', borderBottom: '1px solid var(--line)', background: 'var(--card2)' },
+      matrixCols: roles.map(r => ({
+        label: this.roleLabel(r), tip: r === 'executive' && !m.executives ? 'Executives are disabled for this module — enable them in the module editor to grant nav items' : (r === 'observer' ? 'Observer is read-only workspace-wide' : ''),
+        style: { fontSize: 10, letterSpacing: '.05em', textTransform: 'uppercase', fontWeight: 600, textAlign: 'center', color: (r === 'executive' && !m.executives) ? 'var(--fg3)' : this.roleColor(r), opacity: (r === 'executive' && !m.executives) ? .45 : 1 }
+      })),
+      matrixRows: flat.map((f, i) => ({
+        icon: f.it.icon, label: f.it.label,
+        rowStyle: { display: 'grid', gridTemplateColumns: grid, gap: 8, alignItems: 'center', padding: '7px 12px', borderTop: i ? '1px solid var(--line2)' : 'none' },
+        cells: roles.map(r => {
+          const on = f.it.roles.indexOf(r) >= 0;
+          const locked = r === 'executive' && !m.executives;
+          return {
+            glyph: locked ? '–' : (on ? '✓' : ''),
+            tip: locked ? 'Executives are disabled for ' + m.name + ' — no executive exists to see this item' : (on ? 'Visible to ' + this.roleLabel(r) : 'Hidden from ' + this.roleLabel(r)),
+            style: { justifySelf: 'center', width: 22, height: 22, borderRadius: 6, cursor: locked ? 'not-allowed' : 'pointer', fontSize: 11, lineHeight: '20px', padding: 0, border: '1px solid ' + (on && !locked ? this.roleColor(r) : 'var(--line)'), background: on && !locked ? 'rgba(255,255,255,.08)' : 'transparent', color: locked ? 'var(--fg3)' : (on ? this.roleColor(r) : 'var(--fg3)'), opacity: locked ? .4 : 1 },
+            onClick: () => {
+              if (locked) { this.toast('Executives are disabled for ' + m.name + ' — enable them first'); return; }
+              this.patchNav(nav => { const arr = nav[f.si].items[f.ii].roles; const k = arr.indexOf(r); if (k >= 0) arr.splice(k, 1); else arr.push(r); return nav; });
+            }
+          };
+        })
+      }))
+    };
+  }
+
+  /* ---------- roles ---------- */
+  roleVals() {
+    const s = this.state; if (s.view !== 'roles') return {};
+    const roles = this.ROLES(), grid = 'minmax(0,1fr) repeat(4,72px) 96px';
+    const writeAction = a => a !== 'view';
+    return {
+      matrixCols: roles.map(r => ({ label: this.roleLabel(r), tip: '', style: { fontSize: 10, letterSpacing: '.05em', textTransform: 'uppercase', fontWeight: 600, textAlign: 'center', color: this.roleColor(r) } })),
+      permHeadStyle: { display: 'grid', gridTemplateColumns: grid, gap: 8, alignItems: 'center', padding: '9px 14px', borderBottom: '1px solid var(--line)', background: 'var(--card2)' },
+      permRows: s.perms.map((p, i) => {
+        const used = s.edges.filter(e => (e.label || '').toLowerCase().indexOf(p.action.split('_')[0]) >= 0 || p.roles.some(r => e.actors.indexOf(r) >= 0 && this.actionMatchesEdge(p.action, e)));
+        return {
+          action: p.action,
+          rowStyle: { display: 'grid', gridTemplateColumns: grid, gap: 8, alignItems: 'center', padding: '7px 14px', borderTop: i ? '1px solid var(--line2)' : 'none' },
+          cells: roles.map(r => {
+            const on = p.roles.indexOf(r) >= 0;
+            const locked = r === 'observer' && writeAction(p.action);
+            return {
+              glyph: locked ? '⊘' : (on ? '✓' : ''),
+              tip: locked ? 'Observer is read-only workspace-wide' : (on ? this.roleLabel(r) + ' can ' + p.action : 'Not granted'),
+              style: { justifySelf: 'center', width: 22, height: 22, borderRadius: 6, cursor: locked ? 'not-allowed' : 'pointer', fontSize: 11, lineHeight: '20px', padding: 0, border: '1px solid ' + (on && !locked ? this.roleColor(r) : 'var(--line)'), background: on && !locked ? 'rgba(255,255,255,.08)' : 'transparent', color: locked ? 'var(--fg3)' : (on ? this.roleColor(r) : 'var(--fg3)'), opacity: locked ? .45 : 1 },
+              onClick: () => {
+                if (locked) { this.toast('Observer is read-only workspace-wide — it cannot be granted a write action'); return; }
+                this.commit(st => ({ perms: st.perms.map(x => x.action !== p.action ? x : Object.assign({}, x, { roles: on ? x.roles.filter(y => y !== r) : x.roles.concat([r]) })) }));
+              }
+            };
+          }),
+          used: used.length ? 'used by ' + used.length + (used.length === 1 ? ' transition' : ' transitions') : 'unused',
+          usedStyle: { justifySelf: 'end', border: 'none', background: 'transparent', cursor: used.length ? 'pointer' : 'default', fontSize: 10.5, color: used.length ? 'var(--accent)' : 'var(--fg3)', padding: 0, whiteSpace: 'nowrap' },
+          onUsed: () => { if (!used.length) return; this.setState({ view: 'flow', edgePopover: used[0].id }); setTimeout(() => this.panTo(used[0].from), 30); }
+        };
+      })
+    };
+  }
+  actionMatchesEdge(action, e) {
+    const map = { shortlist: 'shortlist', approve_details: 'approves details', upload_loi: 'uploads loi', set_loi_timeline: 'loi timeline', push_to_payments: 'payments', reject: 'reject', archive: 'archive', legal_finalize_dd: 'dd', submit_details_for_review: 'submits details' };
+    const needle = map[action]; if (!needle) return false;
+    return (e.label || '').toLowerCase().indexOf(needle) >= 0;
+  }
+
+  /* ---------- rail ---------- */
+  railVals() {
+    const s = this.state;
+    const selId = s.selected && String(s.selected).indexOf('mod:') === 0 ? s.selected : ('mod:' + s.navModule);
+    const m = this.mod(selId.slice(4)) || s.modules[0];
+    const L = this.layout();
+    if (!m || s.view === 'roles' || (s.view === 'nav' && L.narrow)) return { hasSel: false, railFloating: false };
+    if (L.narrow && !s.railOpen) return { hasSel: false, railFloating: true };
+    const role = s.previewRole, roles = this.ROLES(), badges = this.BADGES();
+    const visible = m.nav.map(sec => ({ title: sec.title, items: sec.items.filter(it => it.roles.indexOf(role) >= 0 && !(role === 'executive' && !m.executives)) })).filter(sec => sec.items.length);
+    const cols = m.fields.slice(0, 5).map(f => f.label);
+    const sample = (f, i) => {
+      const t = f.type;
+      if (t === 'currency') return ['₹ 1,42,000', '₹ 96,500', '₹ 2,10,000'][i];
+      if (t === 'number') return ['1,240', '860', '2,015'][i];
+      if (t === 'percent') return ['5%', '7.5%', '4%'][i];
+      if (t === 'date') return ['12 Oct 2026', '03 Nov 2026', '21 Dec 2026'][i];
+      if (t === 'file') return ['loi_final.pdf', 'agreement.pdf', 'plan_v3.pdf'][i];
+      if (t === 'ynna') return ['yes', 'pending', 'na'][i];
+      if (t === 'dropdown') return (f.options || ['—'])[i % (f.options || ['—']).length];
+      return ['Indiranagar 12th Main', 'Koramangala 5th Blk', 'HSR Sector 2'][i];
+    };
+    const acts = m.chain.filter(l => l.role === role).map(l => ({ label: l.name, style: { padding: '7px 14px', borderRadius: 7, fontSize: 12.5, fontWeight: 500, background: role === 'business_admin' ? 'rgba(197,140,245,.16)' : 'rgba(110,155,255,.16)', color: this.roleColor(role), border: '1px solid ' + this.roleColor(role) } }));
+    const gate = this.gateOf(m);
+    const inbound = s.edges.filter(e => e.to === 'mod:' + m.key);
+    const grid5 = 'repeat(' + Math.max(1, cols.length) + ',minmax(0,1fr))';
+    const tabStyle = k => ({ height: 30, padding: '0 11px', borderRadius: '7px 7px 0 0', border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: s.tab === k ? 600 : 500, background: 'transparent', color: s.tab === k ? 'var(--fg)' : 'var(--fg3)', boxShadow: s.tab === k ? 'inset 0 -2px 0 var(--accent)' : 'none', whiteSpace: 'nowrap' });
+    return {
+      hasSel: true, railFloating: L.narrow,
+      railStyle: L.narrow
+        ? { position: 'absolute', right: 0, top: 52, bottom: 30, width: Math.min(460, L.vw - 60), display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--card)', borderLeft: '1px solid var(--line)', zIndex: 35, boxShadow: '-20px 0 44px rgba(0,0,0,.5)' }
+        : { flex: '0 0 460px', width: 460, display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--card)', borderLeft: '1px solid var(--line)', zIndex: 20 },
+      previewModuleName: m.name,
+      previewRoles: roles.map(r => ({
+        label: this.roleLabel(r).split(' ')[0], tip: this.roleLabel(r),
+        style: { height: 22, padding: '0 8px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 10.5, fontWeight: role === r ? 600 : 500, background: role === r ? 'rgba(255,255,255,.08)' : 'transparent', color: role === r ? this.roleColor(r) : 'var(--fg3)', whiteSpace: 'nowrap' },
+        onClick: () => this.setState({ previewRole: r })
+      })),
+      previewFrameStyle: { width: '100%', height: 259, overflow: 'hidden', borderRadius: 10, border: '1px solid var(--line2)', background: '#0E0F15' },
+      previewScaleStyle: { width: 780, height: 470, transform: 'scale(0.549)', transformOrigin: '0 0' },
+      previewLogo: (m.name || '?').slice(0, 1).toUpperCase(),
+      previewLogoStyle: { flex: '0 0 22px', width: 22, height: 22, borderRadius: 6, background: m.color, color: '#0B0C10', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 600 },
+      previewEmpty: visible.length ? false : 'An ' + this.roleLabel(role) + ' would see an empty sidebar.',
+      previewNav: visible.map(sec => ({
+        title: sec.title,
+        items: sec.items.map((it, i) => ({
+          label: it.label, icon: it.icon, count: it.badge ? badges[it.badge] || 0 : false,
+          iconStyle: { flex: '0 0 20px', width: 20, height: 20, borderRadius: 5, background: 'rgba(255,255,255,.05)', color: '#7E8496', display: 'grid', placeItems: 'center', fontSize: 8.5, fontFamily: "'IBM Plex Mono',monospace" },
+          style: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px', borderRadius: 7, background: i === 0 ? 'rgba(255,255,255,.05)' : 'transparent', color: i === 0 ? '#F2F3F7' : '#A2A6B4' }
+        }))
+      })),
+      previewRoleLabel: this.roleLabel(role),
+      previewRoleChipStyle: { fontSize: 11, fontWeight: 500, padding: '3px 9px', borderRadius: 20, background: 'rgba(255,255,255,.06)', color: this.roleColor(role), border: '1px solid ' + this.roleColor(role) },
+      previewStage: m.chain.length ? m.chain[0].status : 'no_chain',
+      previewHeadStyle: { display: 'grid', gridTemplateColumns: grid5, gap: 10, padding: '9px 12px', background: 'rgba(255,255,255,.03)', borderBottom: '1px solid rgba(255,255,255,.07)' },
+      previewCols: cols.length ? cols : ['No fields configured'],
+      previewRows: [0, 1, 2].map(i => ({
+        style: { display: 'grid', gridTemplateColumns: grid5, gap: 10, padding: '9px 12px', borderTop: i ? '1px solid rgba(255,255,255,.05)' : 'none' },
+        cells: cols.length ? m.fields.slice(0, 5).map(f => sample(f, i)) : ['—']
+      })),
+      previewActions: role === 'observer' ? [] : acts,
+      previewNoActions: role === 'observer' ? 'Observer — read-only, no actions' : (acts.length ? false : 'No approval level grants this role an action here'),
+      selName: m.name, selKey: m.key, selInitials: (m.name || '?').slice(0, 2).toUpperCase(),
+      selIconStyle: { flex: '0 0 26px', width: 26, height: 26, borderRadius: 7, background: m.color, color: '#0B0C10', display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 600 },
+      selProvisioning: m.provisioning ? true : false,
+      onSelName: e => this.patchModule(m.key, { name: e.target.value }),
+      onSelKey: e => this.patchModule(m.key, { key: this.slug(e.target.value) }),
+      execTip: m.executives ? 'Turn off to make this a supervisor-only module' : 'Turn on to allow executive users in this module',
+      execState: m.executives ? 'On — executives can be assigned to sites in this module' : 'Off — supervisor-only module, executive nav column is locked',
+      execSwitchStyle: { flex: '0 0 34px', width: 34, height: 20, borderRadius: 20, border: '1px solid ' + (m.executives ? 'var(--exec)' : 'var(--line)'), background: m.executives ? 'rgba(79,195,161,.22)' : 'transparent', position: 'relative', cursor: 'pointer', padding: 0 },
+      execKnobStyle: { position: 'absolute', top: 2, left: m.executives ? 16 : 2, width: 14, height: 14, borderRadius: '50%', background: m.executives ? 'var(--exec)' : 'var(--fg3)', transition: 'left .14s ease' },
+      onToggleExec: () => this.commit(st => ({ modules: st.modules.map(x => x.key === m.key ? Object.assign({}, x, { executives: !x.executives }) : x) }), m.executives ? m.name + ' is now supervisor-only' : m.name + ' now allows executives'),
+      tabs: [['fields', 'Fields'], ['chain', 'Approval chain'], ['access', 'Access']].map(t => ({ label: t[1], style: tabStyle(t[0]), onClick: () => this.setState({ tab: t[0] }) })),
+      isFieldsTab: s.tab === 'fields', isChainTab: s.tab === 'chain', isAccessTab: s.tab === 'access',
+      fieldSummary: m.fields.length + ' fields · ' + m.fields.filter(f => f.required).length + ' required · first 5 appear in the preview table',
+      fieldTypes: [['text', 'Text'], ['number', 'Number'], ['currency', 'Currency'], ['percent', 'Percent'], ['date', 'Date'], ['ynna', 'Yes / No / N-A'], ['dropdown', 'Dropdown'], ['file', 'File upload'], ['repeater', 'Line items']].map(t => ({ v: t[0], l: t[1] })),
+      onAddField: () => this.commit(st => ({ modules: st.modules.map(x => x.key === m.key ? Object.assign({}, x, { fields: x.fields.concat([{ id: this.uid('f'), label: 'New field', key: m.key + '_field_' + (x.fields.length + 1), type: 'text', required: false, options: null }]) }) : x) })),
+      fields: m.fields.map((f, i) => ({
+        num: String(i + 1).padStart(2, '0'), label: f.label, key: f.key, type: f.type,
+        reqLabel: f.required ? 'Req' : 'Opt',
+        reqStyle: { flex: '0 0 auto', height: 22, padding: '0 7px', borderRadius: 5, cursor: 'pointer', fontSize: 10, border: '1px solid ' + (f.required ? 'var(--accent)' : 'var(--line)'), background: f.required ? 'rgba(110,155,255,.12)' : 'transparent', color: f.required ? 'var(--accent)' : 'var(--fg3)' },
+        onLabel: e => { const v = e.target.value; this.setState(st => ({ modules: st.modules.map(x => x.key !== m.key ? x : Object.assign({}, x, { fields: x.fields.map(y => y.id === f.id ? Object.assign({}, y, { label: v }) : y) })) })); },
+        onKey: e => { const v = e.target.value; this.setState(st => ({ modules: st.modules.map(x => x.key !== m.key ? x : Object.assign({}, x, { fields: x.fields.map(y => y.id === f.id ? Object.assign({}, y, { key: v }) : y) })) })); },
+        onType: e => { const v = e.target.value; this.setState(st => ({ modules: st.modules.map(x => x.key !== m.key ? x : Object.assign({}, x, { fields: x.fields.map(y => y.id === f.id ? Object.assign({}, y, { type: v, options: v === 'dropdown' ? (y.options || ['option_a', 'option_b']) : null }) : y) })) })); },
+        onReq: () => this.setState(st => ({ modules: st.modules.map(x => x.key !== m.key ? x : Object.assign({}, x, { fields: x.fields.map(y => y.id === f.id ? Object.assign({}, y, { required: !y.required }) : y) })) })),
+        onDel: () => this.commit(st => ({ modules: st.modules.map(x => x.key !== m.key ? x : Object.assign({}, x, { fields: x.fields.filter(y => y.id !== f.id) })) }))
+      })),
+      roleOptions: this.ROLES().map(r => ({ v: r, l: this.roleLabel(r) })),
+      onAddLevel: () => this.commit(st => ({ modules: st.modules.map(x => x.key !== m.key ? x : Object.assign({}, x, { chain: x.chain.concat([{ id: this.uid('l'), name: 'New level', role: 'supervisor', status: 'pending_level_' + (x.chain.length + 1) }]) })) }), 'Approval level added — it appears as a button in the preview'),
+      chain: m.chain.map((l, i) => ({
+        idx: i, num: i + 1, name: l.name, role: l.role, status: l.status,
+        warn: l.role === 'observer' ? 'Observer is read-only workspace-wide — this level can never be completed and would deadlock the record.' : false,
+        numStyle: { flex: '0 0 20px', width: 20, height: 20, borderRadius: 6, display: 'grid', placeItems: 'center', fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", background: 'rgba(255,255,255,.05)', color: this.roleColor(l.role), border: '1px solid var(--line2)' },
+        rowStyle: { border: '1px solid ' + (l.role === 'observer' ? 'rgba(255,107,107,.35)' : 'var(--line2)'), borderRadius: 9, background: 'var(--card2)', padding: 8 },
+        onName: e => { const v = e.target.value; this.setState(st => ({ modules: st.modules.map(x => x.key !== m.key ? x : Object.assign({}, x, { chain: x.chain.map(y => y.id === l.id ? Object.assign({}, y, { name: v }) : y) })) })); },
+        onRole: e => { const v = e.target.value; this.setState(st => ({ modules: st.modules.map(x => x.key !== m.key ? x : Object.assign({}, x, { chain: x.chain.map(y => y.id === l.id ? Object.assign({}, y, { role: v }) : y) })) })); },
+        onStatus: e => { const v = this.slug(e.target.value); this.setState(st => ({ modules: st.modules.map(x => x.key !== m.key ? x : Object.assign({}, x, { chain: x.chain.map(y => y.id === l.id ? Object.assign({}, y, { status: v }) : y) })) })); },
+        onDrag: e => {
+          e.preventDefault();
+          const move = () => { };
+          const up = ev2 => {
+            window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+            const el = document.elementFromPoint(ev2.clientX, ev2.clientY);
+            const t = el && el.closest ? el.closest('[data-chainrow]') : null; if (!t) return;
+            const to = Number(t.getAttribute('data-chainrow')); if (to === i) return;
+            this.commit(st => ({ modules: st.modules.map(x => { if (x.key !== m.key) return x; const c = x.chain.slice(); const [it] = c.splice(i, 1); c.splice(to, 0, it); return Object.assign({}, x, { chain: c }); }) }), 'Approval order updated');
+          };
+          window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+        },
+        onDel: () => { if (m.chain.length === 1) { this.toast('Last level — removing it means records auto-approve on submit'); } this.commit(st => ({ modules: st.modules.map(x => x.key !== m.key ? x : Object.assign({}, x, { chain: x.chain.filter(y => y.id !== l.id) })) })); }
+      })),
+      gateIntro: m.intake ? 'Always available — this is an entry point.' : (gate.length ? 'Sites reach ' + m.name + ' only when the conditions below hold.' : 'No condition set — this module opens as soon as an inbound transition fires.'),
+      gateHasToggle: gate.length > 1,
+      gateAllStyle: { height: 22, padding: '0 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 10.5, fontWeight: (m.gateMatch || 'all') === 'all' ? 600 : 500, background: (m.gateMatch || 'all') === 'all' ? 'rgba(255,255,255,.08)' : 'transparent', color: (m.gateMatch || 'all') === 'all' ? 'var(--fg)' : 'var(--fg3)' },
+      gateAnyStyle: { height: 22, padding: '0 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 10.5, fontWeight: m.gateMatch === 'any' ? 600 : 500, background: m.gateMatch === 'any' ? 'rgba(255,255,255,.08)' : 'transparent', color: m.gateMatch === 'any' ? 'var(--fg)' : 'var(--fg3)' },
+      onGateAll: () => this.patchModule(m.key, { gateMatch: 'all' }),
+      onGateAny: () => this.patchModule(m.key, { gateMatch: 'any' }),
+      gateCanAdd: !m.intake,
+      gateModOptions: s.modules.filter(x => x.key !== m.key).map(x => ({ v: x.key, l: x.name })),
+      gateRows: m.intake ? [] : gate.map((g, i) => ({
+        mod: g.mod, value: g.value,
+        valueOptions: ['approved', 'rejected', 'positive', 'completed'],
+        onMod: e => { const v = e.target.value; const arr = gate.slice(); arr[i] = { mod: v, value: g.value }; this.patchModule(m.key, { gate: arr }); },
+        onValue: e => { const v = e.target.value; const arr = gate.slice(); arr[i] = { mod: g.mod, value: v }; this.patchModule(m.key, { gate: arr }); },
+        onDel: () => { const arr = gate.slice(); arr.splice(i, 1); this.patchModule(m.key, { gate: arr }); }
+      })),
+      onAddGate: () => { const other = s.modules.find(x => x.key !== m.key); this.patchModule(m.key, { gate: gate.concat([{ mod: other ? other.key : 'legal', value: 'approved' }]) }); },
+      inbound: inbound.map(e => ({ label: e.label + ' — from ' + e.from, dotStyle: { width: 5, height: 5, borderRadius: '50%', background: this.roleColor(e.actors[0] || 'supervisor'), flex: '0 0 5px' } })),
+      noInbound: inbound.length ? false : 'No inbound transition — this module is unreachable until you wire one in.'
+    };
+  }
+
+  layout() {
+    const s = this.state;
+    const vw = s.vw || (typeof window !== 'undefined' ? window.innerWidth : 1400);
+    const narrow = vw < 1240;
+    const paletteOpen = s.paletteTouched ? s.paletteOpen : (s.paletteOpen && vw >= 1040);
+    const railDocked = !narrow && s.view !== 'roles';
+    const canvasW = vw - (s.view === 'flow' ? (paletteOpen ? 200 : 44) : 0) - (railDocked ? 460 : 0);
+    return { vw, narrow, paletteOpen, railDocked, canvasW };
+  }
+
+  /* ---------- manifest / validation / publish ---------- */
+  manifest() {
+    const s = this.state;
+    return {
+      workspace: { id: this.ws().id, name: this.ws().name, domain: this.ws().domain, state: 'draft' },
+      stages: s.stages.map(x => ({ id: x.id, label: x.label, terminal: x.kind === 'terminal' || undefined, sites_in_stage: x.count })),
+      transitions: s.edges.map(e => ({ from: e.from, to: e.to, label: e.label, kind: e.kind, actors: e.actors, condition: e.condition || null })),
+      modules: s.modules.map(m => ({
+        key: m.key, name: m.name, executives_enabled: m.executives, provisioning: m.provisioning || undefined,
+        gate: m.intake ? 'always' : this.gateOf(m).map(g => g.mod + ' is ' + g.value),
+        fields: m.fields.map(f => ({ key: f.key, label: f.label, type: f.type, required: f.required, options: f.options || undefined })),
+        approval_chain: m.chain.map((l, i) => ({ level: i + 1, name: l.name, role: l.role, awaiting_status: l.status })),
+        navigation: m.nav.map(sec => ({ section: sec.title, items: sec.items.map(it => ({ label: it.label, route: it.route, icon: it.icon, badge: it.badge || undefined, roles: it.roles })) }))
+      })),
+      permissions: s.perms.map(p => ({ action: p.action, roles: p.roles }))
+    };
+  }
+  findings() {
+    const s = this.state, out = [];
+    s.stages.forEach(st => {
+      const inb = s.edges.filter(e => e.to === st.id), outb = s.edges.filter(e => e.from === st.id);
+      if (!inb.length && st.id !== 'draft_submitted') out.push({ tag: 'unreachable', text: 'Stage “' + st.label + '” has no inbound transition — nothing can ever enter it.', id: st.id });
+      if (!outb.length && st.kind !== 'terminal') out.push({ tag: 'dead end', text: 'Stage “' + st.label + '” has no outbound transition — a site entering it can never leave.', id: st.id });
+      if (st.kind === 'terminal' && !inb.length) out.push({ tag: 'orphan', text: 'Terminal stage “' + st.label + '” has no way in.', id: st.id });
+      if (outb.length && !outb.some(e => e.actors.length)) out.push({ tag: 'no actor', text: 'No role can leave “' + st.label + '” — every outbound transition has an empty actor list.', id: st.id });
+    });
+    s.modules.forEach(m => {
+      const inb = s.edges.filter(e => e.to === 'mod:' + m.key);
+      if (!inb.length && !m.intake) out.push({ tag: 'unreachable', text: m.name + ' has no gate and no inbound edge — it will never open for a site.', id: 'mod:' + m.key });
+      if (!m.executives) m.nav.forEach(sec => sec.items.forEach(it => {
+        if (it.roles.indexOf('executive') >= 0) out.push({ tag: 'nav', text: m.name + ' → “' + it.label + '” is granted to Executive, but ' + m.name + ' has no executive role.', id: 'mod:' + m.key });
+      }));
+      if (m.provisioning) out.push({ tag: 'pending', text: m.name + ' is pending provisioning — schema, router entry and validation lists are generated on publish.', id: 'mod:' + m.key });
+    });
+    return out;
+  }
+  diffList() {
+    const s = this.state, L = s.live, out = [];
+    const liveMod = k => L.modules.find(m => m.key === k);
+    s.modules.forEach(m => {
+      const lm = liveMod(m.key);
+      if (!lm) { out.push({ tag: 'added', text: 'New module “' + m.name + '” (' + m.key + ') with ' + m.fields.length + ' fields and ' + m.chain.length + ' approval level(s).', impact: 'Provisioning generates a table, a router entry and validation lists. Existing sites are unaffected.' }); return; }
+      if (lm.name !== m.name) out.push({ tag: 'renamed', text: lm.name + ' renamed to “' + m.name + '”.', impact: false });
+      if (lm.executives !== m.executives) out.push({ tag: 'roles', text: m.name + ': executives ' + (m.executives ? 'enabled' : 'disabled') + '.', impact: m.executives ? false : 'Executive users in ' + m.name + ' lose access at publish. Their in-flight assignments fall back to the module supervisor.' });
+      if (lm.fields.length !== m.fields.length) out.push({ tag: 'fields', text: m.name + ': fields ' + lm.fields.length + ' → ' + m.fields.length + '.', impact: m.fields.length < lm.fields.length ? 'Removed fields keep their stored values but stop rendering — historical records will show gaps.' : false });
+      if (lm.chain.length !== m.chain.length) out.push({ tag: 'chain', text: m.name + ': approval chain ' + lm.chain.length + ' → ' + m.chain.length + ' levels.', impact: 'Records already awaiting a removed level need manual re-routing.' });
+      lm.nav.forEach((lsec, si) => (lsec.items || []).forEach((lit, ii) => {
+        const cur = (m.nav[si] && m.nav[si].items[ii]) ? m.nav[si].items[ii] : null; if (!cur) return;
+        this.ROLES().forEach(r => {
+          const was = lit.roles.indexOf(r) >= 0, now = cur.roles.indexOf(r) >= 0;
+          if (was && !now) out.push({ tag: 'nav', text: m.name + ': hid “' + cur.label + '” from ' + this.roleLabel(r) + '.', impact: false });
+          if (!was && now) out.push({ tag: 'nav', text: m.name + ': showed “' + cur.label + '” to ' + this.roleLabel(r) + '.', impact: false });
+        });
+      }));
+    });
+    L.modules.forEach(lm => { if (!s.modules.find(m => m.key === lm.key)) out.push({ tag: 'removed', text: 'Module “' + lm.name + '” removed.', impact: 'All of its site data becomes unreachable in the app.' }); });
+    s.stages.forEach(st => { if (!L.stages.find(x => x.id === st.id)) out.push({ tag: 'added', text: 'Added stage “' + st.label + '”.', impact: false }); });
+    L.stages.forEach(ls => { if (!s.stages.find(x => x.id === ls.id)) out.push({ tag: 'removed', text: 'Removed stage “' + ls.label + '”.', impact: ls.count ? ls.count + ' sites are currently in ' + ls.id + '. Removing this stage leaves them unreachable.' : false }); });
+    s.edges.forEach(e => { if (!L.edges.find(x => x.id === e.id)) out.push({ tag: 'added', text: 'New transition “' + e.label + '” (' + e.from + ' → ' + e.to + ').', impact: false }); });
+    L.edges.forEach(le => {
+      const cur = s.edges.find(x => x.id === le.id);
+      if (!cur) { out.push({ tag: 'removed', text: 'Transition “' + le.label + '” removed (' + le.from + ' → ' + le.to + ').', impact: 'Sites in ' + le.from + ' lose this route out.' }); return; }
+      if (cur.label !== le.label) out.push({ tag: 'edited', text: 'Transition renamed: “' + le.label + '” → “' + cur.label + '”.', impact: false });
+      if (cur.actors.join() !== le.actors.join()) out.push({ tag: 'roles', text: '“' + cur.label + '”: actors ' + (le.actors.map(r => this.roleLabel(r)).join(', ') || 'none') + ' → ' + (cur.actors.map(r => this.roleLabel(r)).join(', ') || 'none') + '.', impact: cur.actors.length ? false : 'No role can perform this transition — sites will stall.' });
+    });
+    s.perms.forEach(p => {
+      const lp = L.perms.find(x => x.action === p.action); if (!lp) return;
+      if (lp.roles.join() !== p.roles.join()) out.push({ tag: 'perms', text: p.action + ': ' + (lp.roles.map(r => this.roleLabel(r)).join(', ') || 'none') + ' → ' + (p.roles.map(r => this.roleLabel(r)).join(', ') || 'none') + '.', impact: p.roles.length ? false : 'No role holds this action — any transition that needs it stalls.' });
+    });
+    return out;
+  }
+  safetyVals() {
+    const s = this.state, f = this.findings(), d = this.diffList();
+    const tag = (t, c) => ({ fontSize: 9, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', padding: '3px 6px', borderRadius: 5, whiteSpace: 'nowrap', flex: '0 0 auto', background: c + '1F', color: c, border: '1px solid ' + c + '55' });
+    const tagColor = t => ({ unreachable: '#FF6B6B', 'dead end': '#FF6B6B', orphan: '#E8B65A', 'no actor': '#FF6B6B', nav: '#6E9BFF', pending: '#E8B65A', added: '#4FC3A1', removed: '#FF6B6B', renamed: '#6E9BFF', roles: '#C58CF5', fields: '#6E9BFF', chain: '#C58CF5', edited: '#6E9BFF', perms: '#C58CF5' }[t] || '#8A909E');
+    return {
+      validationBarStyle: { flex: '0 0 30px', display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', background: 'var(--card)', borderTop: '1px solid var(--line)', zIndex: 45 },
+      validationDotStyle: { width: 7, height: 7, borderRadius: '50%', flex: '0 0 7px', background: f.length ? 'var(--warn)' : 'var(--ok)' },
+      validationSummary: f.length ? f.length + (f.length === 1 ? ' issue' : ' issues') : 'No issues',
+      validationPeek: f.length ? f[0].text : 'Flow, navigation and permissions all resolve',
+      validationOpen: s.validationOpen,
+      onToggleValidation: () => this.setState(st => ({ validationOpen: !st.validationOpen })),
+      statusLine: s.modules.length + ' modules · ' + s.stages.length + ' stages · ' + s.edges.length + ' transitions · ' + s.undo.length + ' unsaved edits',
+      findings: f.map(x => ({
+        tag: x.tag, text: x.text, goto: 'select →',
+        tagStyle: tag(x.tag, tagColor(x.tag)),
+        style: { display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '9px 11px', borderRadius: 9, border: '1px solid var(--line2)', background: 'var(--card2)', color: 'var(--fg2)', cursor: 'pointer' },
+        onClick: () => { this.setState({ view: 'flow', selected: x.id, validationOpen: false }); setTimeout(() => this.panTo(x.id), 40); }
+      })),
+      noFindings: f.length ? false : 'Nothing to fix — every stage is reachable, every module has a way in, and every transition has an actor.',
+      showManifest: s.showManifest, manifestJson: JSON.stringify(this.manifest(), null, 2),
+      manifestMeta: this.ws().domain + ' · draft · not yet published',
+      copyLabel: s.copied ? 'Copied' : 'Copy',
+      onCopyManifest: () => { try { navigator.clipboard.writeText(JSON.stringify(this.manifest(), null, 2)); } catch (e) { } this.setState({ copied: true }); setTimeout(() => this.setState({ copied: false }), 1600); },
+      showDiff: s.showDiff, diffs: d.map(x => ({ tag: x.tag, text: x.text, impact: x.impact || false, tagStyle: tag(x.tag, tagColor(x.tag)) })),
+      noDiffs: d.length ? false : 'No changes since the last publish.',
+      diffMeta: d.length ? d.length + ' change' + (d.length === 1 ? '' : 's') + ' to ' + this.ws().name + ' · ' + f.length + ' open validation issue' + (f.length === 1 ? '' : 's') : 'Draft matches live.',
+      publishNote: f.length ? 'Publishing with open validation issues is allowed but not advised.' : 'Draft validates cleanly.',
+      onCloseDiff: () => this.setState({ showDiff: false }),
+      onConfirmPublish: () => {
+        const snap = this.snap();
+        this.setState({ live: snap, showDiff: false, modules: this.state.modules.map(m => Object.assign({}, m, { provisioning: false })), provisioning: [] });
+        this.toast('Published to ' + this.ws().name + ' — provisioning applied');
+      }
+    };
+  }
+
+  roleColor(r) { return { supervisor: 'var(--sup)', executive: 'var(--exec)', business_admin: 'var(--admin)', observer: 'var(--obs)' }[r] || 'var(--fg3)'; }
+  roleLabel(r) { return { supervisor: 'Supervisor', executive: 'Executive', business_admin: 'Business admin', observer: 'Observer' }[r] || r; }
+
+  renderVals() {
+    const s = this.state, v = s.canvas, ws = this.ws();
+    const LO = this.layout();
+    const live = s.mode === 'live';
+    const src = live ? s.live : s;
+    const q = s.search.trim().toLowerCase();
+    const matches = id => { if (!q) return true; const n = this.nodeById(id); if (!n) return false; const t = (n.stage ? n.stage.label + ' ' + n.stage.id : n.module.name + ' ' + n.module.key).toLowerCase(); return t.indexOf(q) >= 0; };
+    const conn = s.connect || s.link;
+
+    const nodes = [];
+    (live ? s.live.stages : s.stages).forEach(st => {
+      const selq = s.selected === st.id, dimmed = q && !matches(st.id);
+      const valid = conn ? this.targetValid(st.id) : true;
+      nodes.push({
+        id: st.id, isModule: false, expanded: false, stages: [],
+        title: st.label, sub: st.id, headH: this.SH + 'px',
+        badge: st.count ? st.count + ' sites' : false,
+        badgeStyle: { fontSize: 9.5, fontFamily: "'IBM Plex Mono',monospace", padding: '2px 5px', borderRadius: 4, background: 'rgba(255,255,255,.06)', color: 'var(--fg3)', whiteSpace: 'nowrap' },
+        chevron: '', onToggle: () => { },
+        wrap: {
+          position: 'absolute', left: st.x, top: st.y, width: this.SW, height: this.SH, borderRadius: 10,
+          background: 'var(--card)', border: '1px solid ' + (selq ? 'var(--accent)' : (st.kind === 'terminal' ? 'rgba(255,107,107,.35)' : 'var(--line)')),
+          boxShadow: selq ? '0 0 0 3px rgba(110,155,255,.18),' + 'var(--shadow)' : 'var(--shadow)',
+          opacity: dimmed ? 0.25 : (conn && !valid ? 0.3 : 1), cursor: 'grab', overflow: 'visible', zIndex: selq ? 6 : 4,
+          animation: conn && valid && st.id !== conn.from ? 'pulsering 1.6s infinite' : 'none'
+        },
+        accentStyle: { position: 'absolute', left: 0, top: 10, bottom: 10, width: 3, borderRadius: 3, background: st.kind === 'terminal' ? 'var(--danger)' : 'var(--sup)' },
+        portLabel: false, portLabelStyle: {},
+        ports: [
+          { key: 'in', type: 'stage', title: 'Input · stage', style: this.portStyle('in', conn, st.id, 'stage'), onDown: e => e.stopPropagation(), onClick: e => this.clickPort(st.id, 'in', e) },
+          { key: 'out', type: 'stage', title: 'Output · stage — drag or click to connect', style: this.portStyle('out', conn, st.id, 'stage'), onDown: e => this.beginPort(st.id, 'out', e), onClick: e => e.stopPropagation() }
+        ],
+        onDown: e => this.onNodeDown(st.id, e)
+      });
+    });
+    (live ? s.live.modules : s.modules).forEach(m => {
+      const id = 'mod:' + m.key, selq = s.selected === id, dimmed = q && !matches(id);
+      const valid = conn ? this.targetValid(id) : true;
+      const h = this.MH + (m.collapsed ? 0 : m.stages.length * 15 + 8);
+      nodes.push({
+        id, isModule: true, expanded: !m.collapsed, stages: m.stages,
+        title: m.name, sub: m.key + ' · ' + m.fields.length + 'f · ' + m.chain.length + 'L', headH: this.MH + 'px',
+        badge: m.provisioning ? 'Pending provisioning' : (m.executives ? false : 'Supervisor-only'),
+        badgeStyle: { fontSize: 9, fontWeight: 600, letterSpacing: '.04em', padding: '2px 5px', borderRadius: 4, whiteSpace: 'nowrap', background: m.provisioning ? 'rgba(232,182,90,.15)' : 'rgba(255,255,255,.06)', color: m.provisioning ? 'var(--warn)' : 'var(--fg3)', border: '1px solid ' + (m.provisioning ? 'rgba(232,182,90,.35)' : 'transparent') },
+        chevron: m.collapsed ? '▸' : '▾',
+        onToggle: e => { e.stopPropagation(); this.setState(stt => ({ modules: stt.modules.map(x => x.key === m.key ? Object.assign({}, x, { collapsed: !x.collapsed }) : x) })); },
+        wrap: {
+          position: 'absolute', left: m.x, top: m.y, width: this.MW, minHeight: this.MH, height: h, borderRadius: 10,
+          background: 'var(--card2)', border: '1px solid ' + (selq ? 'var(--accent)' : 'var(--line)'),
+          boxShadow: selq ? '0 0 0 3px rgba(110,155,255,.18),' + 'var(--shadow)' : 'var(--shadow)',
+          opacity: dimmed ? 0.25 : (conn && !valid ? 0.3 : 1), cursor: 'grab', overflow: 'visible', zIndex: selq ? 6 : 5,
+          animation: conn && valid && id !== conn.from ? 'pulsering 1.6s infinite' : 'none'
+        },
+        accentStyle: { position: 'absolute', left: 0, top: 10, bottom: 10, width: 3, borderRadius: 3, background: m.color },
+        portLabel: false, portLabelStyle: {},
+        ports: [
+          { key: 'in', type: 'module', title: 'Input · module', style: this.portStyle('in', conn, id, 'module'), onDown: e => e.stopPropagation(), onClick: e => this.clickPort(id, 'in', e) },
+          { key: 'out', type: 'module', title: 'Output · module', style: this.portStyle('out', conn, id, 'module'), onDown: e => this.beginPort(id, 'out', e), onClick: e => e.stopPropagation() }
+        ],
+        onDown: e => this.onNodeDown(id, e)
+      });
+    });
+    const legalApproved = nodes.find(n => n.id === 'legal_approved');
+    if (legalApproved) {
+      legalApproved.ports = legalApproved.ports.concat([{ key: 'unlock', type: 'module', title: 'Module unlock port — connects to modules only', style: this.portStyle('unlock', conn, 'legal_approved', 'module'), onDown: e => this.beginPort('legal_approved', 'unlock', e), onClick: e => e.stopPropagation() }]);
+      legalApproved.portLabel = 'unlocks modules';
+      legalApproved.portLabelStyle = { position: 'absolute', left: '50%', top: this.SH + 10, transform: 'translateX(-50%)', fontSize: 9, fontFamily: "'IBM Plex Mono',monospace", color: 'var(--fg3)', whiteSpace: 'nowrap' };
+    }
+
+    const edges = [], edgePills = [];
+    /* stagger pills that share a midpoint (reciprocal pairs) so no two ever coincide */
+    const slot = {};
+    const slotOf = (mx, my) => { const k = Math.round(mx / 6) + ':' + Math.round(my / 6); const i = slot[k] || 0; slot[k] = i + 1; return i; };
+    (live ? s.live.edges : s.edges).forEach(e => {
+      const a = this.nodeById(e.from), b = this.nodeById(e.to); if (!a || !b) return;
+      const key = e.kind === 'unlock' ? 'unlock' : 'out';
+      const p1 = this.portPos(e.from, key), p2 = this.portPos(e.to, 'in');
+      const hi = s.hoverEdge === e.id || s.edgePopover === e.id;
+      const bad = e.kind === 'sendback' || e.kind === 'loop';
+      const dim = q ? (matches(e.from) && matches(e.to) ? 1 : 0.15) : 1;
+      edges.push({
+        id: e.id, d: this.bez(p1, p2, key === 'unlock' ? 'v' : 'h'),
+        stroke: hi ? '#6E9BFF' : (bad ? 'rgba(255,107,107,.65)' : 'rgba(255,255,255,.34)'),
+        width: hi ? 2.2 : 1.5, dash: bad ? '5 4' : '0',
+        marker: hi ? 'url(#a_hi)' : (bad ? 'url(#a_bad)' : 'url(#a_fwd)'), opacity: dim,
+        onClick: () => this.setState({ edgePopover: e.id, selected: null }),
+        onEnter: () => this.setState({ hoverEdge: e.id }),
+        onLeave: () => this.setState(st => st.hoverEdge === e.id ? { hoverEdge: null } : null)
+      });
+      const vertical = key === 'unlock';
+      const mx = (p1.x + p2.x) / 2, cy = (p1.y + p2.y) / 2;
+      /* horizontal pills clear the card box entirely: card half-height 27 + pill half-height 8 + 4 gap.
+         Coincident pills alternate above / below the connector, then step outward. */
+      const n = slotOf(mx, cy);
+      const my = vertical ? cy + n * 20 : cy + (n % 2 === 0 ? -39 : 39) - (n > 1 ? (n % 2 === 0 ? 20 : -20) : 0);
+      const actor = e.actors[0] || 'supervisor';
+      edgePills.push({
+        id: e.id + 'p', label: e.label,
+        onClick: () => this.setState({ edgePopover: e.id, selected: null }),
+        onEnter: () => this.setState({ hoverEdge: e.id }),
+        onLeave: () => this.setState(st => st.hoverEdge === e.id ? { hoverEdge: null } : null),
+        dotStyle: { width: 5, height: 5, borderRadius: '50%', background: this.roleColor(actor), flex: '0 0 5px' },
+        style: {
+          position: 'absolute', left: mx, top: my, transform: 'translate(-50%,-50%)', zIndex: 5, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 5, padding: '2px 7px', borderRadius: 20, whiteSpace: 'nowrap',
+          background: hi ? '#20232E' : 'rgba(11,12,16,.92)', border: '1px solid ' + (hi ? 'var(--accent)' : (bad ? 'rgba(255,107,107,.4)' : 'var(--line)')),
+          color: hi ? 'var(--fg)' : 'var(--fg2)', fontSize: 9.5, fontWeight: 500, opacity: dim, boxShadow: '0 2px 8px rgba(0,0,0,.5)'
+        }
+      });
+    });
+
+    const b = this.bounds(), mmW = 168, mmH = 104, mmS = Math.min(mmW / (b.w + 80), mmH / (b.h + 80));
+    const minimap = this.allNodes().map(n => ({ id: n.id, style: { position: 'absolute', left: (n.x - b.x0 + 40) * mmS, top: (n.y - b.y0 + 40) * mmS, width: Math.max(3, n.w * mmS), height: Math.max(2, n.h * mmS), borderRadius: 2, background: s.selected === n.id ? 'var(--accent)' : 'rgba(255,255,255,.3)' } }));
+    const cr = this.canvasRef.current ? this.canvasRef.current.getBoundingClientRect() : { width: 800, height: 500 };
+    const seg = k => ({ height: 24, padding: '0 11px', borderRadius: 6, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flex: '0 0 auto', lineHeight: '22px', fontSize: 11.5, fontWeight: s.view === k ? 600 : 500, background: s.view === k ? 'var(--card3)' : 'transparent', color: s.view === k ? 'var(--fg)' : 'var(--fg3)' });
+    const modeSeg = m => ({ height: 24, padding: '0 10px', borderRadius: 6, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', fontSize: 11.5, fontWeight: s.mode === m ? 600 : 500, background: s.mode === m ? (m === 'live' ? 'rgba(79,195,161,.16)' : 'var(--card3)') : 'transparent', color: s.mode === m ? (m === 'live' ? 'var(--ok)' : 'var(--fg)') : 'var(--fg3)' });
+
+    const pop = s.edgePopover ? s.edges.find(e => e.id === s.edgePopover) : null;
+    let popover = false, popoverStyle = {};
+    if (pop) {
+      const p1 = this.portPos(pop.from, pop.kind === 'unlock' ? 'unlock' : 'out'), p2 = this.portPos(pop.to, 'in');
+      const sx = ((p1.x + p2.x) / 2) * v.z + v.x, sy = ((p1.y + p2.y) / 2) * v.z + v.y;
+      popover = {
+        route: pop.from + ' → ' + pop.to, label: pop.label, condition: pop.condition,
+        actors: ['supervisor', 'executive', 'business_admin', 'observer'].map(r => ({
+          key: r, label: this.roleLabel(r),
+          onToggle: () => { if (r === 'observer') { this.toast('Observer is read-only workspace-wide — it cannot perform transitions'); return; } this.toggleActor(pop.id, r); },
+          style: {
+            height: 24, padding: '0 9px', borderRadius: 6, cursor: r === 'observer' ? 'not-allowed' : 'pointer', fontSize: 11,
+            border: '1px solid ' + (pop.actors.indexOf(r) >= 0 ? this.roleColor(r) : 'var(--line)'),
+            background: pop.actors.indexOf(r) >= 0 ? 'rgba(255,255,255,.07)' : 'transparent',
+            color: pop.actors.indexOf(r) >= 0 ? this.roleColor(r) : (r === 'observer' ? 'var(--fg3)' : 'var(--fg2)'), opacity: r === 'observer' ? .55 : 1
+          }
+        }))
+      };
+      popoverStyle = { position: 'absolute', left: Math.max(12, Math.min(sx - 140, cr.width - 292)), top: Math.max(12, Math.min(sy + 18, cr.height - 320)), width: 280, zIndex: 30, padding: 13, borderRadius: 11, background: 'var(--card)', border: '1px solid var(--line)', boxShadow: 'var(--shadow)', animation: 'fadein .14s ease' };
+    }
+
+    const out = {
+      rootRef: this.rootRef, canvasRef: this.canvasRef, onKey: e => this.onKey(e),
+      pickerOpen: s.pickerOpen,
+      workspaces: this.wsList().map(w => ({
+        id: w.id, name: w.name, domain: w.domain, modules: w.modules, users: w.users, published: w.published,
+        initials: w.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase(),
+        avatarStyle: { flex: '0 0 38px', width: 38, height: 38, borderRadius: 10, background: w.color, color: '#0B0C10', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 600 },
+        onOpen: () => { this.setState({ pickerOpen: false, ws: w.id }); setTimeout(() => { if (this.rootRef.current) this.rootRef.current.focus(); this.fit(); }, 60); }
+      })),
+      onBackToList: () => this.setState({ pickerOpen: true }),
+      wsName: ws.name, wsDomain: ws.domain, wsInitials: ws.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase(),
+      wsAvatarStyle: { flex: '0 0 26px', width: 26, height: 26, borderRadius: 8, background: ws.color, color: '#0B0C10', display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 600 },
+      draftBadge: live ? 'LIVE' : 'DRAFT',
+      draftBadgeStyle: { flex: '0 0 auto', fontSize: 9, fontWeight: 700, letterSpacing: '.09em', padding: '2px 6px', borderRadius: 4, background: live ? 'rgba(79,195,161,.14)' : 'rgba(232,182,90,.14)', color: live ? 'var(--ok)' : 'var(--warn)', border: '1px solid ' + (live ? 'rgba(79,195,161,.4)' : 'rgba(232,182,90,.4)') },
+      views: [['flow', 'Flow'], ['nav', 'Navigation'], ['roles', 'Roles']].map(x => ({ key: x[0], label: x[1], style: seg(x[0]), onClick: () => this.setState({ view: x[0] }) })),
+      isFlow: s.view === 'flow', isNav: s.view === 'nav', isRoles: s.view === 'roles',
+      onShowDraft: () => this.setState({ mode: 'draft' }), onShowLive: () => this.setState({ mode: 'live' }),
+      draftTabStyle: modeSeg('draft'), liveTabStyle: modeSeg('live'),
+      showRailToggle: LO.narrow && s.view !== 'roles',
+      railToggleLabel: s.railOpen ? 'Hide preview' : 'Preview',
+      railToggleStyle: { height: 28, padding: '0 11px', borderRadius: 7, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', flex: '0 0 auto', lineHeight: '26px', border: '1px solid ' + (s.railOpen ? 'var(--accent)' : 'var(--line)'), background: s.railOpen ? 'rgba(110,155,255,.14)' : 'transparent', color: s.railOpen ? 'var(--accent)' : 'var(--fg2)' },
+      onToggleRail: () => this.setState(st => ({ railOpen: !st.railOpen })),
+      onToggleManifest: () => this.setState(st => ({ showManifest: !st.showManifest })),
+      manifestBtnStyle: { height: 28, padding: '0 11px', borderRadius: 7, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', flex: '0 0 auto', lineHeight: '26px', border: '1px solid ' + (s.showManifest ? 'var(--accent)' : 'var(--line)'), background: s.showManifest ? 'rgba(110,155,255,.14)' : 'transparent', color: s.showManifest ? 'var(--accent)' : 'var(--fg2)' },
+      onPublish: () => this.setState({ showDiff: true }),
+      paletteStyle: { flex: '0 0 ' + (LO.paletteOpen ? 200 : 44) + 'px', width: LO.paletteOpen ? 200 : 44, display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--card)', borderRight: '1px solid var(--line)', overflow: 'hidden' },
+      paletteOpen: LO.paletteOpen, paletteTitle: LO.paletteOpen ? 'Palette' : '', paletteChevron: LO.paletteOpen ? '‹' : '›',
+      onTogglePalette: () => this.setState({ paletteTouched: true, paletteOpen: !LO.paletteOpen }),
+      paletteItems: [
+        { key: 'module', label: 'Module', sub: 'needs provisioning', icon: 'M', hint: 'Drag onto the canvas — creates a provisioning card', color: 'var(--admin)' },
+        { key: 'stage', label: 'Stage', sub: 'a workflow status', icon: 'S', hint: 'Drag onto the canvas', color: 'var(--sup)' },
+        { key: 'gate', label: 'Approval gate', sub: 'blocks until approved', icon: 'G', hint: 'Drag onto the canvas', color: 'var(--warn)' },
+        { key: 'lane', label: 'Role lane', sub: 'group by actor', icon: 'L', hint: 'Drag onto the canvas', color: 'var(--exec)' }
+      ].map(p => ({ label: p.label, sub: p.sub, icon: p.icon, hint: p.hint, iconStyle: { flex: '0 0 22px', width: 22, height: 22, borderRadius: 6, background: 'rgba(255,255,255,.06)', color: p.color, display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 600, fontFamily: "'IBM Plex Mono',monospace" }, onDown: e => this.dropPalette(p.key, e) })),
+      templates: [
+        { label: 'Retail expansion', sub: 'BD → Legal → Design → Project → NSO', onClick: () => this.toast('Retail expansion is the current template') },
+        { label: 'Franchise rollout', sub: 'adds Franchise Compliance before Legal', onClick: () => this.toast('Applying a template replaces the draft flow — review & publish still required') },
+        { label: 'Blank', sub: 'intake stage only', onClick: () => this.toast('Blank template cleared — undo with Cmd+Z if unintended') }
+      ],
+      nodes, edges, edgePills,
+      viewportStyle: { position: 'absolute', left: 0, top: 0, width: 0, height: 0, transform: 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.z + ')', transformOrigin: '0 0' },
+      gridStyle: { position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'radial-gradient(var(--dot) 1px, transparent 1px)', backgroundSize: (24 * v.z) + 'px ' + (24 * v.z) + 'px', backgroundPosition: v.x + 'px ' + v.y + 'px' },
+      linkPath: s.link ? this.bez({ x: s.link.x1, y: s.link.y1 }, { x: s.link.x2, y: s.link.y2 }, s.link.key === 'unlock' ? 'v' : 'h') : false,
+      onCanvasDown: e => this.onCanvasDown(e),
+      zoomLabel: Math.round(v.z * 100) + '%',
+      onZoomIn: () => this.zoomBy(1.18), onZoomOut: () => this.zoomBy(1 / 1.18), onFit: () => this.fit(),
+      onUndo: () => this.doUndo(), onRedo: () => this.doRedo(),
+      undoLabel: 'Undo ' + (s.undo.length ? '(' + s.undo.length + ')' : ''), redoLabel: 'Redo',
+      undoStyle: { height: 26, padding: '0 8px', borderRadius: 6, border: 'none', background: 'transparent', color: s.undo.length ? 'var(--fg2)' : 'var(--fg3)', fontSize: 11, cursor: s.undo.length ? 'pointer' : 'default', opacity: s.undo.length ? 1 : .5, whiteSpace: 'nowrap' },
+      redoStyle: { height: 26, padding: '0 8px', borderRadius: 6, border: 'none', background: 'transparent', color: s.redo.length ? 'var(--fg2)' : 'var(--fg3)', fontSize: 11, cursor: s.redo.length ? 'pointer' : 'default', opacity: s.redo.length ? 1 : .5, whiteSpace: 'nowrap' },
+      search: s.search, onSearch: e => { const val = e.target.value; this.setState({ search: val }); const hit = this.allNodes().find(n => { const t = (n.stage ? n.stage.label : n.module.name).toLowerCase(); return val && t.indexOf(val.toLowerCase()) >= 0; }); if (hit) this.panTo(hit.id); },
+      connectHint: s.connect ? 'Select a target ' + s.connect.type + ' port' : false,
+      onCancelConnect: () => this.setState({ connect: null }),
+      hint: (!s.hintDone && !live) ? 'Drag from a port to connect — or click one port, then another' : false,
+      hintStyle: { position: 'absolute', left: 40, top: 150, width: 190, padding: '9px 11px', borderRadius: 9, border: '1px dashed var(--accent)', background: 'rgba(110,155,255,.1)', color: 'var(--accent)', fontSize: 11, lineHeight: 1.45, zIndex: 7 },
+      popover, popoverStyle,
+      onClosePopover: () => this.setState({ edgePopover: null }),
+      onPopLabel: e => this.patchEdge(s.edgePopover, { label: e.target.value }),
+      onPopCondition: e => this.patchEdge(s.edgePopover, { condition: e.target.value }),
+      onDeleteEdge: () => this.deleteEdge(s.edgePopover),
+      minimap,
+      minimapStyle: {
+        position: 'absolute', right: 12, top: 12, width: mmW, height: mmH, borderRadius: 9,
+        background: 'rgba(11,12,16,.85)', border: '1px solid var(--line)', overflow: 'hidden',
+        pointerEvents: 'none', display: LO.canvasW < 470 ? 'none' : 'block'
+      },
+      minimapViewStyle: { position: 'absolute', left: (-v.x / v.z - b.x0 + 40) * mmS, top: (-v.y / v.z - b.y0 + 40) * mmS, width: (cr.width / v.z) * mmS, height: (cr.height / v.z) * mmS, border: '1px solid var(--accent)', borderRadius: 3, background: 'rgba(110,155,255,.07)' },
+      toast: s.toast || false
+    };
+    return Object.assign(out, this.navVals(), this.roleVals(), this.railVals(), this.safetyVals());
+  }
+
+  portStyle(key, conn, id, type) {
+    const active = conn && conn.from === id && conn.key === key;
+    const targetable = conn && key === 'in' && this.targetValid(id);
+    const base = {
+      position: 'absolute', width: 10, height: 10, borderRadius: '50%', zIndex: 8,
+      background: active ? 'var(--accent)' : '#0B0C10',
+      border: '2px solid ' + (active || targetable ? 'var(--accent)' : 'rgba(255,255,255,.32)'),
+      cursor: key === 'in' ? (conn ? 'pointer' : 'default') : 'crosshair',
+      transition: 'transform .12s ease'
+    };
+    if (key === 'in') return Object.assign(base, { left: -6, top: '50%', marginTop: -5, transform: targetable ? 'scale(1.5)' : 'none' });
+    if (key === 'unlock') return Object.assign(base, { left: '50%', marginLeft: -5, bottom: -6, borderColor: active ? 'var(--accent)' : 'rgba(197,140,245,.7)' });
+    return Object.assign(base, { right: -6, top: '50%', marginTop: -5, transform: active ? 'scale(1.5)' : 'none' });
+  }
+  /* EXT */
+}
+</script>
+</body>
+</html>

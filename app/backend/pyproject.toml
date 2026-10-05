@@ -20,6 +20,10 @@ dependencies = [
     # Pure-python magic-byte sniffing for upload validation (#226). No libmagic
     # system dependency — safer for the Railway/Nixpacks build than python-magic.
     "filetype>=1.2",
+    # Phase 2 (configurator integration): backend validation of configurator stage
+    # forms (JSON Schema draft-07) and of published manifests (draft 2020-12).
+    # MIT; pinned with its deps in requirements.lock.txt.
+    "jsonschema==4.26.0",
 ]
 
 [project.optional-dependencies]
@@ -65,4 +69,11 @@ max-complexity = 15
 [tool.ruff.lint.per-file-ignores]
 # Tests don't need docstrings.
 "tests/*" = ["D"]
+# Phase 2: third-party code vendored verbatim (panzi-json-logic 1.0.1, MIT) and F3's
+# matrix-adapters copied unchanged except imports — kept byte-comparable with their
+# sources rather than restyled.
+"app/vendor/*" = ["ALL"]
+"app/services/module_runtime/gates.py" = ["C901", "D"]
+"app/services/module_runtime/forms.py" = ["C901", "D"]
+"app/services/module_runtime/runtime.py" = ["C901", "D"]
 

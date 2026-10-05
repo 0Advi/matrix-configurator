@@ -91,12 +91,20 @@ async def get_primary_membership(db: AsyncSession, user_id: Any) -> Mapping[str,
 
     ORDER BY module keeps the chosen module — and therefore the JWT's module
     claim — stable across logins (#124).
+
+    Phase 2: only memberships in a module the tenant has ENABLED count
+    (tenant_modules); a membership in a module switched off by a published
+    configuration never becomes the session's module claim.
     """
     return (await db.execute(
         text("""
             SELECT module, role_in_module, supervisor_id
-              FROM user_module_memberships
+              FROM user_module_memberships umm
              WHERE user_id = :uid
+               AND EXISTS (SELECT 1 FROM tenant_modules tm
+                            WHERE tm.tenant_id = umm.tenant_id
+                              AND tm.module_key = umm.module
+                              AND tm.enabled)
              -- supervisor_id too: an executive can have several rows per module
              -- now, and without it the claim would vary between logins.
              --
@@ -197,12 +205,19 @@ async def set_first_password_if_null(
 # ── Signup reads / writes ──────────────────────────────────────────────────
 
 async def get_module_code(db: AsyncSession, code: str) -> Optional[Mapping[str, Any]]:
-    """A non-revoked supervisor dept_code → (tenant_id, module)."""
+    """A non-revoked supervisor dept_code → (tenant_id, module).
+
+    A code whose module the tenant has DISABLED is treated exactly like a revoked
+    one (None → the same 404), so a switched-off module takes no new sign-ups.
+    """
     return (await db.execute(
         text("""
-            SELECT tenant_id, module
-              FROM module_codes
-             WHERE code = :code AND revoked_at IS NULL
+            SELECT mc.tenant_id, mc.module
+              FROM module_codes mc
+              JOIN tenant_modules tm
+                ON tm.tenant_id = mc.tenant_id AND tm.module_key = mc.module
+               AND tm.enabled
+             WHERE mc.code = :code AND mc.revoked_at IS NULL
         """),
         {"code": code},
     )).mappings().first()
@@ -225,12 +240,18 @@ async def get_observer_code(db: AsyncSession, code: str) -> Optional[Mapping[str
 
 
 async def get_supervisor_invite_code(db: AsyncSession, code: str) -> Optional[Mapping[str, Any]]:
-    """A non-revoked executive supervisor_code → (tenant_id, supervisor_id, module)."""
+    """A non-revoked executive supervisor_code → (tenant_id, supervisor_id, module).
+
+    Same rule as get_module_code: a code of a DISABLED module is not valid.
+    """
     return (await db.execute(
         text("""
-            SELECT tenant_id, supervisor_id, module
-              FROM supervisor_invite_codes
-             WHERE code = :code AND revoked_at IS NULL
+            SELECT sic.tenant_id, sic.supervisor_id, sic.module
+              FROM supervisor_invite_codes sic
+              JOIN tenant_modules tm
+                ON tm.tenant_id = sic.tenant_id AND tm.module_key = sic.module
+               AND tm.enabled
+             WHERE sic.code = :code AND sic.revoked_at IS NULL
         """),
         {"code": code},
     )).mappings().first()

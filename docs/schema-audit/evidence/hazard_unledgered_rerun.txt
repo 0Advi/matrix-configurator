@@ -1,0 +1,28 @@
+_verify_schema: PASS
+[ERROR] startup-migrations: statement failed in 202605221_add_workspace_requests.sql: -- Workspace-request capture + employee-join enablement.
+[ERROR] startup-migrations: statement failed in 202605221_add_workspace_requests.sql: CREATE TABLE public.workspace_requests (
+[ERROR] startup-migrations: statement failed in 202605221_add_workspace_requests.sql: CREATE INDEX workspace_requests_status_created_idx
+[ERROR] startup-migrations: statement failed in 202605221_add_workspace_requests.sql: CREATE INDEX workspace_requests_admin_email_idx
+[ERROR] startup-migrations: 202605221_add_workspace_requests.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606033_project_execution_foundation.sql: ALTER TABLE IF EXISTS site_delegations
+[ERROR] startup-migrations: statement failed in 202606033_project_execution_foundation.sql: ALTER TABLE IF EXISTS module_codes
+[ERROR] startup-migrations: statement failed in 202606033_project_execution_foundation.sql: ALTER TABLE IF EXISTS supervisor_invite_codes
+[ERROR] startup-migrations: statement failed in 202606033_project_execution_foundation.sql: ALTER TABLE IF EXISTS user_module_memberships
+[ERROR] startup-migrations: statement failed in 202606033_project_execution_foundation.sql: CREATE INDEX IF NOT EXISTS idx_project_reviews_budget_status
+[ERROR] startup-migrations: 202606033_project_execution_foundation.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606133_fk_index_sweep.sql: -- Migration: Index the highest-value unindexed FK columns (issue #167)
+[ERROR] startup-migrations: statement failed in 202606133_fk_index_sweep.sql: -- launch_review_events — tenant_id join path
+[ERROR] startup-migrations: statement failed in 202606133_fk_index_sweep.sql: -- project_budget_items — tenant_id join path
+[ERROR] startup-migrations: statement failed in 202606133_fk_index_sweep.sql: -- supervisor_invite_codes — tenant_id join path (also helps module-lookup JOINs)
+[ERROR] startup-migrations: statement failed in 202606133_fk_index_sweep.sql: -- workspace_requests — provisioned_tenant_id FK (reverse-lookup after provisioning)
+[ERROR] startup-migrations: statement failed in 202606133_fk_index_sweep.sql: -- notification_outbox — site_id (queried on every per-site notification flush)
+[ERROR] startup-migrations: 202606133_fk_index_sweep.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: -- ── 1. site_status ────────────────────────────────────────────────────────────
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: ALTER TABLE public.stage_events
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: -- ── 3. rent_type ─────────────────────────────────────────────────────────────
+[ERROR] startup-migrations: statement failed in 202606141_drop_legacy_enum_types.sql: ALTER TABLE public.site_files
+[ERROR] startup-migrations: 202606141_drop_legacy_enum_types.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[ERROR] startup-migrations: statement failed in 202606231_supervisor_executive_requests.sql: -- Idempotent creation of tenant_isolation policy (CodeAnt review – Major severity)
+[ERROR] startup-migrations: 202606231_supervisor_executive_requests.sql had failing statement(s); NOT recording as applied — it will be retried on the next deploy.
+[INFO] startup-migrations: 0 new migration file(s), 37 statement(s) applied; 58 already in ledger
+[INFO] Schema verification passed: sites columns present, model=text, rent_type includes staggered.

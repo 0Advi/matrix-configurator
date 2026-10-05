@@ -17,7 +17,10 @@ export const MODULE_META = {
 };
 
 export default function OrgModuleCard({ mod, onRotate, onRemove, loading }) {
-  const meta = MODULE_META[mod.module] || { label: mod.module, icon: Icon.key };
+  // F4b: the label is the tenant's (from its published release) when the backend sends one;
+  // MODULE_META keeps the familiar built-in names/icons, custom modules get a generic icon.
+  const base = MODULE_META[mod.module] || { label: mod.module, icon: mod.kind === 'custom' ? Icon.layers : Icon.key };
+  const meta = { ...base, label: (mod.kind === 'custom' && mod.label) ? mod.label : base.label };
   const MetaIcon = meta.icon;
   const [rotating, setRotating] = React.useState(false);
   const [error, setError] = React.useState(null);
