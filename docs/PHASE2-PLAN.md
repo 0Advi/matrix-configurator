@@ -131,6 +131,13 @@ agent-configurator tests, backend pytest, frontend vitest, smoke-existing, smoke
   still allowed in 3 tables; `site_delegations` allows `financial_closure`/`quality_audit`).
 - **BUG-1:** migration `202606231` queries non-existent `pg_policy.schemaname`.
 
+## GitHub repo (user request 2026-10-05: "make a repo on 0Advi and push these new project codes there")
+- **https://github.com/0Advi/matrix-configurator** — PRIVATE (it documents the unfixed SEC-1 hole in the live, public app).
+- Commit 1 `ef3fe13` = unmodified Matrix-bd origin/main @ 3d4f277 under `app/` — tag `original-matrix-bd-3d4f277`.
+- Commit 2 `9005da1` = snapshot (Phase 1, 2, 2b G1/G2; G3 WIP). app/ vs original: 155 files, +21,804 / −285.
+- Pre-push secret scan: 12 real secret values + JWT/PEM/demo-password patterns over all staged content → 0 hits.
+- Lead pushes follow-up commits at milestones: G3 done → approved fixes applied → F5 done. Agents never commit.
+
 ## Draft-store ownership (configurator workspaces in NocoBase `cfg_workspaces`)
 - `aditya-test` "ADITYA TEST" — **the user's own** (created 2026-10-03 22:17 IST). Never modify/delete.
 - `chai-point-retail` — created by F4b's browser journey (2026-10-05 10:05 IST); tenant code CHAIPO-0458F2543F92FE4A.
