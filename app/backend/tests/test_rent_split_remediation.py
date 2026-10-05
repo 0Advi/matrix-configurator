@@ -1,0 +1,137 @@
+"""Regression tests for the PR #447 review remediation (rent-type v2 split)."""
+from types import SimpleNamespace
+
+from app.domain.schemas.site import StaggeredEscalationItem
+from app.services.bd_service import _prepare_staggered_escalation, _apply_split_fields
+from app.services import audit_service
+
+
+def test_legacy_staggered_item_has_no_null_split_keys():
+    # #1: model_dump(exclude_none=True) — a legacy {year, percent} item must NOT
+    # gain mg/dine_in_pct/delivery_pct null keys (fires even with the flag OFF).
+    out = _prepare_staggered_escalation([StaggeredEscalationItem(year=1, percent=5)], "staggered")
+    assert out is not None
+    assert set(out[0].keys()) == {"year", "percent"}
+
+
+def test_staggered_item_keeps_filled_split_keys_only():
+    out = _prepare_staggered_escalation(
+        [StaggeredEscalationItem(year=1, percent=5, dine_in_pct=10)], "staggered"
+    )
+    assert out[0]["dine_in_pct"] == 10
+    assert "delivery_pct" not in out[0]  # unset optional stays absent
+
+
+def test_apply_split_fields_clears_on_presence_and_ignores_absence():
+    # #3: presence in the payload (even None) clears; absence leaves untouched.
+    site = SimpleNamespace(revshare_dinein_pct=8, revshare_delivery_pct=5)
+    _apply_split_fields(site, {"revshare_dinein_pct": None})
+    assert site.revshare_dinein_pct is None
+    assert site.revshare_delivery_pct == 5
+
+
+def test_apply_split_fields_sets_numeric_value():
+    site = SimpleNamespace(revshare_dinein_pct=None, revshare_delivery_pct=None)
+    _apply_split_fields(site, {"revshare_dinein_pct": "9", "revshare_delivery_pct": 4})
+    assert site.revshare_dinein_pct == 9
+    assert site.revshare_delivery_pct == 4
+
+
+def test_split_columns_are_audit_tracked():
+    # #10: both columns must be in the differ's field list AND its label map.
+    for col in ("revshare_dinein_pct", "revshare_delivery_pct"):
+        assert col in audit_service.PIPELINE_FIELDS
+        assert col in audit_service._FIELD_AUDIT_LABEL
+
+
+# ── D4: launch-approval loop ─────────────────────────────────────────────────
+
+def test_launch_rent_fields_request_accepts_split():
+    from app.domain.schemas.launch import LaunchRentFieldsRequest
+    req = LaunchRentFieldsRequest(revshare_dinein_pct=8, revshare_delivery_pct=5)
+    assert req.revshare_dinein_pct == 8
+    assert req.revshare_delivery_pct == 5
+
+
+def test_launch_split_is_editable_and_labeled():
+    from app.domain.schemas.launch import RENT_EDITABLE_FIELDS, RENT_FIELD_LABELS
+    for col in ("revshare_dinein_pct", "revshare_delivery_pct"):
+        assert col in RENT_EDITABLE_FIELDS
+        assert col in RENT_FIELD_LABELS
+
+
+def test_apply_rent_edits_applies_split_and_diffs():
+    from app.domain.schemas.launch import LaunchRentFieldsRequest
+    from app.services.launch_service import _apply_staging_edits
+    row = SimpleNamespace(revshare_dinein_pct=None, revshare_delivery_pct=None)
+    changes = _apply_staging_edits(row, LaunchRentFieldsRequest(revshare_dinein_pct=8))
+    assert row.revshare_dinein_pct == 8
+    assert any(c["field"] == "revshare_dinein_pct" for c in changes)
+    # A field not sent is left untouched (exclude_unset).
+    assert row.revshare_delivery_pct is None
+
+
+def test_apply_rent_edits_normalizes_staggered_schedule():
+    # Launch loop: the year-wise schedule is editable; StaggeredEscalationItem's
+    # null optional keys are stripped so a {year, percent} row persists exactly.
+    from app.domain.schemas.launch import LaunchRentFieldsRequest
+    from app.services.launch_service import _apply_staging_edits
+    row = SimpleNamespace(staggered_escalation=None)
+    changes = _apply_staging_edits(row, LaunchRentFieldsRequest(
+        staggered_escalation=[{"year": 1, "percent": 5}, {"year": 2, "percent": 6}],
+    ))
+    assert row.staggered_escalation == [{"year": 1, "percent": 5}, {"year": 2, "percent": 6}]
+    assert any(c["field"] == "staggered_escalation" for c in changes)
+
+
+# ── Bringing RentTermsFormV2 to the launch Edit tab ──────────────────────────
+
+def test_launch_rent_fields_request_matches_editable_set():
+    # The request schema and the editable-field union must stay in lockstep, or
+    # extra="forbid" would 422 a field the loop is actually allowed to edit.
+    # EDITABLE_FIELDS, not RENT_EDITABLE_FIELDS: the one endpoint now carries the
+    # commercial terms too (carpet area, CAM, capex, deposit, brokerage, start date).
+    from app.domain.schemas.launch import LaunchRentFieldsRequest, EDITABLE_FIELDS
+    assert set(LaunchRentFieldsRequest.model_fields) == set(EDITABLE_FIELDS)
+
+
+def test_launch_rent_fields_request_forbids_unknown_key():
+    # The bug this fixes: RentTermsFormV2 emits expected_escalation_pct, which the
+    # request used to silently ignore (200 OK, edit discarded). extra="forbid"
+    # turns that key mismatch into a loud 422 instead.
+    import pytest
+    from pydantic import ValidationError
+    from app.domain.schemas.launch import LaunchRentFieldsRequest
+    with pytest.raises(ValidationError):
+        LaunchRentFieldsRequest(expected_escalation_pct=5)
+
+
+def test_apply_rent_edits_preserves_per_year_split():
+    # The launch save must carry the per-year dine-in / delivery split, not strip
+    # every row to {year, percent} the way the old launch builder did.
+    from app.domain.schemas.launch import LaunchRentFieldsRequest
+    from app.services.launch_service import _apply_staging_edits
+    row = SimpleNamespace(staggered_escalation=None)
+    _apply_staging_edits(row, LaunchRentFieldsRequest(
+        staggered_escalation=[{"year": 1, "percent": 5, "dine_in_pct": 8, "delivery_pct": 4}],
+    ))
+    assert row.staggered_escalation == [{"year": 1, "percent": 5, "dine_in_pct": 8, "delivery_pct": 4}]
+
+
+def test_commit_preserves_split_into_canonical_site():
+    # The agreed launch-stage split + schedule must land on the canonical sites row.
+    from app.services.launch_service import _commit_rent_to_canonical
+    row = SimpleNamespace(
+        rent_type="staggered", expected_rent=100000.0, escalation_pct=None,
+        expected_escalation_years=None, rev_share_pct=None,
+        revshare_dinein_pct=8, revshare_delivery_pct=4, fixed_rent_amt=None,
+        escalation_date=None, rent_free_days=None, lock_in_months=None, tenure_months=None,
+        staggered_escalation=[{"year": 1, "percent": 5, "dine_in_pct": 8, "delivery_pct": 4}],
+        carpet_area_sqft=None, cam_charges=None, capex=None,
+        security_deposit=None, brokerage=None, rent_start_date=None,
+    )
+    site, detail = SimpleNamespace(), SimpleNamespace()
+    _commit_rent_to_canonical(site, detail, row)
+    assert site.staggered_escalation == [{"year": 1, "percent": 5, "dine_in_pct": 8, "delivery_pct": 4}]
+    assert site.revshare_dinein_pct == 8
+    assert site.revshare_delivery_pct == 4

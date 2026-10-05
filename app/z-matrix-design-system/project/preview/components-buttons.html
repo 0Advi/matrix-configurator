@@ -1,0 +1,43 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>html,body{margin:0;padding:0;background:var(--zm-bg);font-family:var(--zm-font-body)}
+.wrap{padding:22px 24px;display:grid;grid-template-columns:repeat(2,1fr);gap:18px 28px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 16px;border-radius:10px;font-family:var(--zm-font-body);font-weight:600;font-size:13px;letter-spacing:-0.005em;border:1px solid transparent;cursor:pointer;line-height:1}
+.primary{background:var(--zm-accent);color:#fff;box-shadow:var(--zm-shadow-1)}
+.primary.hover{background:var(--zm-accent-hover);box-shadow:var(--zm-shadow-2)}
+.primary.press{background:var(--zm-accent-press)}
+.secondary{background:var(--zm-surface);color:var(--zm-fg);border-color:var(--zm-line);box-shadow:var(--zm-shadow-1)}
+.secondary.hover{background:var(--zm-surface-hover);box-shadow:var(--zm-shadow-2)}
+.ghost{background:transparent;color:var(--zm-fg-2)}
+.ghost.hover{background:var(--zm-surface-hover);color:var(--zm-fg)}
+.danger{background:#FFFFFF;color:#B91C1C;border-color:#F2B6B6}
+.disabled{background:var(--zm-surface);color:var(--zm-fg-4);border-color:var(--zm-line);cursor:not-allowed}
+.focus{background:var(--zm-accent);color:#fff;box-shadow:var(--zm-ring-focus)}
+.icon{width:14px;height:14px}
+.lbl{font-family:var(--zm-font-mono);font-size:10px;color:var(--zm-fg-3);letter-spacing:0.08em;text-transform:uppercase;justify-self:end;padding-right:8px}
+</style></head>
+<body><div class="wrap">
+<button class="btn primary">Submit for shortlist
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 5l7 7-7 7"/></svg>
+</button><span class="lbl">primary · default</span>
+
+<button class="btn primary hover">Submit for shortlist
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 5l7 7-7 7"/></svg>
+</button><span class="lbl">primary · hover</span>
+
+<button class="btn focus">Approve payment</button><span class="lbl">primary · focus</span>
+
+<button class="btn secondary">Save draft</button><span class="lbl">secondary</span>
+
+<button class="btn secondary hover">
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+New pipeline</button><span class="lbl">secondary · hover</span>
+
+<button class="btn ghost">View activity</button><span class="lbl">ghost</span>
+
+<button class="btn danger">
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+Reject</button><span class="lbl">danger</span>
+
+<button class="btn disabled">Submit for shortlist</button><span class="lbl">disabled</span>
+</div></body></html>

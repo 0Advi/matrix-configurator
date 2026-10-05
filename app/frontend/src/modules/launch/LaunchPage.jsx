@@ -1,0 +1,490 @@
+import React from 'react';
+import { usePageContext } from '../../App.jsx';
+import PageHeader, { HeaderTag } from '../shared/page-header/PageHeader.jsx';
+import Avatar from '../shared/primitives/Avatar.jsx';
+import Icon from '../shared/primitives/Icon.jsx';
+import ViewMoreButton from '../shared/primitives/ViewMoreButton.jsx';
+import { useLaunchSites } from '../../hooks/useLaunchSites.js';
+import { usePagedList } from '../../hooks/usePagedList.js';
+import { useSession } from '../../state/SessionContext.jsx';
+import { filterByScope } from '../../rbac/scope.js';
+import { getLaunchQueue } from '../../services/api/launchApprovalApi.js';
+import { getFCQueue } from '../../services/api/financialClosureApi.js';
+import {
+  CLOSURE_BUDGET_LABELS, CLOSURE_BUDGET_TONES, isClosed, pendingWith,
+} from '../financial_closure/closureStatus.js';
+import LaunchReviewModal from './LaunchReviewModal.jsx';
+import ClosureDetailsDrawer from './ClosureDetailsDrawer.jsx';
+import { keyActivate } from '../../lib/a11y.js';
+import { displayCode } from '../../lib/displayCode.js';
+
+// LaunchPage — BD-facing page for the post-NSO validation loop.
+//
+// Three tabs:
+//   "NSO Sites"  — sites that finished Project and were handed to NSO/launch
+//   "Review"     — (exec) sites you created that are at under_exec_review
+//                  (supervisor) sites at under_supervisor_review
+//   "Launched"   — sites that went live
+//
+// The admin drives the first/final touches from the business-admin portal; this
+// page is where the creating executive and the supervisor record their verdicts.
+
+const PROJECT_LABELS = { done: 'Project complete' };
+const FINANCE_LABELS = {
+  pending:            'Finance not started',
+  awaiting_supervisor:'Finance · awaiting supervisor',
+  awaiting_admin:     'Finance · awaiting admin',
+  approved:           'Finance approved',
+};
+
+function inRange(iso, from, to) {
+  if (!iso) return true;
+  const day = iso.slice(0, 10);
+  if (from && day < from) return false;
+  if (to && day > to) return false;
+  return true;
+}
+
+// ── Review queue row ────────────────────────────────────────────────────────────
+// Extracted from the NSO tab, which held the page's only search input inline.
+function SearchBox({ value, onChange, placeholder = 'Search code, site, city…' }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 36, padding: '0 12px', flex: '1 1 260px', maxWidth: 380, border: '1px solid var(--zm-line)', borderRadius: 8, background: 'var(--zm-surface)' }}>
+      <Icon name="search" size={14} style={{ color: 'var(--zm-fg-3)' }} />
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={placeholder}
+        style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'var(--zm-font-body)', fontSize: 13, color: 'var(--zm-fg)' }} />
+    </div>
+  );
+}
+
+function ReviewRow({ item, onReview }) {
+  const verdictPills = [];
+  if (item.exec_verdict) verdictPills.push({ who: 'Exec', v: item.exec_verdict });
+  if (item.supervisor_verdict) verdictPills.push({ who: 'Sup', v: item.supervisor_verdict });
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.5fr 0.9fr 1.4fr auto', gap: 12, padding: '13px 16px', borderBottom: '1px solid var(--zm-line-faint)', alignItems: 'center' }}>
+      <span style={{ fontFamily: 'var(--zm-font-mono)', fontSize: 11.5, color: 'var(--zm-fg-3)' }}>{displayCode(item)}</span>
+      <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 13, fontWeight: 600, color: 'var(--zm-fg)' }}>{item.site_name}</span>
+      <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 13, color: 'var(--zm-fg)' }}>{item.city}</span>
+      <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--zm-accent)', background: 'var(--zm-accent-soft)' }}>
+          {item.status === 'under_supervisor_review' ? 'Supervisor stage' : 'Creator stage'}
+        </span>
+        {verdictPills.length === 0 && <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 12, color: 'var(--zm-fg-3)' }}>Awaiting your review</span>}
+        {verdictPills.map(({ who, v }) => {
+          const color = v === 'approved' ? 'var(--zm-success)' : 'var(--zm-danger)';
+          return (
+            <span key={who} style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color, background: `color-mix(in srgb, ${color} 14%, transparent)` }}>
+              {who} {v === 'approved' ? '✓' : '✕'}
+            </span>
+          );
+        })}
+      </span>
+      <span>
+        <button onClick={() => onReview(item)}
+          style={{ height: 32, padding: '0 16px', borderRadius: 8, border: '1px solid var(--zm-accent)', background: 'var(--zm-accent)', color: 'var(--zm-accent-on)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+          Review
+        </button>
+      </span>
+    </div>
+  );
+}
+
+export default function LaunchPage() {
+  const { onOpenSite } = usePageContext();
+  const { role, user } = useSession();
+  const isExec = role === 'exec' || role === 'executive';
+  const isSupervisor = role === 'supervisor';
+  const { rows: allRows, loading, error, refresh: refreshNso } = useLaunchSites();
+  const [q, setQ] = React.useState('');
+  const [range, setRange] = React.useState({ from: '', to: '' });
+  const [tab, setTab] = React.useState('nso');
+  const selectTab = (key) => { setTab(key); setQ(''); };
+
+  // Launch-approval rows (Review + Launched tabs) — "View more" batch pager.
+  // `total` is the server COUNT(*) of all launch-approval rows; the creator /
+  // supervisor / launched buckets are derived client-side over the loaded rows.
+  const {
+    items: approvalItems,
+    total: approvalTotal,
+    status: approvalStatus,
+    error: approvalError,
+    hasMore: approvalHasMore,
+    loadingMore: approvalLoadingMore,
+    loadMore: loadMoreApprovals,
+    reload: loadApprovals,
+  } = usePagedList(({ limit, offset }) => getLaunchQueue({ limit, offset }));
+  const approvalLoading = approvalStatus === 'loading';
+
+  // Financial closure is a supervisor concern on this page; executives do not see
+  // the tab, so the fetcher short-circuits rather than issuing a request whose
+  // result would never be rendered.
+  const [fcFilter, setFcFilter] = React.useState('pending'); // 'pending' | 'closed'
+  // Both bucket counts, from the server. They cannot be derived from `fcItems`:
+  // that is one page of ONE bucket now, and the tab strip shows the pending count
+  // even while the Closed tab is the one being paged (#498).
+  const [fcCounts, setFcCounts] = React.useState({ pending: 0, closed: 0 });
+  const fcFilterRef = React.useRef(fcFilter);
+  fcFilterRef.current = fcFilter;
+  const {
+    items: fcItems,
+    total: fcTotal,
+    status: fcStatus,
+    hasMore: fcHasMore,
+    loadingMore: fcLoadingMore,
+    loadMore: loadMoreFc,
+  } = usePagedList(async ({ limit, offset }) => {
+    if (!isSupervisor) return { items: [], total: 0 };
+    const r = await getFCQueue({ limit, offset, closed: fcFilter === 'closed' });
+    // Dropped if a newer filter is already in flight — otherwise a slow
+    // superseded response overwrites the current totals with older ones.
+    if (fcFilterRef.current === fcFilter) setFcCounts({ pending: r.pendingTotal, closed: r.closedTotal });
+    return r;
+  // Refetch when the role resolves after mount, and when the filter changes —
+  // it is a server filter now, not a client-side split.
+  }, { deps: [isSupervisor, fcFilter] });
+
+  const [review, setReview] = React.useState(null); // { siteId, role: 'exec' | 'supervisor' }
+  const [closureDetail, setClosureDetail] = React.useState(null); // site_id
+
+  // Scope filter for exec view (NSO sites tab)
+  const rows = isExec ? filterByScope(allRows, role, user) : allRows;
+  const needle = q.trim().toLowerCase();
+  const filtered = rows.filter((site) => {
+    if (needle) {
+      const owner = site.createdBy?.name || site.createdBy || '';
+      const hay = `${site.caCode || ''} ${site.code || ''} ${site.name || ''} ${site.city || ''} ${owner}`.toLowerCase();
+      if (!hay.includes(needle)) return false;
+    }
+    return inRange(site.updatedAt, range.from, range.to);
+  });
+  const dateActive = !!(range.from || range.to);
+
+  // Stage 1 — sites I CREATED, awaiting my (creator) review. Role-agnostic: the
+  // creator may be an executive OR a supervisor (supervisors can create via
+  // delegation). Scoped reliably by submitted_by from the backend queue, not a
+  // fragile join against the NSO list.
+  const myId = String(user?.id || user?.userId || '');
+  const creatorItems = approvalItems.filter(
+    (i) => i.status === 'under_exec_review' && String(i.submitted_by || '') === myId,
+  );
+  // Stage 2 — supervisor review (any supervisor in the tenant).
+  const supervisorItems = isSupervisor
+    ? approvalItems.filter((i) => i.status === 'under_supervisor_review')
+    : [];
+  const reviewItems = [...creatorItems, ...supervisorItems];
+
+  const launchedItems = approvalItems.filter((i) => i.status === 'launched');
+
+  // Shared by both queue tables. The launch queue is a raw snake_case
+  // pass-through while the closure queue is camelCased by its adapter, so each
+  // field is read under either spelling.
+  const matchesQuery = (row, extra = '') => {
+    if (!needle) return true;
+    const code = row.ca_code || row.caCode || row.site_code || row.siteCode || '';
+    const name = row.site_name || row.siteName || '';
+    return `${code} ${name} ${row.city || ''} ${extra}`.toLowerCase().includes(needle);
+  };
+
+  const launchedFiltered = launchedItems.filter((i) => matchesQuery(i));
+
+  // Already the right bucket — the server filtered it — so only the search box
+  // narrows further, and it reaches the loaded rows only (see the empty state).
+  const fcFiltered = fcItems.filter((r) => matchesQuery(r, pendingWith(r)));
+
+  const showReview = isExec || isSupervisor;
+  const TABS = [
+    { key: 'nso',       label: 'NSO Sites', count: rows.length },
+    ...(showReview ? [{ key: 'review', label: 'Review', count: reviewItems.length }] : []),
+    { key: 'launched',  label: 'Launched',  count: launchedItems.length },
+    ...(isSupervisor ? [{ key: 'closure', label: 'Financial Closure', count: fcCounts.pending }] : []),
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18, height: 'calc(100vh - 152px)', minHeight: 400 }}>
+      <PageHeader
+        file="№ 10" eyebrow="BD module"
+        title={<>Launch <em>sites</em></>}
+        lede={`${rows.length} site${rows.length === 1 ? '' : 's'} handed to NSO`}
+        right={<HeaderTag icon="flag" label={`${rows.length} IN LAUNCH`} />}
+      />
+
+      <div style={{ flexShrink: 0 }}>
+        {/* Tab switcher */}
+        <div style={{ display: 'flex', gap: 6, borderBottom: '1px solid var(--zm-line)', paddingBottom: 0 }}>
+          {TABS.map(({ key, label, count }) => (
+            <button key={key} onClick={() => selectTab(key)}
+              style={{ padding: '8px 16px', borderRadius: '8px 8px 0 0', border: '1px solid var(--zm-line)',
+                borderBottom: tab === key ? '1px solid var(--zm-surface)' : '1px solid var(--zm-line)',
+                background: tab === key ? 'var(--zm-surface)' : 'transparent',
+                color: tab === key ? 'var(--zm-fg)' : 'var(--zm-fg-3)',
+                fontFamily: 'var(--zm-font-body)', fontSize: 13, fontWeight: tab === key ? 700 : 500,
+                cursor: 'pointer', marginBottom: '-1px', position: 'relative' }}>
+              {label}
+              {count > 0 && (
+                <span style={{ marginLeft: 6, background: key !== 'launched' ? 'var(--zm-accent)' : 'var(--zm-success)', color: 'var(--zm-accent-on)', borderRadius: 20, padding: '1px 7px', fontSize: 10.5, fontWeight: 700 }}>
+                  {count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── NSO Sites tab ── */}
+      {tab === 'nso' && (
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+            <SearchBox value={q} onChange={setQ} />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--zm-font-body)', fontSize: 12, color: 'var(--zm-fg-3)' }}>
+              <Icon name="calendar" size={13} /> Last activity
+            </span>
+            <input type="date" value={range.from} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))}
+              style={{ height: 36, padding: '0 10px', border: '1px solid var(--zm-line)', borderRadius: 8, background: 'var(--zm-surface)', fontFamily: 'var(--zm-font-mono)', fontSize: 12, color: 'var(--zm-fg)', outline: 'none' }} />
+            <span style={{ color: 'var(--zm-fg-4)' }}>→</span>
+            <input type="date" value={range.to} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
+              style={{ height: 36, padding: '0 10px', border: '1px solid var(--zm-line)', borderRadius: 8, background: 'var(--zm-surface)', fontFamily: 'var(--zm-font-mono)', fontSize: 12, color: 'var(--zm-fg)', outline: 'none' }} />
+            {dateActive && (
+              <button onClick={() => setRange({ from: '', to: '' })}
+                style={{ height: 36, padding: '0 10px', border: '1px solid var(--zm-line)', borderRadius: 8, background: 'var(--zm-surface)', color: 'var(--zm-fg-2)', fontFamily: 'var(--zm-font-body)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Clear</button>
+            )}
+            <span style={{ flex: 1 }} />
+            <button onClick={refreshNso}
+              style={{ height: 36, padding: '0 12px', border: '1px solid var(--zm-line)', borderRadius: 8, background: 'var(--zm-surface)', color: 'var(--zm-fg)', fontFamily: 'var(--zm-font-body)', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Icon name="refresh" size={13} /> Refresh
+            </button>
+          </div>
+
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--zm-surface)', border: '1px solid var(--zm-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--zm-shadow-1)' }}>
+            <div style={{ flexShrink: 0, display: 'grid', gridTemplateColumns: '0.9fr 1.6fr 1fr 1.1fr 1.2fr 1.2fr', gap: 10, padding: '11px 16px', background: 'var(--zm-surface-2)', borderBottom: '1px solid var(--zm-line)', fontFamily: 'var(--zm-font-body)', fontWeight: 600, fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--zm-fg-3)' }}>
+              <span>Code</span><span>Site</span><span>City</span><span>Owner</span><span>Project</span><span>Finance</span>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {loading && <div style={{ padding: 42, textAlign: 'center', color: 'var(--zm-fg-3)', fontFamily: 'var(--zm-font-body)', fontSize: 13 }}>Loading launch sites…</div>}
+              {!loading && error && <div style={{ margin: 16, padding: 14, borderRadius: 10, border: '1px solid var(--zm-danger)', background: 'var(--zm-danger-soft)', color: 'var(--zm-danger)', fontFamily: 'var(--zm-font-body)', fontSize: 13 }}>{error}</div>}
+              {!loading && !error && filtered.map((site) => {
+                const owner = site.createdBy?.name || site.createdBy || '—';
+                return (
+                  <div key={site.id} data-site-id={site.id} className="zm-row" role="button" tabIndex={0} onClick={() => onOpenSite?.(site)} onKeyDown={keyActivate(() => onOpenSite?.(site))}
+                    style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.6fr 1fr 1.1fr 1.2fr 1.2fr', gap: 10, padding: '12px 16px', borderBottom: '1px solid var(--zm-line-faint)', cursor: 'pointer', position: 'relative', alignItems: 'center' }}>
+                    <span style={{ fontFamily: 'var(--zm-font-mono)', fontSize: 11.5, color: 'var(--zm-fg-3)' }}>{displayCode(site)}</span>
+                    <div>
+                      <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 13, fontWeight: 600, color: 'var(--zm-fg)' }}>{site.name}</span>
+                      {site.isLaunched && (
+                        <span style={{ marginLeft: 8, display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 800, background: 'var(--zm-success-soft)', color: 'var(--zm-success)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                          Launched
+                        </span>
+                      )}
+                    </div>
+                    <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 13, color: 'var(--zm-fg)' }}>{site.city}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <Avatar name={owner} size={20} />
+                      <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 12.5, color: 'var(--zm-fg-2)' }}>{owner}</span>
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--zm-font-body)', fontSize: 12, fontWeight: 700, color: 'var(--zm-success)' }}>
+                      <Icon name="check" size={12} /> {PROJECT_LABELS[site.projectStatus] || 'With NSO'}
+                    </span>
+                    <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 12, color: site.financeStatus === 'approved' ? 'var(--zm-success)' : 'var(--zm-fg-2)', fontWeight: 600 }}>
+                      {FINANCE_LABELS[site.financeStatus || 'pending'] || site.financeStatus}
+                    </span>
+                  </div>
+                );
+              })}
+              {!loading && !error && filtered.length === 0 && (
+                <div style={{ padding: 48, textAlign: 'center', color: 'var(--zm-fg-3)', fontFamily: 'var(--zm-font-body)', fontSize: 13 }}>
+                  {rows.length === 0 ? 'No sites in launch yet.' : 'No sites match the current filter.'}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Review tab (exec / supervisor) ── */}
+      {tab === 'review' && showReview && (
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--zm-surface)', border: '1px solid var(--zm-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--zm-shadow-1)' }}>
+          <div style={{ flexShrink: 0 }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--zm-line)', background: 'var(--zm-surface-2)' }}>
+              <div style={{ fontFamily: 'var(--zm-font-body)', fontSize: 13, color: 'var(--zm-fg-2)' }}>
+                Sites awaiting your review. <strong>Creator-stage</strong> rows (sites you created) are read-only — approve or reject the rent with a comment, and it flows to a supervisor. <strong>Supervisor-stage</strong> rows let you adjust the rent before approving / rejecting, and it flows to the admin's final confirm.
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.5fr 0.9fr 1.4fr auto', gap: 12, padding: '9px 16px', borderBottom: '1px solid var(--zm-line)', fontFamily: 'var(--zm-font-body)', fontWeight: 600, fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--zm-fg-3)' }}>
+              <span>Code</span><span>Site</span><span>City</span><span>Verdicts</span><span style={{ textAlign: 'right', paddingRight: 16 }}>Action</span>
+            </div>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {approvalLoading && <div style={{ padding: 32, textAlign: 'center', color: 'var(--zm-fg-3)', fontFamily: 'var(--zm-font-body)', fontSize: 13 }}>Loading…</div>}
+            {approvalError && (
+              <div style={{ margin: 16, padding: 14, borderRadius: 10, border: '1px solid var(--zm-danger)', background: 'var(--zm-danger-soft)', color: 'var(--zm-danger)', fontFamily: 'var(--zm-font-body)', fontSize: 13 }}>{approvalError}</div>
+            )}
+
+            {!approvalLoading && reviewItems.map((item) => (
+              <ReviewRow key={item.site_id} item={item}
+                onReview={(it) => setReview({ siteId: it.site_id, role: it.status === 'under_supervisor_review' ? 'supervisor' : 'exec' })} />
+            ))}
+
+            {!approvalLoading && reviewItems.length === 0 && (
+              <div style={{ padding: 48, textAlign: 'center', color: 'var(--zm-fg-3)', fontFamily: 'var(--zm-font-body)', fontSize: 13 }}>
+                Nothing awaiting your review.
+              </div>
+            )}
+
+            {/* Pager loads more of all launch-approval rows; the review buckets
+                are derived client-side from the accumulated set. */}
+            {approvalStatus === 'ready' && (
+              <ViewMoreButton
+                hasMore={approvalHasMore}
+                loadingMore={approvalLoadingMore}
+                loaded={approvalItems.length}
+                total={approvalTotal}
+                onClick={loadMoreApprovals}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Launched tab ── */}
+      {tab === 'launched' && (
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <SearchBox value={q} onChange={setQ} />
+        </div>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--zm-surface)', border: '1px solid var(--zm-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--zm-shadow-1)' }}>
+          <div style={{ flexShrink: 0, display: 'grid', gridTemplateColumns: '0.8fr 1.5fr 0.9fr 1fr', gap: 12, padding: '9px 16px', borderBottom: '1px solid var(--zm-line)', fontFamily: 'var(--zm-font-body)', fontWeight: 600, fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--zm-fg-3)' }}>
+            <span>Code</span><span>Site</span><span>City</span><span>Launched On</span>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {approvalLoading && <div style={{ padding: 32, textAlign: 'center', color: 'var(--zm-fg-3)', fontSize: 13 }}>Loading…</div>}
+            {!approvalLoading && launchedFiltered.map((item) => (
+              <div key={item.site_id} style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.5fr 0.9fr 1fr', gap: 12, padding: '13px 16px', borderBottom: '1px solid var(--zm-line-faint)', alignItems: 'center' }}>
+                <span style={{ fontFamily: 'var(--zm-font-mono)', fontSize: 11.5, color: 'var(--zm-fg-3)' }}>{displayCode(item)}</span>
+                <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 13, fontWeight: 600, color: 'var(--zm-fg)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {item.site_name}
+                  <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 800, background: 'var(--zm-success-soft)', color: 'var(--zm-success)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Launched</span>
+                </span>
+                <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 13, color: 'var(--zm-fg)' }}>{item.city}</span>
+                <span style={{ fontFamily: 'var(--zm-font-mono)', fontSize: 12, color: 'var(--zm-fg-2)' }}>
+                  {item.launched_at ? new Date(item.launched_at).toLocaleDateString('en-IN') : '—'}
+                </span>
+              </div>
+            ))}
+            {!approvalLoading && launchedFiltered.length === 0 && (
+              <div style={{ padding: 48, textAlign: 'center', color: 'var(--zm-fg-3)', fontFamily: 'var(--zm-font-body)', fontSize: 13 }}>
+                {needle ? 'No launched sites match your search.' : 'No sites have been launched yet.'}
+              </div>
+            )}
+            {/* Pager loads more of all launch-approval rows; the launched bucket
+                is derived client-side from the accumulated set. */}
+            {approvalStatus === 'ready' && (
+              <ViewMoreButton
+                hasMore={approvalHasMore}
+                loadingMore={approvalLoadingMore}
+                loaded={approvalItems.length}
+                total={approvalTotal}
+                onClick={loadMoreApprovals}
+              />
+            )}
+          </div>
+        </div>
+        </div>
+      )}
+
+      {/* ── Financial Closure tab (supervisor only) ── */}
+      {tab === 'closure' && isSupervisor && (
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+            <SearchBox value={q} onChange={setQ} placeholder="Search code, site, city, pending with…" />
+            {/* Two pills rather than the closure module's four stages. */}
+            <div style={{ display: 'inline-flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--zm-line)' }}>
+              {[
+                { key: 'pending', label: 'Pending', count: fcCounts.pending },
+                { key: 'closed', label: 'Closed', count: fcCounts.closed },
+              ].map(({ key, label, count }) => (
+                <button key={key} onClick={() => setFcFilter(key)} aria-pressed={fcFilter === key}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 34, padding: '0 14px', border: 'none', cursor: 'pointer',
+                    fontFamily: 'var(--zm-font-body)', fontSize: 12.5, fontWeight: 600,
+                    background: fcFilter === key ? 'var(--zm-accent)' : 'transparent',
+                    color: fcFilter === key ? 'var(--zm-accent-on)' : 'var(--zm-fg-2)' }}>
+                  {label}
+                  <span style={{ fontSize: 10.5, fontWeight: 800, opacity: 0.85 }}>{count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--zm-surface)', border: '1px solid var(--zm-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--zm-shadow-1)' }}>
+            <div style={{ flexShrink: 0, display: 'grid', gridTemplateColumns: '0.8fr 1.5fr 0.9fr 1.3fr 0.9fr 0.6fr', gap: 12, padding: '9px 16px', borderBottom: '1px solid var(--zm-line)', fontFamily: 'var(--zm-font-body)', fontWeight: 600, fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--zm-fg-3)' }}>
+              <span>Code</span><span>Site</span><span>City</span><span>Pending With</span><span>Closure Status</span><span />
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {fcStatus === 'loading' && <div style={{ padding: 32, textAlign: 'center', color: 'var(--zm-fg-3)', fontSize: 13 }}>Loading…</div>}
+              {fcStatus === 'error' && (
+                <div style={{ padding: 32, textAlign: 'center', color: 'var(--zm-danger)', fontFamily: 'var(--zm-font-body)', fontSize: 13 }}>
+                  Could not load financial closure.
+                </div>
+              )}
+              {fcStatus === 'ready' && fcFiltered.map((row) => (
+                <div key={row.siteId} style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.5fr 0.9fr 1.3fr 0.9fr 0.6fr', gap: 12, padding: '13px 16px', borderBottom: '1px solid var(--zm-line-faint)', alignItems: 'center' }}>
+                  <span style={{ fontFamily: 'var(--zm-font-mono)', fontSize: 11.5, color: 'var(--zm-fg-3)' }}>{displayCode(row)}</span>
+                  <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 13, fontWeight: 600, color: 'var(--zm-fg)' }}>{row.siteName}</span>
+                  <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 13, color: 'var(--zm-fg)' }}>{row.city}</span>
+                  <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 12.5, color: 'var(--zm-fg-2)' }}>{pendingWith(row)}</span>
+                  <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: CLOSURE_BUDGET_TONES[row.closureStatus] || 'var(--zm-accent)' }}>
+                    {CLOSURE_BUDGET_LABELS[row.closureStatus] || row.closureStatus || '—'}
+                  </span>
+                  <span>
+                    {isClosed(row) && (
+                      <button onClick={() => setClosureDetail(row.siteId)}
+                        aria-label={`Details for ${row.siteName}`}
+                        style={{ height: 28, padding: '0 12px', borderRadius: 7, border: '1px solid var(--zm-line)', background: 'var(--zm-surface-2)', color: 'var(--zm-fg)', fontFamily: 'var(--zm-font-body)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                        Details
+                      </button>
+                    )}
+                  </span>
+                </div>
+              ))}
+              {fcStatus === 'ready' && fcFiltered.length === 0 && (
+                <div style={{ padding: 48, textAlign: 'center', color: 'var(--zm-fg-3)', fontFamily: 'var(--zm-font-body)', fontSize: 13 }}>
+                  {needle
+                    // Search runs over the loaded rows only, so say so rather than
+                    // report an absence that has not been established.
+                    ? (fcHasMore
+                      ? `No match in the ${fcItems.length} loaded — use “View more” to search the rest.`
+                      : 'No closures match your search.')
+                    : fcFilter === 'closed' ? 'No closed sites yet.' : 'No sites are in financial closure.'}
+                </div>
+              )}
+              {fcStatus === 'ready' && (
+                <ViewMoreButton
+                  hasMore={fcHasMore}
+                  loadingMore={fcLoadingMore}
+                  loaded={fcItems.length}
+                  total={fcTotal}
+                  onClick={loadMoreFc}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {closureDetail && (
+        <ClosureDetailsDrawer
+          siteId={closureDetail}
+          onClose={() => setClosureDetail(null)}
+        />
+      )}
+
+      {review && (
+        <LaunchReviewModal
+          siteId={review.siteId}
+          role={review.role}
+          onClose={() => setReview(null)}
+          onDone={() => { loadApprovals(); refreshNso(); }}
+        />
+      )}
+    </div>
+  );
+}

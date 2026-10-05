@@ -1,0 +1,28 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>html,body{margin:0;padding:0;background:var(--zm-bg);font-family:var(--zm-font-body)}
+.wrap{padding:20px 22px}
+.table{background:var(--zm-surface);border:1px solid var(--zm-line);border-radius:10px;overflow:hidden}
+.hd, .rw{display:grid;grid-template-columns:1.5fr 1fr 0.9fr 0.7fr 0.6fr;padding:10px 16px;align-items:center;gap:8px}
+.hd{background:var(--zm-surface-2);border-bottom:1px solid var(--zm-line);font-family:var(--zm-font-body);font-weight:600;font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase;color:var(--zm-fg-3)}
+.rw{border-bottom:1px solid var(--zm-line-faint);font-size:13px;color:var(--zm-fg)}
+.rw:last-child{border:none}
+.rw.hov{background:var(--zm-surface-hover)}
+.id{font-family:var(--zm-font-mono);font-size:12px;color:var(--zm-fg-3)}
+.name{font-weight:600;color:var(--zm-fg);font-family:var(--zm-font-body);font-size:13px}
+.cell-name{display:flex;flex-direction:column;gap:2px}
+.num{font-family:var(--zm-font-mono);font-feature-settings:'tnum' 1;font-size:13px;color:var(--zm-fg);text-align:right}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;font-family:var(--zm-font-body);font-weight:600;font-size:10px;letter-spacing:0.1em;text-transform:uppercase}
+.dot{width:5px;height:5px;border-radius:999px;display:inline-block}
+.bd{background:#E0F0F0;color:#005F60}.bd .dot{background:#005F60}
+.loi{background:#FDF1DD;color:#B45309}.loi .dot{background:#D97706}
+.pay{background:#D5F0E2;color:#047857}.pay .dot{background:#047857}
+</style></head>
+<body><div class="wrap">
+<div class="table">
+<div class="hd"><span>Site</span><span>City</span><span style="text-align:right">Total op cost</span><span style="text-align:right">Days</span><span>Stage</span></div>
+<div class="rw"><div class="cell-name"><span class="name">Powai · Lake Homes</span><span class="id">site_a8f3c129</span></div><span>Mumbai</span><span class="num">₹1,42,000</span><span class="num">12</span><span class="pill loi"><span class="dot"></span>LOI</span></div>
+<div class="rw hov"><div class="cell-name"><span class="name">Indiranagar 12th Main</span><span class="id">site_b7e2118a</span></div><span>Bengaluru</span><span class="num">₹1,18,400</span><span class="num">04</span><span class="pill bd"><span class="dot"></span>BD</span></div>
+<div class="rw"><div class="cell-name"><span class="name">Khan Market · Shop 27</span><span class="id">site_c4d09f02</span></div><span>New Delhi</span><span class="num">₹2,01,800</span><span class="num">21</span><span class="pill pay"><span class="dot"></span>Pay</span></div>
+</div>
+</div></body></html>

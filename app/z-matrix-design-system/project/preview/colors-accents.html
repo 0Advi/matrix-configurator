@@ -1,0 +1,41 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>html,body{margin:0;padding:0;background:var(--zm-bg);font-family:var(--zm-font-body)}
+.split{display:grid;grid-template-columns:1fr 1fr;min-height:100%}
+.side{padding:24px}
+.l{background:#F5F7FA}
+.d{background:#0B0C10}
+.lbl{font-family:var(--zm-font-body);font-weight:600;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;margin-bottom:14px}
+.l .lbl{color:#6B7280}
+.d .lbl{color:#7C8499}
+.stack{display:flex;flex-direction:column;gap:10px}
+.row{display:flex;align-items:center;gap:10px}
+.dot{width:36px;height:36px;border-radius:8px;flex:0 0 36px}
+.txt{display:flex;flex-direction:column;line-height:1.2}
+.l .name{color:#111827;font-weight:600;font-size:13px}
+.d .name{color:#E2E8F0;font-weight:600;font-size:13px}
+.l .hex{color:#6B7280;font-family:var(--zm-font-mono);font-size:11px}
+.d .hex{color:#7C8499;font-family:var(--zm-font-mono);font-size:11px}
+</style></head>
+<body><div class="split">
+<div class="side l">
+  <div class="lbl">Light · Accent</div>
+  <div class="stack">
+    <div class="row"><div class="dot" style="background:#005F60"></div><div class="txt"><span class="name">Matrix Teal</span><span class="hex">#005F60 · primary CTA</span></div></div>
+    <div class="row"><div class="dot" style="background:#004849"></div><div class="txt"><span class="name">Teal Hover</span><span class="hex">#004849</span></div></div>
+    <div class="row"><div class="dot" style="background:#E0F0F0"></div><div class="txt"><span class="name">Teal Soft</span><span class="hex">#E0F0F0 · tint bg</span></div></div>
+    <div class="row"><div class="dot" style="background:#D97706"></div><div class="txt"><span class="name">Burnished Copper</span><span class="hex">#D97706 · data highlight</span></div></div>
+    <div class="row"><div class="dot" style="background:#FDF1DD"></div><div class="txt"><span class="name">Copper Soft</span><span class="hex">#FDF1DD</span></div></div>
+  </div>
+</div>
+<div class="side d">
+  <div class="lbl">Dark · Accent</div>
+  <div class="stack">
+    <div class="row"><div class="dot" style="background:#00B4D8;box-shadow:0 0 22px rgba(0,180,216,0.45)"></div><div class="txt"><span class="name">Cyber Teal</span><span class="hex">#00B4D8 · glow</span></div></div>
+    <div class="row"><div class="dot" style="background:#4DC8E3"></div><div class="txt"><span class="name">Teal Hover</span><span class="hex">#4DC8E3</span></div></div>
+    <div class="row"><div class="dot" style="background:rgba(0,180,216,0.12);border:1px solid rgba(0,180,216,0.32)"></div><div class="txt"><span class="name">Teal Soft</span><span class="hex">12% alpha</span></div></div>
+    <div class="row"><div class="dot" style="background:#F59E0B;box-shadow:0 0 22px rgba(245,158,11,0.4)"></div><div class="txt"><span class="name">Amber Glow</span><span class="hex">#F59E0B · critical</span></div></div>
+    <div class="row"><div class="dot" style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.32)"></div><div class="txt"><span class="name">Amber Soft</span><span class="hex">12% alpha</span></div></div>
+  </div>
+</div>
+</div></body></html>

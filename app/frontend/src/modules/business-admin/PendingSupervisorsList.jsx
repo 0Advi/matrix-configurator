@@ -1,0 +1,145 @@
+import React from 'react';
+import { T, Icon, Card, Button, Skeleton, EmptyState, ErrorState, TABULAR } from './ui/kit.jsx';
+import { WORKSPACE_MODULES } from '../shared/workspaceModules.js';
+
+// Presentational. The shell owns fetching and passes:
+//   data = { status, items, error }   — items: [{ id, email, module, createdAt }]
+//   onApprove(user) -> Promise        — user.module is required by the API
+//   onReject(user)  -> Promise
+//
+// Pending OBSERVERS arrive in the same list, carrying module: 'observer' and
+// kind: 'observer'. They shipped in a second queue lower down the Departments
+// tab, which meant a request could sit unnoticed under a heading nobody
+// scrolls to — this is where an admin comes to approve someone. The shell
+// dispatches approve/reject on `kind`, so the two APIs stay separate while the
+// queue is one.
+//
+// Derived from the shared module list rather than hand-written. The hand-written
+// version had drifted: it was missing `nso` and `project_excellence`, both of
+// which are real dept-onboarded modules, so a supervisor pending for either
+// appeared under All and could not be reached by any tab. Building the tabs from
+// the same list the rest of the app uses is what stops that recurring.
+//
+// Payment + Recce are absent from that list too — Recce is part of Design, and
+// Payment was retired as a module (202606132).
+const FILTERS = [
+  { key: 'all', label: 'All' },
+  ...WORKSPACE_MODULES.map((m) => ({ key: m.value, label: m.label })),
+  // Not a module: an observer is workspace-wide. It shares the queue because
+  // it shares the question ("who is waiting?"), and rides the module-keyed
+  // filter by carrying module: 'observer'.
+  { key: 'observer', label: 'Observer' },
+];
+
+export default function PendingSupervisorsList({ data, onApprove, onReject, onRetry }) {
+  const [filter, setFilter] = React.useState('all');
+  const [busyUserId, setBusyUserId] = React.useState(null);
+  const [error, setError] = React.useState(null);
+
+  const items = data.items || [];
+  const counts = React.useMemo(() => {
+    const c = { all: items.length };
+    for (const u of items) c[u.module] = (c[u.module] || 0) + 1;
+    return c;
+  }, [items]);
+
+  const visible = filter === 'all' ? items : items.filter((u) => u.module === filter);
+
+  async function act(fn, user) {
+    setBusyUserId(user.id);
+    setError(null);
+    try { await fn(user); }
+    catch (err) { setError(err?.detail || err?.message || 'Action failed'); }
+    finally { setBusyUserId(null); }
+  }
+
+  if (data.status === 'error') return <ErrorState message={data.error} onRetry={onRetry} />;
+  const loading = data.status === 'loading';
+
+  return (
+    <div>
+      <div role="tablist" style={{ display: 'inline-flex', gap: 4, padding: 4, marginBottom: 16,
+        background: T.chip, border: `1px solid ${T.line}`, borderRadius: T.radiusPill, flexWrap: 'wrap' }}>
+        {FILTERS.map(({ key, label }) => {
+          const isActive = filter === key;
+          const n = counts[key] || 0;
+          return (
+            <button key={key} role="tab" aria-selected={isActive} onClick={() => setFilter(key)}
+              className={`ac-tab${isActive ? ' is-active' : ''}`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 30, padding: '0 13px',
+                borderRadius: T.radiusPill, border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 650,
+                background: isActive ? T.invBg : 'transparent', color: isActive ? T.invText : T.textMuted }}>
+              {label}
+              <span style={{ minWidth: 17, height: 17, padding: '0 5px', borderRadius: 999, fontSize: 10.5, fontWeight: 700,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', ...TABULAR,
+                background: isActive ? T.invSoft : T.chip,
+                color: isActive ? T.invText : T.textFaint }}>{n}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* One of the two source queues failed while the other loaded. The rows
+          below are real but incomplete, and saying so is the whole point —
+          a short list that looks complete is worse than an error. */}
+      {data.partialError && (
+        <div role="status" style={{ padding: '10px 14px', borderRadius: T.radiusSm, background: T.chip,
+          color: T.textMuted, marginBottom: 14, fontSize: 12.5, border: `1px solid ${T.line}` }}>
+          {data.partialError}
+        </div>
+      )}
+
+      {error && (
+        <div style={{ padding: '10px 14px', borderRadius: T.radiusSm, background: T.dangerSoft,
+          color: T.dangerText, marginBottom: 14, fontSize: 12.5, border: '1px solid rgba(192,65,63,0.35)' }}>{error}</div>
+      )}
+
+      {loading && (
+        <Card style={{ overflow: 'hidden' }}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '15px 18px',
+              borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
+              <Skeleton w={200} h={13} /><span style={{ flex: 1 }} /><Skeleton w={72} h={28} r={8} /><Skeleton w={84} h={28} r={8} />
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {!loading && visible.length === 0 && (
+        <EmptyState icon={Icon.users}
+          title={filter === 'all'
+            ? 'No one awaiting approval'
+            : (filter === 'observer' ? 'No pending observers' : `No pending ${filter.toUpperCase()} supervisors`)}
+          hint={filter === 'observer'
+            ? 'People who sign up with the workspace observer code will appear here for review.'
+            : 'New sign-ups using a valid department code will appear here for review.'} />
+      )}
+
+      {!loading && visible.length > 0 && (
+        <Card raised className="ac-stagger" style={{ overflow: 'hidden' }}>
+          {visible.map((u, i) => {
+            const isBusy = busyUserId === u.id;
+            return (
+              <div key={u.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.6fr) auto minmax(0,1fr) auto',
+                gap: 14, padding: '14px 18px', borderTop: i === 0 ? 'none' : `1px solid ${T.line}`,
+                alignItems: 'center', opacity: isBusy ? 0.6 : 1 }}>
+                <span style={{ fontFamily: T.mono, fontSize: 12.5, color: T.text, overflow: 'hidden',
+                  textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</span>
+                <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                  color: T.textMuted, padding: '3px 9px', borderRadius: 999, background: T.chip,
+                  border: `1px solid ${T.line}`, justifySelf: 'start' }}>{u.module}</span>
+                <span style={{ fontSize: 11.5, color: T.textFaint, fontFamily: T.mono, overflow: 'hidden',
+                  textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.createdAt ? new Date(u.createdAt).toLocaleString() : '—'}</span>
+                <span style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <Button variant="ghost" size="sm" disabled={isBusy} onClick={() => act(onReject, u)}>Reject</Button>
+                  <Button variant="solid" size="sm" loading={isBusy} icon={!isBusy && <Icon.check size={14} />}
+                    onClick={() => act(onApprove, u)}>Approve</Button>
+                </span>
+              </div>
+            );
+          })}
+        </Card>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,443 @@
+import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import Icon from '../primitives/Icon.jsx';
+import { ROUTES } from '../../../router/routes.js';
+import { useSession } from '../../../state/SessionContext.jsx';
+
+// Render bodies preserved exactly from Chrome.jsx Sidebar + SidebarItem components.
+// Only changes:
+//   - SidebarItem.onClick now calls navigate(); active derives from useLocation()
+//   - Role switcher uses <select> for the role dropdown.
+
+function SidebarItem({ icon, label, count, active, onClick, collapsed = false }) {
+  return (
+    <div
+      onClick={onClick}
+      className="zm-sb-item"
+      title={collapsed ? label : undefined}
+      aria-label={label}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+      style={{
+      display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: collapsed ? 0 : 10,
+      minHeight: collapsed ? 40 : 'auto',
+      padding: collapsed ? '8px 0' : '7px 10px', borderRadius: collapsed ? 14 : 7, cursor: 'pointer',
+      background: active ? 'var(--zm-sidebar-active-bg)' : 'transparent',
+      color: active ? 'var(--zm-sidebar-fg)' : 'var(--zm-sidebar-fg-muted)',
+      fontFamily: 'var(--zm-font-body)', fontSize: 13, fontWeight: active ? 600 : 500,
+      position: 'relative',
+      transition: 'background 160ms var(--zm-ease), color 160ms var(--zm-ease), border-radius 160ms var(--zm-ease)',
+    }}
+    onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--zm-sidebar-hover-bg)'; }}
+    onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+    >
+      {active && <span style={{ position: 'absolute', left: collapsed ? 5 : 0, top: 8, bottom: 8, width: 2, background: 'var(--zm-sidebar-accent)', borderRadius: 2 }}/>}
+      <span style={{ color: active ? 'var(--zm-sidebar-accent)' : 'var(--zm-sidebar-icon)', display: 'inline-flex' }}>
+        <Icon name={icon} size={collapsed ? 19 : 16} stroke={collapsed ? 1.8 : 1.5}/>
+      </span>
+      {!collapsed && label}
+      {count != null && !collapsed && (
+        <span style={{
+          marginLeft: 'auto', fontFamily: 'var(--zm-font-mono)', fontSize: 11,
+          color: active ? 'var(--zm-sidebar-accent)' : 'var(--zm-sidebar-fg-muted)', fontWeight: 500,
+        }}>{count}</span>
+      )}
+      {count != null && collapsed && (
+        <span style={{
+          position: 'absolute', top: 4, right: 5,
+          minWidth: 15, height: 15, padding: '0 3px', borderRadius: 999,
+          background: active ? 'var(--zm-sidebar-accent)' : 'var(--zm-sidebar-active-bg)',
+          border: '1px solid var(--zm-sidebar-line)',
+          color: active ? '#1A1A1F' : 'var(--zm-sidebar-fg-muted)',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'var(--zm-font-mono)', fontSize: 9, fontWeight: 700,
+          lineHeight: 1,
+        }}>{count}</span>
+      )}
+    </div>
+  );
+}
+
+const SECTION_HEADING_STYLE = {
+  fontFamily: 'var(--zm-font-body)', fontWeight: 600, fontSize: 10,
+  letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--zm-sidebar-fg-faint)',
+  padding: '14px 10px 6px',
+};
+
+export default function Sidebar({ counts, role, onRole, collapsed = false }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { session, effectiveModule } = useSession();
+  // Prefer the JWT-borne module claim when it exists — that's the authoritative
+  // signal of which module a user actually belongs to. Only fall back to the
+  // current URL when the session has no module claim (mock-mode previews, where
+  // we still want the right menu to render based on where the user clicked).
+  const path = location.pathname;
+  const routeModule =
+    path.startsWith('/legal')              ? 'legal'              :
+    path.startsWith('/design')             ? 'design'             :
+    path.startsWith('/project-excellence') ? 'project_excellence' :
+    path.startsWith('/project')            ? 'project'            :
+    path.startsWith('/nso')                ? 'nso'                :
+    'bd';
+  const userModule = effectiveModule || routeModule;
+  const isModuleSurface = userModule === 'legal'
+    || userModule === 'design' || userModule === 'project' || userModule === 'nso'
+    || userModule === 'project_excellence';
+
+  // Active view derived from current URL path
+  const activeView =
+    path === ROUTES.OVERVIEW                              ? 'overview'  :
+    path === ROUTES.PIPELINE                             ? 'pipeline'  :
+    path === ROUTES.SHORTLIST || path.startsWith('/shortlist/') ? 'shortlist' :
+    path.startsWith('/staging-flow') || path.startsWith('/site-tracker') || path === ROUTES.DASHBOARD_MINIMAL_PREVIEW ? 'site-tracker' :
+    path.startsWith('/staging')                          ? 'staging'   :
+    path === ROUTES.ARCHIVE                              ? 'archive'   :
+    path === ROUTES.DD_FAILED                            ? 'dd-failed' :
+    path === ROUTES.TEAM                                 ? 'team'      :
+    path === ROUTES.LEGAL_OVERVIEW                       ? 'legal-overview' :
+    path === ROUTES.DESIGN_OVERVIEW                      ? 'design-overview' :
+    path === ROUTES.PROJECT_OVERVIEW                     ? 'project-overview' :
+    path === ROUTES.NSO_OVERVIEW                         ? 'nso-overview' :
+    path === ROUTES.LEGAL_CHANGE_REQUESTS                ? 'legal-change-requests' :
+    path.startsWith('/legal/process-flow')               ? 'legal-process-flow' :
+    path === ROUTES.LEGAL_REJECTED || path.startsWith('/legal/history') ? 'legal-history' :
+    path.startsWith('/legal')                            ? 'legal-ddr' :
+    path.startsWith('/payment')                          ? 'payment-licensing' :
+    path.startsWith('/launch')                           ? 'launch' :
+    path.startsWith('/design/process-flow')              ? 'design-process-flow' :
+    path.startsWith('/design/history')                   ? 'design-history' :
+    path.startsWith('/design')                           ? 'design' :
+    path === ROUTES.PROJECT_EXCELLENCE_OVERVIEW           ? 'pe-overview' :
+    path === ROUTES.PROJECT_EXCELLENCE_HISTORY            ? 'pe-history' :
+    path === ROUTES.PROJECT_EXCELLENCE_QUALITY_AUDIT      ? 'pe-quality-audit' :
+    path.startsWith('/project-excellence')               ? 'pe-queue' :
+    path.startsWith('/project/process-flow')             ? 'project-process-flow' :
+    path.startsWith('/project/history')                  ? 'project-history' :
+    path.startsWith('/project/sites')                    ? 'project-sites' :
+    path.startsWith('/project/nso-handover')             ? 'project-nso-handover' :
+    path.startsWith('/project/financial-closure')        ? 'project-financial-closure' :
+    path.startsWith('/project')                          ? 'project-home' :
+    path.startsWith('/nso/process-flow')                 ? 'nso-process-flow' :
+    path.startsWith('/nso/history')                      ? 'nso-history' :
+    path.startsWith('/nso')                              ? 'nso-home' :
+    'overview';
+
+  const go = (route) => navigate(route);
+  const canSeeTeam = role === 'supervisor' || role === 'executive' || role === 'exec';
+  // Payment is a finance view inside BD — both roles reach it (the Overview
+  // "Payments" KPI deep-links here), so both get the sidebar entry.
+  const canSeePayment = role === 'supervisor' || role === 'executive' || role === 'exec';
+  const executiveLabel = isModuleSurface ? 'Executive' : 'BD exec';
+
+  return (
+    <aside className="zm-sidebar" style={{
+      width: collapsed ? 72 : 232, flex: `0 0 ${collapsed ? 72 : 232}px`, padding: collapsed ? '14px 10px' : '14px 12px',
+      background: 'var(--zm-sidebar-bg)', borderRight: '1px solid var(--zm-sidebar-line)',
+      display: 'flex', flexDirection: 'column', gap: 2,
+      overflowY: 'auto',
+      transition: 'width 220ms var(--zm-ease), flex-basis 220ms var(--zm-ease), padding 220ms var(--zm-ease)',
+    }}>
+      {!isModuleSurface && (
+        <>
+          {!collapsed && <div style={{ ...SECTION_HEADING_STYLE, padding: '4px 10px 6px' }}>Overview</div>}
+          <SidebarItem icon="dashboard" label="Sites" active={activeView === 'overview'} onClick={() => go(ROUTES.OVERVIEW)} collapsed={collapsed}/>
+          {!collapsed && <div style={SECTION_HEADING_STYLE}>Workflow</div>}
+          <SidebarItem icon="document" label="Pipeline" count={counts.pipeline} active={activeView === 'pipeline'} onClick={() => go(ROUTES.PIPELINE)} collapsed={collapsed}/>
+          <SidebarItem icon="bookmark" label="Shortlisted sites" count={counts.shortlist} active={activeView === 'shortlist'} onClick={() => go(ROUTES.SHORTLIST)} collapsed={collapsed}/>
+          <SidebarItem icon="layers" label="Sites in process" count={counts.staging} active={activeView === 'staging'} onClick={() => go(ROUTES.STAGING)} collapsed={collapsed}/>
+          {role === 'supervisor' && (
+            <SidebarItem icon="archiveBox" label="Archived / Rejected" count={counts.archive} active={activeView === 'archive'} onClick={() => go(ROUTES.ARCHIVE)} collapsed={collapsed}/>
+          )}
+          <SidebarItem icon="warning" label="DDR negative" active={activeView === 'dd-failed'} onClick={() => go(ROUTES.DD_FAILED)} collapsed={collapsed}/>
+          <SidebarItem icon="route" label="Process flow" active={activeView === 'site-tracker'} onClick={() => go(ROUTES.SITE_TRACKER)} collapsed={collapsed}/>
+          {canSeePayment && (
+            <SidebarItem icon="paymentCard" label="Payment" active={activeView === 'payment-licensing'} onClick={() => go(ROUTES.PAYMENT)} collapsed={collapsed}/>
+          )}
+          <SidebarItem icon="flag" label="Launch" active={activeView === 'launch'} onClick={() => go(ROUTES.LAUNCH)} collapsed={collapsed}/>
+        </>
+      )}
+
+      {userModule === 'legal' && (
+        <>
+          {!collapsed && <div style={{ ...SECTION_HEADING_STYLE, padding: '4px 10px 6px' }}>Legal</div>}
+          <SidebarItem
+            icon="dashboard"
+            label="Overview"
+            active={activeView === 'legal-overview'}
+            onClick={() => go(ROUTES.LEGAL_OVERVIEW)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="legalShield"
+            label="Sites"
+            active={activeView === 'legal-ddr'}
+            onClick={() => go(ROUTES.LEGAL)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="warning"
+            label="Change requests"
+            active={activeView === 'legal-change-requests'}
+            onClick={() => go(ROUTES.LEGAL_CHANGE_REQUESTS)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="route"
+            label="Process flow"
+            active={activeView === 'legal-process-flow'}
+            onClick={() => go(ROUTES.LEGAL_PROCESS_FLOW)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="archiveBox"
+            label="History"
+            active={activeView === 'legal-history'}
+            onClick={() => go(ROUTES.LEGAL_HISTORY)}
+            collapsed={collapsed}
+          />
+        </>
+      )}
+
+      {userModule === 'design' && (
+        <>
+          {!collapsed && <div style={{ ...SECTION_HEADING_STYLE, padding: '4px 10px 6px' }}>Design</div>}
+          <SidebarItem
+            icon="dashboard"
+            label="Overview"
+            active={activeView === 'design-overview'}
+            onClick={() => go(ROUTES.DESIGN_OVERVIEW)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="box"
+            label="Sites"
+            active={activeView === 'design'}
+            onClick={() => go(ROUTES.DESIGN)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="route"
+            label="Process flow"
+            active={activeView === 'design-process-flow'}
+            onClick={() => go(ROUTES.DESIGN_PROCESS_FLOW)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="archiveBox"
+            label="History"
+            active={activeView === 'design-history'}
+            onClick={() => go(ROUTES.DESIGN_HISTORY)}
+            collapsed={collapsed}
+          />
+        </>
+      )}
+
+      {userModule === 'project' && (
+        <>
+          {!collapsed && <div style={{ ...SECTION_HEADING_STYLE, padding: '4px 10px 6px' }}>Project</div>}
+          <SidebarItem
+            icon="dashboard"
+            label="Overview"
+            active={activeView === 'project-overview'}
+            onClick={() => go(ROUTES.PROJECT_OVERVIEW)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="document"
+            label="Pipeline"
+            active={activeView === 'project-home'}
+            onClick={() => go(ROUTES.PROJECT)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="box"
+            label="Sites"
+            active={activeView === 'project-sites'}
+            onClick={() => go(ROUTES.PROJECT_SITES)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="flag"
+            label="NSO Handover"
+            active={activeView === 'project-nso-handover'}
+            onClick={() => go(ROUTES.PROJECT_NSO_HANDOVER)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="rupee"
+            label="Financial Closure"
+            active={activeView === 'project-financial-closure'}
+            onClick={() => go(ROUTES.PROJECT_FINANCIAL_CLOSURE)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="route"
+            label="Process flow"
+            active={activeView === 'project-process-flow'}
+            onClick={() => go(ROUTES.PROJECT_PROCESS_FLOW)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="archiveBox"
+            label="History"
+            active={activeView === 'project-history'}
+            onClick={() => go(ROUTES.PROJECT_HISTORY)}
+            collapsed={collapsed}
+          />
+        </>
+      )}
+
+      {userModule === 'nso' && (
+        <>
+          {!collapsed && <div style={{ ...SECTION_HEADING_STYLE, padding: '4px 10px 6px' }}>NSO</div>}
+          <SidebarItem
+            icon="dashboard"
+            label="Overview"
+            active={activeView === 'nso-overview'}
+            onClick={() => go(ROUTES.NSO_OVERVIEW)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="home"
+            label="Sites"
+            active={activeView === 'nso-home'}
+            onClick={() => go(ROUTES.NSO)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="route"
+            label="Process flow"
+            active={activeView === 'nso-process-flow'}
+            onClick={() => go(ROUTES.NSO_PROCESS_FLOW)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="archiveBox"
+            label="History"
+            active={activeView === 'nso-history'}
+            onClick={() => go(ROUTES.NSO_HISTORY)}
+            collapsed={collapsed}
+          />
+        </>
+      )}
+
+      {userModule === 'project_excellence' && (
+        <>
+          {!collapsed && <div style={{ ...SECTION_HEADING_STYLE, padding: '4px 10px 6px' }}>Project Excellence</div>}
+          <SidebarItem
+            icon="dashboard"
+            label="Overview"
+            active={activeView === 'pe-overview'}
+            onClick={() => go(ROUTES.PROJECT_EXCELLENCE_OVERVIEW)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="box"
+            label="Pipeline"
+            active={activeView === 'pe-queue'}
+            onClick={() => go(ROUTES.PROJECT_EXCELLENCE)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="check"
+            label="Quality Audit"
+            active={activeView === 'pe-quality-audit'}
+            onClick={() => go(ROUTES.PROJECT_EXCELLENCE_QUALITY_AUDIT)}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon="archiveBox"
+            label="History"
+            active={activeView === 'pe-history'}
+            onClick={() => go(ROUTES.PROJECT_EXCELLENCE_HISTORY)}
+            collapsed={collapsed}
+          />
+        </>
+      )}
+
+      {canSeeTeam && (
+        <>
+          {!collapsed && <div style={SECTION_HEADING_STYLE}>Workspace</div>}
+          <SidebarItem
+            icon="users"
+            label="Team"
+            count={counts.pendingUsers}
+            active={activeView === 'team'}
+            onClick={() => go(ROUTES.TEAM)}
+            collapsed={collapsed}
+          />
+        </>
+      )}
+
+      <div style={{ flex: 1 }}/>
+
+      {/* Role switcher — mock only; uses <select> to stay within 232px column */}
+      {onRole && !collapsed && (
+        <div style={{
+          padding: 10, margin: '0 4px 8px',
+          border: '1px solid var(--zm-sidebar-line)', borderRadius: 10,
+          background: 'var(--zm-sidebar-hover-bg)',
+          display: 'flex', flexDirection: 'column', gap: 8,
+        }}>
+          <span style={{ fontFamily: 'var(--zm-font-body)', fontWeight: 700, fontSize: 9.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--zm-sidebar-fg-faint)' }}>View as</span>
+          <select
+            value={role}
+            onChange={(e) => onRole(e.target.value)}
+            style={{
+              height: 32, padding: '0 10px',
+              border: '1px solid var(--zm-line)', borderRadius: 7,
+              background: 'var(--zm-surface)', color: 'var(--zm-fg)',
+              fontFamily: 'var(--zm-font-body)', fontSize: 12, fontWeight: 600,
+              cursor: 'pointer', outline: 'none', width: '100%',
+            }}
+          >
+            <option value="supervisor">Supervisor</option>
+            <option value="exec">{executiveLabel}</option>
+          </select>
+        </div>
+      )}
+
+      {collapsed ? (
+        <div
+          title="Ask Assistant"
+          aria-label="Ask Assistant"
+          style={{
+            height: 42,
+            margin: '0 2px',
+            border: '1px solid var(--zm-sidebar-line)',
+            borderRadius: 14,
+            background: 'var(--zm-sidebar-hover-bg)',
+            color: 'var(--zm-sidebar-accent)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon name="chat" size={18}/>
+        </div>
+      ) : (
+        <div style={{
+        padding: 12, margin: '0 4px',
+        border: '1px solid var(--zm-sidebar-line)', borderRadius: 10,
+        background: 'var(--zm-sidebar-hover-bg)',
+        display: 'flex', flexDirection: 'column', gap: 6,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--zm-sidebar-accent)' }}>
+          <Icon name="chat" size={14}/>
+          <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Ask Assistant</span>
+        </div>
+        <p style={{ margin: 0, fontFamily: 'var(--zm-font-body)', fontSize: 11.5, color: 'var(--zm-sidebar-fg-muted)', lineHeight: 1.45 }}>
+          "Sites in process overdue &gt; 14 days" — Answer in the desktop workspace.
+        </p>
+        </div>
+      )}
+    </aside>
+  );
+}

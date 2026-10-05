@@ -1,0 +1,74 @@
+/**
+ * Launch Approval API — the post-NSO *validation loop*.
+ *
+ * Flow:  pending_admin_review → under_exec_review → under_supervisor_review
+ *        → pending_admin_final → ready_to_launch → launched
+ *
+ * Until the admin's final confirm, edits live only on the backend staging row
+ * (launch_approvals) — the canonical site_details/sites rent columns are
+ * committed only by finalConfirm().
+ */
+import { createApiClient } from './axiosClient.js';
+
+const client = createApiClient();
+
+/**
+ * All launch approval rows (optionally filter by comma-separated status values).
+ *
+ * Accepts an options object `{ statusFilter, limit, offset } = {}`. limit/offset
+ * only travel to the backend when supplied, so an un-migrated caller still hits
+ * the backend default page size, unchanged. A bare string arg is still accepted
+ * as `statusFilter` for backward compatibility.
+ */
+export async function getLaunchQueue(options = {}) {
+  const { statusFilter, limit, offset } =
+    typeof options === 'string' ? { statusFilter: options } : options;
+  const params = {};
+  if (statusFilter) params.status = statusFilter;
+  if (limit != null) params.limit = limit;
+  if (offset != null) params.offset = offset;
+  const r = await client.get('/launch-approvals/queue', { params });
+  return r.data; // { items, total }
+}
+
+/** Full record for a single site (details + dept statuses + verdicts + timeline). */
+export async function getLaunchApproval(siteId) {
+  const r = await client.get(`/launch-approvals/${siteId}`);
+  return r.data;
+}
+
+/** Save rent-only staging fields (admin first/final touch, supervisor on review). */
+export async function saveLaunchRentFields(siteId, fields) {
+  const r = await client.patch(`/launch-approvals/${siteId}/rent-fields`, fields);
+  return r.data;
+}
+
+/** Admin 1st touch → route to the creating executive. */
+export async function sendForReview(siteId, comment) {
+  const r = await client.post(`/launch-approvals/${siteId}/send-for-review`, { comment: comment || null });
+  return r.data;
+}
+
+/** Executive verdict — { verdict: 'approved' | 'rejected', comment }. */
+export async function execReview(siteId, { verdict, comment }) {
+  const r = await client.post(`/launch-approvals/${siteId}/exec-review`, { verdict, comment: comment || null });
+  return r.data;
+}
+
+/** Supervisor verdict — { verdict: 'approved' | 'rejected', comment }. */
+export async function supervisorReview(siteId, { verdict, comment }) {
+  const r = await client.post(`/launch-approvals/${siteId}/supervisor-review`, { verdict, comment: comment || null });
+  return r.data;
+}
+
+/** Admin final touch → commit agreed rent terms to the DB, unlock Launch. */
+export async function finalConfirm(siteId, comment) {
+  const r = await client.post(`/launch-approvals/${siteId}/final-confirm`, { comment: comment || null });
+  return r.data;
+}
+
+/** Final go-live — sets site.is_launched = true. */
+export async function launchSite(siteId) {
+  const r = await client.post(`/launch-approvals/${siteId}/launch`);
+  return r.data;
+}

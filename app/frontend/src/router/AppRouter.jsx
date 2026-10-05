@@ -1,0 +1,588 @@
+import React, { Suspense, lazy } from 'react';
+import { Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
+import { ROUTES } from './routes.js';
+import { RequireModule, RequireRole } from './guards.jsx';
+import { useSession } from '../state/SessionContext.jsx';
+import { useAuthToken } from '../state/useAuthToken.js';
+
+import App from '../App.jsx';
+// Lazy-load the landing — Three.js is ~600KB minified. Authenticated users
+// redirect away before the chunk loads; unauthenticated visitors see the
+// fallback for the few hundred ms it takes to fetch on first paint.
+const ScaleLandingPage = lazy(() => import('../modules/landing/ScaleLandingPage.jsx'));
+// Per-company customized login page reached via the workspace-code dialog.
+const BrandedLoginPage = lazy(() => import('../modules/landing/BrandedLoginPage.jsx'));
+const OverviewPage = lazy(() => import('../modules/bd/overview/OverviewPage.jsx'));
+const DraftsPage = lazy(() => import('../modules/bd/drafts/DraftsPage.jsx'));
+const ShortlistPage = lazy(() => import('../modules/bd/shortlist/ShortlistPage.jsx'));
+const ExecStagingPage = lazy(() => import('../modules/staging/exec/ExecStagingPage.jsx'));
+const SupervisorStagingPage = lazy(() => import('../modules/staging/supervisor/SupervisorStagingPage.jsx'));
+const ArchivePage = lazy(() => import('../modules/archive/ArchivePage.jsx'));
+const TeamPage = lazy(() => import('../modules/team/TeamPage.jsx'));
+const LegalQueuePage = lazy(() => import('../modules/legal/LegalQueuePage.jsx'));
+const ChangeRequestsPage = lazy(() => import('../modules/legal/ChangeRequestsPage.jsx'));
+const DdrPage = lazy(() => import('../modules/legal/ddr/DdrPage.jsx'));
+const AgreementPage = lazy(() => import('../modules/legal/agreement/AgreementPage.jsx'));
+const DesignQueuePage = lazy(() => import('../modules/design/DesignQueuePage.jsx'));
+const DesignReviewPage = lazy(() => import('../modules/design/DesignReviewPage.jsx'));
+const ModuleHistoryPage = lazy(() => import('../modules/module-history/ModuleHistoryPage.jsx'));
+const ModuleProcessFlowPage = lazy(() => import('../modules/module-process-flow/ModuleProcessFlowPage.jsx'));
+const SiteStatusPage = lazy(() => import('../modules/bd/site-status/SiteStatusPage.jsx'));
+const SiteFinancePage = lazy(() => import('../modules/bd/site-finance/SiteFinancePage.jsx'));
+const SiteStageStatusPage = lazy(() => import('../modules/bd/site-stage-status/SiteStageStatusPage.jsx'));
+const DdFailedPage = lazy(() => import('../modules/bd/dd-failed/DdFailedPage.jsx'));
+const SiteTrackerListPage = lazy(() => import('../modules/bd/site-tracker/SiteTrackerListPage.jsx'));
+const SiteTrackerDetailPage = lazy(() => import('../modules/bd/site-tracker/SiteTrackerDetailPage.jsx'));
+const DashboardMinimalPreview = lazy(() => import('../modules/bd/dashboard-preview/DashboardMinimalPreview.jsx'));
+const LicensingPage = lazy(() => import('../modules/payment/licensing/LicensingPage.jsx'));
+const PaymentStubPage = lazy(() => import('../modules/payment/PaymentStubPage.jsx'));
+const LaunchPage = lazy(() => import('../modules/launch/LaunchPage.jsx'));
+const LegalOverviewPage = lazy(() => import('../modules/legal/LegalOverviewPage.jsx'));
+const DesignOverviewPage = lazy(() => import('../modules/design/DesignOverviewPage.jsx'));
+const ProjectOverviewPage = lazy(() => import('../modules/project/ProjectOverviewPage.jsx'));
+const NsoOverviewPage = lazy(() => import('../modules/nso/NsoOverviewPage.jsx'));
+const AdminPortalPage = lazy(() => import('../modules/admin/AdminPortalPage.jsx'));
+const BusinessAdminPortalPage = lazy(() => import('../modules/business-admin/BusinessAdminPortalPage.jsx'));
+const ObserverPortalPage = lazy(() => import('../modules/business-admin/ObserverPortalPage.jsx'));
+const ProjectQueuePage = lazy(() => import('../modules/project/ProjectQueuePage.jsx'));
+
+// Dev-only: Approval Center UI preview with mock data (no backend / no login).
+// DEV gate makes the dynamic import dead code in production (tree-shaken out).
+const ApprovalCenterPreview = import.meta.env.DEV
+  ? lazy(() => import('../modules/business-admin/_preview/ApprovalCenterPreview.jsx'))
+  : null;
+const ProjectReviewPage = lazy(() => import('../modules/project/ProjectReviewPage.jsx'));
+const NsoQueuePage = lazy(() => import('../modules/nso/NsoQueuePage.jsx'));
+const NsoReviewPage = lazy(() => import('../modules/nso/NsoReviewPage.jsx'));
+const ProjectExcellenceQueuePage = lazy(() => import('../modules/project_excellence/ProjectExcellenceQueuePage.jsx'));
+const ProjectExcellenceReviewPage = lazy(() => import('../modules/project_excellence/ProjectExcellenceReviewPage.jsx'));
+const ProjectExcellenceOverviewPage = lazy(() => import('../modules/project_excellence/ProjectExcellenceOverviewPage.jsx'));
+const ProjectExcellenceQualityAuditPage = lazy(() => import('../modules/project_excellence/ProjectExcellenceQualityAuditPage.jsx'));
+const NsoHandoverPage = lazy(() => import('../modules/project/NsoHandoverPage.jsx'));
+const FinancialClosureQueuePage = lazy(() => import('../modules/financial_closure/FinancialClosureQueuePage.jsx'));
+const FinancialClosureReviewPage = lazy(() => import('../modules/financial_closure/FinancialClosureReviewPage.jsx'));
+
+// In HTTP (non-mock) mode the landing page is the unauthenticated entry. The
+// existing app chrome only renders after a Supabase session is established.
+// Force mock mode off in production builds — a stray VITE_USE_MOCK must never
+// leak the mock session / auth bypass into a deploy. (Mock removal planned.)
+const USE_MOCK = (import.meta.env.VITE_USE_MOCK === 'true' || import.meta.env.VITE_USE_MOCK === true) && !import.meta.env.PROD;
+const LANDING_PATH = '/welcome';
+
+function homeForRoleModule(role, module) {
+  if (role === 'business_admin') return '/business-admin';
+  if (role === 'observer')       return '/observer';
+  if (module === 'legal')        return ROUTES.LEGAL;
+  if (module === 'design')       return ROUTES.DESIGN;
+  if (module === 'project')      return ROUTES.PROJECT;
+  if (module === 'nso')               return ROUTES.NSO;
+  if (module === 'project_excellence') return ROUTES.PROJECT_EXCELLENCE;
+  return ROUTES.OVERVIEW; // BD / unknown → default to BD overview
+}
+
+function RequireAuth({ children }) {
+  const token = useAuthToken();
+  const { role, authReady } = useSession();
+  if (USE_MOCK) return children; // mock mode is always "signed in"
+  if (!token)   return <Navigate to={LANDING_PATH} replace/>;
+  // Block the authed shell until /auth/whoami resolves. This single gate keeps
+  // IndexRedirect and every nested module/role guard from evaluating the
+  // pre-hydration default session ('supervisor', module=null) on refresh /
+  // deep-link, which otherwise misroutes module users and strands execs. (#114)
+  if (!authReady) return <HydratingFallback/>;
+  // Business admins have no presence in the tenant app shell — their entire
+  // surface lives at /business-admin. Forward them out of any BD/legal/payment
+  // route so they cannot land on a chrome that isn't meant for them.
+  if (role === 'business_admin') return <Navigate to="/business-admin" replace/>;
+  // Same reason, and more consequential: the shared shell does not gate on role.
+  // Sidebar derives its nav from the user's module, and rbac/scope.js resolves
+  // anything that is not an executive to tenant scope — so an observer that
+  // reached it would get a BD supervisor sidebar over workspace-wide data.
+  if (role === 'observer') return <Navigate to="/observer" replace/>;
+  return children;
+}
+
+function HydratingFallback() {
+  // Neutral full-height placeholder while the session hydrates.
+  return <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', opacity: 0.6 }}>Loading…</div>;
+}
+
+function LandingFallback() {
+  // Matches the landing's dark background so the swap is invisible.
+  return <div style={{ minHeight: '100vh', background: '#090A07' }} aria-hidden="true" />;
+}
+
+function LandingRedirectIfAuthed() {
+  // Send signed-in users away from the marketing page back to their module home.
+  const token = useAuthToken();
+  const { role, session } = useSession();
+  if (!USE_MOCK && token) {
+    return <Navigate to={homeForRoleModule(role, session?.module)} replace/>;
+  }
+  return <ScaleLandingPage/>;
+}
+
+function IndexRedirect() {
+  // The root `/` defaults to the BD overview. Non-BD module members bounce
+  // to their own module home on first load.
+  const { session } = useSession();
+  const module = session?.module;
+  if (USE_MOCK) return <OverviewPage/>; // mock mode stays on BD
+  if (module === 'legal')   return <Navigate to={ROUTES.LEGAL}   replace/>;
+  if (module === 'design')  return <Navigate to={ROUTES.DESIGN}  replace/>;
+  if (module === 'project') return <Navigate to={ROUTES.PROJECT} replace/>;
+  if (module === 'nso')               return <Navigate to={ROUTES.NSO}               replace/>;
+  if (module === 'project_excellence') return <Navigate to={ROUTES.PROJECT_EXCELLENCE} replace/>;
+  return <OverviewPage/>;
+}
+
+export default function AppRouter() {
+  return (
+    // Outer boundary: safety net for lazy TOP-LEVEL routes (/admin,
+    // /business-admin). Pages under the App shell suspend against the
+    // content-area boundary wrapping <Outlet/> in App.jsx instead (nearest
+    // boundary wins), so the chrome never unmounts during a chunk load. (#385)
+    <Suspense fallback={<LandingFallback/>}>
+    <Routes>
+      <Route path={LANDING_PATH} element={
+        <Suspense fallback={<LandingFallback/>}>
+          <LandingRedirectIfAuthed/>
+        </Suspense>
+      }/>
+
+      {/* Per-company customized login page (workspace-code dialog → here). */}
+      <Route path="/login/:code" element={
+        <Suspense fallback={<LandingFallback/>}>
+          <BrandedLoginPage/>
+        </Suspense>
+      }/>
+
+      {/* Platform admin portal lives OUTSIDE the workspace auth tree — its
+          users are platform operators, not tenant members. The page itself
+          gates access via X-Platform-Admin-Key. */}
+      <Route path="/admin" element={<AdminPortalPage/>}/>
+      <Route path="/business-admin" element={<BusinessAdminPortalPage/>}/>
+      <Route path="/observer" element={<ObserverPortalPage/>}/>
+      {import.meta.env.DEV && (
+        <Route path="/business-admin-preview" element={
+          <Suspense fallback={null}><ApprovalCenterPreview/></Suspense>
+        }/>
+      )}
+
+      <Route element={<RequireAuth><App/></RequireAuth>}>
+        <Route index                  element={<IndexRedirect/>}/>
+        <Route path={ROUTES.PIPELINE}  element={<DraftsPage/>}/>
+        <Route path={ROUTES.SHORTLIST} element={<ShortlistPage/>}/>
+
+        <Route path={ROUTES.STAGING_EXEC} element={
+          <RequireRole roles={['exec']}>
+            <ExecStagingPage/>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.STAGING_SUPERVISOR} element={
+          <RequireRole roles={['supervisor']}>
+            <SupervisorStagingPage/>
+          </RequireRole>
+        }/>
+        {/* Generic /staging redirects based on role */}
+        <Route path={ROUTES.STAGING} element={<StagingRedirect/>}/>
+
+        <Route path={ROUTES.ARCHIVE} element={
+          <RequireRole roles={['supervisor']}>
+            <ArchivePage/>
+          </RequireRole>
+        }/>
+
+        <Route path={ROUTES.TEAM} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <TeamPage/>
+          </RequireRole>
+        }/>
+
+        <Route path={ROUTES.LEGAL} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['legal']}>
+              <LegalQueuePage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.LEGAL_OVERVIEW} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['legal']}>
+              <LegalOverviewPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.LEGAL_CHANGE_REQUESTS} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['legal']}>
+              <ChangeRequestsPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.LEGAL_REJECTED} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['legal']}>
+              <ModuleHistoryPage moduleKey="legal" defaultFilter="rejected"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.LEGAL_HISTORY} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['legal']}>
+              <ModuleHistoryPage moduleKey="legal"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.LEGAL_HISTORY_SITE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['legal']}>
+              <ModuleHistoryPage moduleKey="legal"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.LEGAL_PROCESS_FLOW} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['legal']}>
+              <ModuleProcessFlowPage moduleKey="legal"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.LEGAL_PROCESS_FLOW_SITE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['legal']}>
+              <ModuleProcessFlowPage moduleKey="legal"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.LEGAL_SITE_DDR} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['legal']}>
+              <DdrPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.LEGAL_SITE_AGREEMENT} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['legal']}>
+              <AgreementPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.LEGAL_SITE_LICENSING} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['legal']}>
+              <LicensingPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path="/legal/*" element={<Navigate to={ROUTES.LEGAL} replace/>}/>
+
+        <Route path={ROUTES.PAYMENT} element={
+          <PaymentRoute/>
+        }/>
+        <Route path="/payment/*" element={<Navigate to={ROUTES.PAYMENT} replace/>}/>
+
+        <Route path={ROUTES.LAUNCH} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <LaunchPage/>
+          </RequireRole>
+        }/>
+
+        <Route path={ROUTES.DESIGN} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['design']}>
+              <DesignQueuePage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.DESIGN_OVERVIEW} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['design']}>
+              <DesignOverviewPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.DESIGN_SITE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['design']}>
+              <DesignReviewPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.DESIGN_HISTORY} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['design']}>
+              <ModuleHistoryPage moduleKey="design"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.DESIGN_HISTORY_SITE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['design']}>
+              <ModuleHistoryPage moduleKey="design"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.DESIGN_PROCESS_FLOW} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['design']}>
+              <ModuleProcessFlowPage moduleKey="design"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.DESIGN_PROCESS_FLOW_SITE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['design']}>
+              <ModuleProcessFlowPage moduleKey="design"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path="/design/*" element={<Navigate to={ROUTES.DESIGN} replace/>}/>
+
+        <Route path={ROUTES.PROJECT} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project']}>
+              <ProjectQueuePage mode="pipeline"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.PROJECT_OVERVIEW} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project']}>
+              <ProjectOverviewPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.PROJECT_SITES} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project']}>
+              <ProjectQueuePage mode="sites"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.PROJECT_SITE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project']}>
+              <ProjectReviewPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.PROJECT_HISTORY} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project']}>
+              <ModuleHistoryPage moduleKey="project"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.PROJECT_HISTORY_SITE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project']}>
+              <ModuleHistoryPage moduleKey="project"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.PROJECT_PROCESS_FLOW} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project']}>
+              <ModuleProcessFlowPage moduleKey="project"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.PROJECT_PROCESS_FLOW_SITE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project']}>
+              <ModuleProcessFlowPage moduleKey="project"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.PROJECT_NSO_HANDOVER} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project']}>
+              <NsoHandoverPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.PROJECT_FINANCIAL_CLOSURE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project']}>
+              <FinancialClosureQueuePage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.PROJECT_FINANCIAL_CLOSURE_SITE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project']}>
+              <FinancialClosureReviewPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path="/project/*" element={<Navigate to={ROUTES.PROJECT} replace/>}/>
+
+        <Route path={ROUTES.NSO} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['nso']}>
+              <NsoQueuePage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.NSO_OVERVIEW} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['nso']}>
+              <NsoOverviewPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.NSO_SITE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['nso']}>
+              <NsoReviewPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.NSO_HISTORY} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['nso']}>
+              <ModuleHistoryPage moduleKey="nso"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.NSO_HISTORY_SITE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['nso']}>
+              <ModuleHistoryPage moduleKey="nso"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.NSO_PROCESS_FLOW} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['nso']}>
+              <ModuleProcessFlowPage moduleKey="nso"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.NSO_PROCESS_FLOW_SITE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['nso']}>
+              <ModuleProcessFlowPage moduleKey="nso"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path="/nso/*" element={<Navigate to={ROUTES.NSO} replace/>}/>
+
+        <Route path={ROUTES.PROJECT_EXCELLENCE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project_excellence']}>
+              <ProjectExcellenceQueuePage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.PROJECT_EXCELLENCE_OVERVIEW} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project_excellence']}>
+              <ProjectExcellenceOverviewPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.PROJECT_EXCELLENCE_HISTORY} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project_excellence']}>
+              <ProjectExcellenceQueuePage mode="history"/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.PROJECT_EXCELLENCE_QUALITY_AUDIT} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project_excellence']}>
+              <ProjectExcellenceQualityAuditPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.PROJECT_EXCELLENCE_SITE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['project_excellence']}>
+              <ProjectExcellenceReviewPage/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+        <Route path="/project-excellence/*" element={<Navigate to={ROUTES.PROJECT_EXCELLENCE} replace/>}/>
+
+        <Route path={ROUTES.DD_FAILED} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <DdFailedPage/>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.BD_SITE_STATUS} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <SiteStatusPage/>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.BD_SITE_FINANCE} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <SiteFinancePage/>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.BD_SITE_STAGES} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <SiteStageStatusPage/>
+          </RequireRole>
+        }/>
+
+        <Route path="/site-tracker" element={<Navigate to={ROUTES.SITE_TRACKER} replace/>}/>
+        <Route path="/site-tracker/:siteId" element={<LegacySiteFlowRedirect/>}/>
+
+        <Route path={ROUTES.SITE_TRACKER} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <SiteTrackerListPage/>
+          </RequireRole>
+        }/>
+        <Route path={ROUTES.SITE_TRACKER_DETAIL} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <SiteTrackerDetailPage/>
+          </RequireRole>
+        }/>
+
+        <Route path={ROUTES.DASHBOARD_MINIMAL_PREVIEW} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <RequireModule modules={['bd']}>
+              <DashboardMinimalPreview/>
+            </RequireModule>
+          </RequireRole>
+        }/>
+
+        {/* Sub-path routes for shortlist details / timeline — rendered as full pages */}
+        <Route path={ROUTES.ADD_DETAILS}   element={<ShortlistPage/>}/>
+        <Route path={ROUTES.LOI_TIMELINE}  element={<ShortlistPage/>}/>
+
+        <Route path="*" element={<Navigate to={ROUTES.OVERVIEW} replace/>}/>
+      </Route>
+    </Routes>
+    </Suspense>
+  );
+}
+
+function StagingRedirect() {
+  const { role } = useSession();
+  const location = useLocation();
+  // Backend ships role='executive'; mock-mode role switcher still uses 'exec'.
+  const isExec = role === 'exec' || role === 'executive';
+  // Preserve the query string so deep links like /staging?focus=<id> survive
+  // the role-based redirect.
+  return <Navigate to={{ pathname: isExec ? ROUTES.STAGING_EXEC : ROUTES.STAGING_SUPERVISOR, search: location.search }} replace/>;
+}
+
+function PaymentRoute() {
+  // Payment is the BD finance / CA-readiness view — a BD surface, not its own
+  // module. Gate it on role, not a module claim. Executives reach it from the
+  // Overview "Payments" KPI, so they get the same (read-oriented) view.
+  const { role } = useSession();
+  if (role !== 'supervisor' && role !== 'executive' && role !== 'exec') {
+    return <Navigate to={ROUTES.OVERVIEW} replace/>;
+  }
+  return <PaymentStubPage/>;
+}
+
+function LegacySiteFlowRedirect() {
+  const { siteId } = useParams();
+  return <Navigate to={ROUTES.SITE_TRACKER_DETAIL.replace(':siteId', siteId)} replace/>;
+}

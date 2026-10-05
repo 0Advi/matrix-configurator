@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 72" fill="none" role="img" aria-label="Z-Matrix (dark)">
+  <g transform="translate(4 4)">
+    <g stroke="#00B4D8" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.45">
+      <path d="M22 10 L58 10 L58 46 L22 46 Z"></path>
+      <path d="M6 22 L22 10"></path><path d="M42 22 L58 10"></path>
+      <path d="M6 58 L22 46"></path><path d="M42 58 L58 46"></path>
+      <path d="M6 22 L42 22 L42 58 L6 58 Z"></path>
+    </g>
+    <g stroke="#00B4D8" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 22 L58 10"></path>
+      <path d="M58 10 L6 58"></path>
+      <path d="M6 58 L58 46"></path>
+    </g>
+  </g>
+  <line x1="84" y1="18" x2="84" y2="54" stroke="#353B4C" stroke-width="1"></line>
+  <text x="100" y="46" font-family="&#39;Plus Jakarta Sans&#39;, system-ui, sans-serif" font-weight="800" font-size="32" fill="#E2E8F0" letter-spacing="-0.02em">Z</text>
+  <text x="124" y="44" font-family="&#39;Plus Jakarta Sans&#39;, system-ui, sans-serif" font-weight="400" font-size="22" fill="#E2E8F0" letter-spacing="0.34em">MATRIX</text>
+</svg>

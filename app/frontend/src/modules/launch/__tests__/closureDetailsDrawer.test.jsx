@@ -1,0 +1,481 @@
+// skipcq: JS-0833
+// ClosureDetailsDrawer — the closure's own numbers, which the site drawer does
+// not carry: GFC baseline vs closure actual, the variation, the budget lines
+// behind the totals, the derived metrics, and the agreed rent.
+//
+// The money guard matters most here. formatINR(null) is ₹0, because Number(null)
+// is 0 and finite — on a financial screen a missing figure must not read as
+// "zero rupees", so every amount goes through a null check first.
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import ClosureDetailsDrawer from '../ClosureDetailsDrawer.jsx';
+
+const { getFC, getClosureQAReports, getSiteDocuments } = vi.hoisted(() => ({
+  getFC: vi.fn(),
+  getClosureQAReports: vi.fn(),
+  getSiteDocuments: vi.fn(),
+}));
+vi.mock('../../../services/api/financialClosureApi.js', () => ({ getFC, getClosureQAReports }));
+vi.mock('../../../services/api/siteService.js', () => ({ getSiteDocuments }));
+
+const record = (over = {}) => ({
+  siteId: 'f1', siteCode: 'CA-301', siteName: 'Powai', city: 'Mumbai',
+  closureStatus: 'approved', financialClosureStatus: 'closed',
+  allocatedToName: 'Priya S.',
+  gfcBudgetTotal: 1000000, closureBudgetTotal: 1250000, variationTotal: 250000,
+  totalIndoorAreaSqft: 1000, totalAreaSqft: 1250, covers: 50,
+  rentType: 'fixed', expectedRent: 205000, expectedEscalationPct: 15, expectedEscalationYears: 3,
+  lines: [
+    { idx: 1, label: 'Civil', gfcAmount: 400000, closureAmount: 500000, variation: 100000 },
+    { idx: 2, label: 'MEP', gfcAmount: 600000, closureAmount: 750000, variation: 150000 },
+  ],
+  supervisorComments: 'Overrun on civil, approved.',
+  adminComments: null,
+  ...over,
+});
+
+const renderDrawer = (props = {}) =>
+  render(<ClosureDetailsDrawer siteId="f1" onClose={vi.fn()} onOpenSiteRecord={vi.fn()} {...props} />);
+
+const doc = (over = {}) => ({
+  id: 'd1', fileName: 'loi-signed.pdf', fileType: 'loi',
+  uploadedAt: '2026-04-02T10:00:00Z', url: 'https://x/loi.pdf', ...over,
+});
+
+const qa = (over = {}) => ({
+  siteId: 'f1',
+  before: { kind: 'before', fileName: 'before.pdf', downloadUrl: 'https://x/before.pdf' },
+  after: { kind: 'after', fileName: 'after.pdf', downloadUrl: 'https://x/after.pdf' },
+  ...over,
+});
+
+const openDocuments = (user) => user.click(screen.getByRole('button', { name: /^Documents/ }));
+
+beforeEach(() => {
+  getFC.mockReset();
+  getClosureQAReports.mockReset();
+  getSiteDocuments.mockReset();
+  getFC.mockResolvedValue(record());
+  getSiteDocuments.mockResolvedValue({ documents: [doc()] });
+  getClosureQAReports.mockResolvedValue(qa());
+});
+afterEach(() => vi.restoreAllMocks());
+
+describe('ClosureDetailsDrawer — floats free of its mount point', () => {
+  // The bug: the admin shell wraps every tab panel in `.ac-fade-in`, whose
+  // keyframes animate transform with fill-mode: both. The animation keeps
+  // applying after it ends, so the wrapper is permanently a containing block for
+  // fixed descendants and the drawer was sized and clipped to the panel instead
+  // of the viewport. These pin the portal that escapes it.
+  it('renders outside the element it was mounted into', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    render(<ClosureDetailsDrawer siteId="f1" onClose={vi.fn()} />, { container: host });
+
+    const dialog = await screen.findByRole('dialog', { name: /Financial closure details/i });
+    expect(host.contains(dialog)).toBe(false);
+    expect(document.body.contains(dialog)).toBe(true);
+  });
+
+  it('is not trapped by an ancestor that establishes a containing block', async () => {
+    // Reproduces the admin shell's wrapper directly.
+    const trap = document.createElement('div');
+    trap.style.transform = 'translateY(7px)';
+    document.body.appendChild(trap);
+    render(<ClosureDetailsDrawer siteId="f1" onClose={vi.fn()} />, { container: trap });
+
+    const dialog = await screen.findByRole('dialog', { name: /Financial closure details/i });
+    expect(trap.contains(dialog)).toBe(false);
+  });
+
+  it('carries the app theme across the portal', async () => {
+    // Dark tokens are [data-theme="dark"] on an ancestor div, never on <html>.
+    // A portal that drops the attribute renders the panel unthemed.
+    const themed = document.createElement('div');
+    themed.setAttribute('data-theme', 'dark');
+    document.body.appendChild(themed);
+    render(<ClosureDetailsDrawer siteId="f1" onClose={vi.fn()} />, { container: themed });
+
+    const dialog = await screen.findByRole('dialog', { name: /Financial closure details/i });
+    expect(dialog.closest('[data-theme="dark"]')).toBeTruthy();
+  });
+});
+
+describe('ClosureDetailsDrawer — dialog behaviour', () => {
+  it('moves focus into the panel and keeps Tab inside it', async () => {
+    const user = userEvent.setup();
+    renderDrawer();
+    const dialog = await screen.findByRole('dialog', { name: /Financial closure details/i });
+
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    await user.tab();
+    await user.tab();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  it('locks the page behind while open and restores it on close', async () => {
+    // Restores the PREVIOUS value, not '': another overlay may already have
+    // locked it, and clobbering that would unlock the page underneath it.
+    document.body.style.overflow = 'scroll';
+    const { unmount } = renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    expect(document.body.style.overflow).toBe('hidden');
+
+    unmount();
+    expect(document.body.style.overflow).toBe('scroll');
+  });
+});
+
+describe('ClosureDetailsDrawer', () => {
+  it('shows the budget totals and the variation', async () => {
+    renderDrawer();
+    expect(await screen.findByText('₹10,00,000')).toBeTruthy();  // GFC baseline
+    expect(screen.getByText('₹12,50,000')).toBeTruthy();          // closure actual
+    expect(screen.getByText('+₹2,50,000')).toBeTruthy();          // variation, signed
+  });
+
+  it('lists the budget lines behind the totals', async () => {
+    renderDrawer();
+    expect(await screen.findByText('Civil')).toBeTruthy();
+    expect(screen.getByText('MEP')).toBeTruthy();
+    expect(screen.getByText('+₹1,50,000')).toBeTruthy();
+  });
+
+  it('derives the per-sqft and per-cover metrics', async () => {
+    renderDrawer();
+    // 1,250,000 / 1,000 indoor sqft, / 1,250 total sqft, / 50 covers.
+    expect(await screen.findByText('₹1,250')).toBeTruthy();
+    expect(screen.getByText('₹1,000')).toBeTruthy();
+    expect(screen.getByText('₹25,000')).toBeTruthy();
+  });
+
+  it('summarises the agreed rent', async () => {
+    renderDrawer();
+    expect(await screen.findByText(/Fixed · ₹2,05,000\/mo · 15% every 3 yr/)).toBeTruthy();
+  });
+
+  it('renders a staggered rent as the shared schedule table, not a crammed line', async () => {
+    getFC.mockResolvedValue(record({
+      rentType: 'staggered', expectedRent: 6000,
+      staggeredEscalation: [
+        { year: 1, percent: 3, dine_in_pct: 6, delivery_pct: 3 },
+        { year: 2, percent: 4, dine_in_pct: 2, delivery_pct: 4 },
+      ],
+    }));
+    renderDrawer();
+
+    expect(await screen.findByText(/Base rent ₹6,000\/mo/)).toBeTruthy();
+    // One row per year, with the rev-share split in its own columns.
+    expect(screen.getByRole('columnheader', { name: 'Escalation' })).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Dine-in' })).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Delivery' })).toBeTruthy();
+    expect(screen.getByRole('cell', { name: 'Year 1' })).toBeTruthy();
+    expect(screen.getByRole('cell', { name: 'Year 2' })).toBeTruthy();
+  });
+
+  it('shows a missing amount as a dash, never as zero rupees', async () => {
+    getFC.mockResolvedValue(record({
+      gfcBudgetTotal: null, closureBudgetTotal: null, variationTotal: null,
+      totalIndoorAreaSqft: null, totalAreaSqft: null, covers: null, lines: [],
+    }));
+    renderDrawer();
+    await screen.findByText('No budget lines were recorded.');
+    expect(screen.queryByText('₹0')).toBeNull();
+  });
+
+  it('renders only the comments that exist', async () => {
+    renderDrawer();
+    expect(await screen.findByText('“Overrun on civil, approved.”')).toBeTruthy();
+    expect(screen.queryByText('Business admin')).toBeNull();
+  });
+
+  it('no longer links out to the site record', async () => {
+    // Documents live in this drawer now, so the footer went with them.
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    expect(screen.queryByRole('button', { name: /site record/i })).toBeNull();
+  });
+
+  it('surfaces a load failure instead of an empty shell', async () => {
+    getFC.mockRejectedValue({ detail: 'Site not found' });
+    renderDrawer();
+    expect(await screen.findByText('Site not found')).toBeTruthy();
+  });
+
+  it('closes on Escape', async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderDrawer({ onClose });
+    await screen.findByText('Powai', { exact: false });
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+});
+
+
+describe('ClosureDetailsDrawer — Documents tab', () => {
+  it('does not fetch documents until the tab is opened', async () => {
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    expect(getSiteDocuments).not.toHaveBeenCalled();
+
+    await openDocuments(user);
+    await waitFor(() => expect(getSiteDocuments).toHaveBeenCalledWith('f1'));
+  });
+
+  it('lists documents and quality-audit reports together', async () => {
+    // QA reports are not in site_files — they come from a second endpoint and
+    // are flattened into the same list, which is the whole point of the tab.
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+
+    expect(await screen.findByText('loi-signed.pdf')).toBeTruthy();
+    expect(screen.getByText(/Before — before\.pdf/)).toBeTruthy();
+    expect(screen.getByText(/After — after\.pdf/)).toBeTruthy();
+    expect(screen.getByText(/Quality audit · 2/)).toBeTruthy();
+  });
+
+  it('lists a file once when both sources return it', async () => {
+    // A QA report can arrive from its own endpoint AND as a site_files row on
+    // surfaces whose documents endpoint includes them. The two carry different
+    // ids for one stored object, so the row would otherwise render twice and
+    // inflate the group count.
+    getSiteDocuments.mockResolvedValue({
+      documents: [
+        doc(),
+        doc({ id: 'other-id', fileName: 'before.pdf', fileType: 'quality_audit', url: 'https://x/before.pdf?sig=second' }),
+      ],
+    });
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+
+    await screen.findByText('loi-signed.pdf');
+    expect(screen.getAllByText(/before\.pdf/)).toHaveLength(1);
+    expect(screen.getByText(/Quality audit · 2/)).toBeTruthy();
+  });
+
+  it('still shows documents when the QA reports are forbidden', async () => {
+    // The two surfaces have different reach, so one source failing must hide
+    // only its own group rather than empty the tab.
+    getClosureQAReports.mockRejectedValue({ status: 403 });
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+
+    expect(await screen.findByText('loi-signed.pdf')).toBeTruthy();
+    expect(screen.queryByText(/Quality audit/)).toBeNull();
+  });
+
+  it('still shows the QA reports when the documents list is forbidden', async () => {
+    getSiteDocuments.mockRejectedValue({ status: 403 });
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+
+    expect(await screen.findByText(/Before — before\.pdf/)).toBeTruthy();
+    expect(screen.queryByText('loi-signed.pdf')).toBeNull();
+  });
+
+  it('opens a PDF in a new tab with noopener', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+    await user.click(await screen.findByRole('button', { name: /Open loi-signed\.pdf/i }));
+
+    expect(openSpy).toHaveBeenCalledWith('https://x/loi.pdf', '_blank', 'noopener,noreferrer');
+  });
+
+  it('previews an image in place instead of navigating away', async () => {
+    getSiteDocuments.mockResolvedValue({
+      documents: [doc({ id: 'd2', fileName: 'front.jpg', fileType: 'photo', url: 'https://x/front.jpg' })],
+    });
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+    await user.click(await screen.findByRole('button', { name: /Open front\.jpg/i }));
+
+    expect(openSpy).not.toHaveBeenCalled();
+    await waitFor(() => expect(document.querySelector('img[src="https://x/front.jpg"]')).toBeTruthy());
+  });
+
+  it('marks an unsignable document unavailable rather than a dead click', async () => {
+    getSiteDocuments.mockResolvedValue({ documents: [doc({ url: null })] });
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+
+    expect(await screen.findByText(/unavailable/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Open loi-signed/i })).toBeNull();
+  });
+
+  it('uses the injected documents source, so the admin can read the richer list', async () => {
+    const fetchDocuments = vi.fn().mockResolvedValue({ documents: [doc({ fileName: 'recce.pdf', fileType: 'design_recce' })] });
+    const user = userEvent.setup();
+    renderDrawer({ fetchDocuments });
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+
+    await waitFor(() => expect(fetchDocuments).toHaveBeenCalledWith('f1'));
+    expect(getSiteDocuments).not.toHaveBeenCalled();
+    expect(await screen.findByText('recce.pdf')).toBeTruthy();
+  });
+
+  it('lists an uploaded report whose URL could not be signed, rather than dropping it', async () => {
+    // download_url is null both when a report was never uploaded and when
+    // signing failed. Only the first is an absence; the second must show as
+    // unavailable, or an uploaded report silently vanishes.
+    getClosureQAReports.mockResolvedValue({
+      before: { kind: 'before', fileName: 'before.pdf', downloadUrl: null },
+      after: null,
+    });
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+
+    expect(await screen.findByText(/Before — before\.pdf/)).toBeTruthy();
+    expect(screen.getByText(/unavailable/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Open Before/i })).toBeNull();
+  });
+
+  it('omits a report that was never uploaded', async () => {
+    getClosureQAReports.mockResolvedValue({ before: null, after: null });
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+
+    await screen.findByText('loi-signed.pdf');
+    expect(screen.queryByText(/Quality audit/)).toBeNull();
+  });
+
+  it('reports an error when BOTH sources fail, instead of claiming there are none', async () => {
+    // Swallowing both would render "No documents have been uploaded" over an
+    // auth error or an outage — telling the reader a site has no paperwork when
+    // the truth is we could not ask.
+    getSiteDocuments.mockRejectedValue(new Error('network'));
+    getClosureQAReports.mockRejectedValue(new Error('network'));
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+
+    expect(await screen.findByText(/Could not load documents/i)).toBeTruthy();
+    expect(screen.queryByText(/No documents have been uploaded/i)).toBeNull();
+    expect(screen.getByRole('button', { name: /Retry/i })).toBeTruthy();
+  });
+
+  it('retries both sources from the error state', async () => {
+    getSiteDocuments.mockRejectedValueOnce(new Error('network')).mockResolvedValue({ documents: [doc()] });
+    getClosureQAReports.mockRejectedValueOnce(new Error('network')).mockResolvedValue(qa());
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+    await screen.findByText(/Could not load documents/i);
+
+    await user.click(screen.getByRole('button', { name: /Retry/i }));
+
+    expect(await screen.findByText('loi-signed.pdf')).toBeTruthy();
+  });
+
+  it('opens a preview WITHOUT re-signing the whole document list', async () => {
+    // Re-signing means re-fetching the list, and listing signs one storage
+    // object per file. Doing that on every preview open cost a round-trip per
+    // document to look at one photo (#499); the URL in hand is used instead.
+    getSiteDocuments.mockResolvedValue({
+      documents: [doc({ id: 'd2', fileName: 'front.jpg', fileType: 'photo', url: 'https://x/front.jpg' })],
+    });
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+    await waitFor(() => expect(getSiteDocuments).toHaveBeenCalledTimes(1));
+
+    await user.click(await screen.findByRole('button', { name: /Open front\.jpg/i }));
+    await waitFor(() => expect(document.querySelector('img[src="https://x/front.jpg"]')).toBeTruthy());
+
+    expect(getSiteDocuments).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-signs only once the image actually fails to load', async () => {
+    // Signed URLs live 300s, so a drawer left sitting does hold dead links —
+    // recovered on the error path, which is where the expiry shows up.
+    getSiteDocuments.mockResolvedValue({
+      documents: [doc({ id: 'd2', fileName: 'front.jpg', fileType: 'photo', url: 'https://x/front.jpg' })],
+    });
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+    await user.click(await screen.findByRole('button', { name: /Open front\.jpg/i }));
+    const img = await waitFor(() => document.querySelector('img[src="https://x/front.jpg"]'));
+
+    fireEvent.error(img);
+
+    await waitFor(() => expect(getSiteDocuments).toHaveBeenCalledTimes(2));
+  });
+
+  it('does not re-fetch the documents when the tab is switched away and back', async () => {
+    // Keying the load effect on `tab` re-signed every document each time the
+    // reader flicked between Closure and Documents (#499).
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+    await waitFor(() => expect(getSiteDocuments).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole('button', { name: /^Closure/ }));
+    await openDocuments(user);
+
+    expect(await screen.findByText('loi-signed.pdf')).toBeTruthy();
+    expect(getSiteDocuments).toHaveBeenCalledTimes(1);
+  });
+
+  it('survives a tab switch while the documents request is still in flight', async () => {
+    // Load-once was first tracked in a ref set BEFORE the request settled, so
+    // switching away tore the effect down (cancelling the load) while the ref
+    // said "already loaded" — coming back skipped the retry and the tab sat on
+    // "Loading documents…" forever. The latch must not cancel an in-flight load.
+    let release;
+    getSiteDocuments.mockReturnValue(new Promise((resolve) => { release = resolve; }));
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+    await screen.findByText(/Loading documents/i);
+
+    await user.click(screen.getByRole('button', { name: /^Closure/ }));
+    release({ documents: [doc()] });
+    await openDocuments(user);
+
+    expect(await screen.findByText('loi-signed.pdf')).toBeTruthy();
+    expect(getSiteDocuments).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows an empty state when the site has nothing attached', async () => {
+    getSiteDocuments.mockResolvedValue({ documents: [] });
+    getClosureQAReports.mockResolvedValue({ before: null, after: null });
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText('Powai', { exact: false });
+    await openDocuments(user);
+
+    expect(await screen.findByText(/No documents have been uploaded/i)).toBeTruthy();
+  });
+});

@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>html,body{margin:0;padding:0;background:var(--zm-bg);font-family:var(--zm-font-body)}
+.wrap{padding:24px 28px;display:grid;grid-template-columns:repeat(2,1fr);gap:16px 28px}
+.field{display:flex;flex-direction:column;gap:6px}
+.lbl{font-family:var(--zm-font-body);font-weight:600;font-size:12px;color:var(--zm-fg)}
+.input{height:40px;padding:0 12px;border:1px solid var(--zm-line);border-radius:6px;background:var(--zm-surface);font-family:var(--zm-font-body);font-size:14px;color:var(--zm-fg);outline:none}
+.input::placeholder{color:var(--zm-fg-4)}
+.input.focus{border-color:var(--zm-accent);box-shadow:var(--zm-ring-focus)}
+.input.err{border-color:#B91C1C;box-shadow:0 0 0 3px rgba(185,28,28,0.14)}
+.input.mono{font-family:var(--zm-font-mono);font-feature-settings:'tnum' 1}
+.cap{font-family:var(--zm-font-body);font-size:12px;color:var(--zm-fg-3)}
+.cap.err{color:#B91C1C}
+.with-prefix{display:flex;align-items:center;height:40px;border:1px solid var(--zm-line);border-radius:6px;background:var(--zm-surface);overflow:hidden}
+.with-prefix .p{padding:0 10px;color:var(--zm-fg-3);font-family:var(--zm-font-mono);font-size:13px;border-right:1px solid var(--zm-line);height:100%;display:flex;align-items:center}
+.with-prefix input{flex:1;height:100%;border:none;outline:none;padding:0 12px;background:transparent;font-family:var(--zm-font-mono);font-feature-settings:'tnum' 1;font-size:14px;color:var(--zm-fg)}
+</style></head>
+<body><div class="wrap">
+<div class="field"><label class="lbl">Site name</label><input class="input" value="Powai · Lake Homes"/></div>
+<div class="field"><label class="lbl">SPOC phone</label><input class="input focus mono" value="+91 98203 11842"/></div>
+<div class="field"><label class="lbl">Carpet area (sq ft)</label><div class="with-prefix"><span class="p">sqft</span><input value="1240"/></div></div>
+<div class="field"><label class="lbl">Rent / month</label><div class="with-prefix"><span class="p">₹</span><input value="98000"/></div></div>
+<div class="field"><label class="lbl">LOI signing date</label><input class="input mono" value="2026-05-19"/></div>
+<div class="field"><label class="lbl">CA code</label><input class="input err mono" value="CA-2026-XX-?"/><span class="cap err">Must match CA-YYYY-CITY-#### format.</span></div>
+</div></body></html>

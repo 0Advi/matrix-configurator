@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>html,body{margin:0;padding:0;background:var(--zm-bg);font-family:var(--zm-font-body)}
+.wrap{padding:24px 28px;display:flex;flex-direction:column;gap:14px}
+.row{display:grid;grid-template-columns:120px 1fr 160px;align-items:center;gap:16px}
+.lbl{font-family:var(--zm-font-body);font-weight:600;font-size:13px;color:var(--zm-fg)}
+.spec{font-family:var(--zm-font-mono);font-size:11px;color:var(--zm-fg-3);text-align:right}
+.track{height:18px;background:var(--zm-surface);border:1px solid var(--zm-line);border-radius:999px;position:relative;overflow:hidden}
+.fill{position:absolute;left:0;top:0;height:100%;background:var(--zm-accent);border-radius:999px;width:0;animation-iteration-count:infinite;animation-direction:alternate;animation-fill-mode:both}
+.r1 .fill{animation:zm-go 1.2s var(--zm-ease) infinite alternate;animation-duration:0.12s;animation-delay:0.1s}
+.r2 .fill{animation:zm-go 2s var(--zm-ease) infinite alternate;animation-duration:0.2s}
+.r3 .fill{animation:zm-go 2.4s var(--zm-ease-emp) infinite alternate;animation-duration:0.36s}
+.r4 .fill{animation:zm-go 3.2s var(--zm-ease-out) infinite alternate;animation-duration:0.52s}
+@keyframes zm-go { from { width: 0 } to { width: 100% } }
+</style></head>
+<body><div class="wrap">
+<div class="row r1"><span class="lbl">Hover · 120ms</span><div class="track"><div class="fill"></div></div><span class="spec">--zm-dur-1 · ease</span></div>
+<div class="row r2"><span class="lbl">Press · panel · 200ms</span><div class="track"><div class="fill"></div></div><span class="spec">--zm-dur-2 · ease</span></div>
+<div class="row r3"><span class="lbl">Layout shift · 360ms</span><div class="track"><div class="fill"></div></div><span class="spec">--zm-dur-3 · ease-emp</span></div>
+<div class="row r4"><span class="lbl">Hero entry · 520ms</span><div class="track"><div class="fill"></div></div><span class="spec">--zm-dur-4 · ease-out</span></div>
+</div></body></html>

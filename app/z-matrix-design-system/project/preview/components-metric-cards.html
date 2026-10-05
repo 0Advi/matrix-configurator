@@ -1,0 +1,36 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>html,body{margin:0;padding:0;background:var(--zm-bg);font-family:var(--zm-font-body)}
+.wrap{padding:20px 24px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.card{background:var(--zm-surface);border:1px solid var(--zm-line);border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--zm-shadow-1);position:relative;min-height:120px}
+.eye{font-family:var(--zm-font-body);font-weight:600;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--zm-fg-3)}
+.hero{font-family:var(--zm-font-mono);font-feature-settings:'tnum' 1;font-weight:600;font-size:36px;letter-spacing:-0.02em;color:var(--zm-fg);line-height:1}
+.rule{width:36px;height:2px;background:#D97706}
+.delta{font-family:var(--zm-font-mono);font-size:12px;color:#047857;display:inline-flex;align-items:center;gap:4px}
+.delta.neg{color:#B91C1C}
+.sub{font-family:var(--zm-font-body);font-size:12px;color:var(--zm-fg-3)}
+.tag{position:absolute;top:14px;right:16px;font-family:var(--zm-font-mono);font-size:10px;color:var(--zm-fg-3);letter-spacing:0.06em}
+</style></head>
+<body><div class="wrap">
+<div class="card">
+  <span class="eye">Sites in pipeline</span>
+  <span class="hero">142</span>
+  <div class="rule"></div>
+  <span class="delta">▲ 12 this week</span>
+  <span class="tag">7d</span>
+</div>
+<div class="card">
+  <span class="eye">Stuck at LOI &gt; 14 days</span>
+  <span class="hero" style="color:#D97706">12</span>
+  <div class="rule" style="background:#D97706"></div>
+  <span class="delta neg">▲ 3 vs last week</span>
+  <span class="tag">live</span>
+</div>
+<div class="card">
+  <span class="eye">Approved this week</span>
+  <span class="hero">8</span>
+  <div class="rule" style="background:#047857"></div>
+  <span class="delta">▲ 2 vs last week</span>
+  <span class="tag">may</span>
+</div>
+</div></body></html>

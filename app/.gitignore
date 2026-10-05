@@ -1,0 +1,72 @@
+.DS_Store
+__pycache__/
+*.pyc
+node_modules/
+.env
+.env.local
+dist/
+build/
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+# ==============================================================================
+# Obsidian & Knowledge Base Overrides
+# ==============================================================================
+
+# Matrix_dev/ is Aditya's local Obsidian vault that drives the LLM
+# knowledge engine. It is intentionally per-user and is NEVER pushed to
+# the team repo. Notes, plans, schema-rationale docs live here; anything
+# the team needs to act on gets surfaced as a separate file at the repo
+# root (e.g. left_out_tasks.md) or as code.
+Matrix_dev/
+
+# Ignore Obsidian's visual UI state, workspace layouts, and local plugin caches
+**/Matrix_dev/.obsidian/
+
+# OPTIONAL: If you ever add an immutable 'sources/' folder for heavy web clips,
+# raw PDFs, or long YouTube transcripts that you don't want bloating GitHub:
+# **/Matrix_dev/sources/
+
+# ==============================================================================
+# Standard Python & Frontend Ignores
+# ==============================================================================
+backend/.venv/
+**/__pycache__/
+*.pyc
+frontend/node_modules/
+frontend/.next/
+frontend/dist/
+.DS_Store
+
+# ==============================================================================
+# Claude Code / agent runtime — local state, never push to repo
+# Note: .claude/artifacts/ (refactor-plan, routes-manifest) is intentionally
+# tracked from the initial commit. Only the per-user runtime paths below are
+# ignored.
+# ==============================================================================
+.claude/agents/
+.claude/settings.json
+.claude/settings.local.json
+.claude/skills/*
+!.claude/skills/matrix-bd-*/
+.claude/plans/
+.claude/cache/
+.claude/sessions/
+.agents/
+skills-lock.json
+
+# Claude Code local MCP server config — developer tooling, not app/deploy code.
+# Keep it local (paths like /opt/homebrew/bin/uvx are machine-specific).
+.mcp.json
+
+# ==============================================================================
+# Security: never commit database dumps or large vendored scripts (#311)
+# ==============================================================================
+# supabase-migration/ contains pg_dump output (schema + auth user rows with
+# password material). A single `git add .` would publish prod data to this
+# public repo permanently.
+supabase-migration/*.sql
+supabase-migration/*.dump
+# get-pip.py is a 2.2 MB vendored script unrelated to the app.
+backend/get-pip.py

@@ -1,0 +1,297 @@
+// Site detail drawer: slide-over right pane with tabs.
+
+const Field = ({ label, value, mono, span = 1 }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, gridColumn: `span ${span}` }}>
+    <span style={{
+      fontFamily: 'var(--zm-font-body)', fontWeight: 600, fontSize: 10.5,
+      letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--zm-fg-3)',
+    }}>{label}</span>
+    <span style={{
+      fontFamily: mono ? 'var(--zm-font-mono)' : 'var(--zm-font-body)',
+      fontFeatureSettings: mono ? "'tnum' 1" : 'normal',
+      fontSize: 14, color: 'var(--zm-fg)', fontWeight: mono ? 500 : 500,
+    }}>{value}</span>
+  </div>
+);
+
+const Tab = ({ active, label, count, onClick }) => (
+  <button onClick={onClick} className={"zm-tab" + (active ? " is-active" : "")} style={{
+    background: 'none', border: 'none', padding: '12px 4px',
+    fontFamily: 'var(--zm-font-body)', fontSize: 13,
+    fontWeight: active ? 600 : 500,
+    color: active ? 'var(--zm-fg)' : 'var(--zm-fg-3)',
+    borderBottom: '2px solid ' + (active ? 'var(--zm-accent)' : 'transparent'),
+    cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6,
+    marginRight: 22,
+  }}>
+    {label}
+    {count != null && (
+      <span style={{ fontFamily: 'var(--zm-font-mono)', fontSize: 11, color: 'var(--zm-fg-3)' }}>{count}</span>
+    )}
+  </button>
+);
+
+const LOITracker = ({ site }) => {
+  const overdue = site.days > 14;
+  return (
+    <div style={{
+      border: '1px solid ' + (overdue ? 'rgba(217,119,6,0.4)' : 'var(--zm-line)'),
+      background: overdue ? 'var(--zm-copper-soft)' : 'var(--zm-surface-2)',
+      borderRadius: 10, padding: 16,
+      display: 'flex', alignItems: 'center', gap: 18,
+    }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontFamily: 'var(--zm-font-body)', fontWeight: 600, fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--zm-fg-3)' }}>LOI tracker</span>
+        <span style={{ fontFamily: 'var(--zm-font-mono)', fontFeatureSettings: "'tnum' 1", fontSize: 28, fontWeight: 600, color: overdue ? '#B45309' : 'var(--zm-fg)', letterSpacing: '-0.02em' }}>
+          {String(site.days).padStart(2,'0')} days
+        </span>
+        <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 12, color: 'var(--zm-fg-3)' }}>
+          signed {site.loiSignedAt} · submitted {site.loiSubmittedAt}
+        </span>
+      </div>
+      <div style={{ flex: 1 }}/>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontFamily: 'var(--zm-font-body)', fontSize: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#047857' }}>
+          <Icon name="check" size={13}/> Signed
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#047857' }}>
+          <Icon name="check" size={13}/> Uploaded to drive
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: overdue ? '#B45309' : 'var(--zm-fg-3)' }}>
+          <Icon name={overdue ? "alert" : "clock"} size={13}/> Awaiting supervisor approval
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PhotoTile = ({ caption, hue = 200 }) => (
+  <div style={{
+    border: '1px solid var(--zm-line)', borderRadius: 10, overflow: 'hidden',
+    background: `linear-gradient(135deg, hsl(${hue} 30% 80%), hsl(${hue+30} 28% 65%))`,
+    aspectRatio: '4 / 3', position: 'relative',
+    display: 'flex', alignItems: 'flex-end',
+  }}>
+    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.4), transparent 50%)' }}/>
+    <span style={{ position: 'relative', padding: 10, color: '#fff', fontFamily: 'var(--zm-font-body)', fontSize: 11, fontWeight: 600 }}>{caption}</span>
+  </div>
+);
+
+const SiteOverviewTab = ({ site }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <LOITracker site={site}/>
+
+    <section>
+      <h4 style={{ margin: '0 0 14px', fontFamily: 'var(--zm-font-display)', fontWeight: 600, fontSize: 14, color: 'var(--zm-fg)' }}>Site fundamentals</h4>
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '18px 24px',
+        padding: '20px 22px', background: 'var(--zm-surface)', border: '1px solid var(--zm-line)', borderRadius: 10,
+      }}>
+        <Field label="Site code" value={site.code} mono/>
+        <Field label="Model" value={site.model}/>
+        <Field label="City" value={site.city}/>
+        <Field label="Carpet area" value={`${site.carpet} sqft`} mono/>
+        <Field label="Rent / month" value={`₹${site.rent.toLocaleString('en-IN')}`} mono/>
+        <Field label="CAM" value={`₹${site.cam.toLocaleString('en-IN')}`} mono/>
+        <Field label="Total op cost" value={`₹${site.opCost.toLocaleString('en-IN')}`} mono/>
+        <Field label="Lock-in" value={`${site.lockin} months`} mono/>
+        <Field label="Escalation" value={`${site.escalation}% / yr`} mono/>
+        <Field label="Security deposit" value={`₹${site.deposit.toLocaleString('en-IN')}`} mono/>
+        <Field label="Rent-free days" value={`${site.rentFree}`} mono/>
+        <Field label="Est. monthly sales" value={`₹${site.estSales.toLocaleString('en-IN')}`} mono/>
+      </div>
+    </section>
+
+    <section>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
+        <h4 style={{ margin: 0, fontFamily: 'var(--zm-font-display)', fontWeight: 600, fontSize: 14, color: 'var(--zm-fg)' }}>SPOC + Google pin</h4>
+        <button className="zm-link-btn" style={{ background: 'none', border: 'none', color: 'var(--zm-accent)', fontFamily: 'var(--zm-font-body)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Open in Maps →</button>
+      </div>
+      <div style={{
+        padding: 20, background: 'var(--zm-surface)', border: '1px solid var(--zm-line)', borderRadius: 10,
+        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20,
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Field label="SPOC name" value={site.spocName}/>
+          <Field label="SPOC phone" value={site.spocPhone} mono/>
+          <Field label="Google pin" value={site.pin} mono/>
+        </div>
+        <div style={{
+          background: 'linear-gradient(135deg,#EEF1F5,#E1E5EB)', borderRadius: 8, position: 'relative', overflow: 'hidden',
+          backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M32 0 L0 0 0 32' fill='none' stroke='%23005F60' stroke-width='0.6' opacity='0.18'/></svg>\")",
+          backgroundColor: '#EEF1F5', minHeight: 130,
+        }}>
+          <span style={{ position: 'absolute', top: 12, left: 12, fontFamily: 'var(--zm-font-mono)', fontSize: 10, color: '#005F60' }}>map · stub</span>
+          <span style={{
+            position: 'absolute', left: '52%', top: '46%',
+            width: 14, height: 14, borderRadius: 999, background: '#D97706',
+            boxShadow: '0 0 0 6px rgba(217,119,6,0.22)', transform: 'translate(-50%,-50%)',
+          }}/>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
+        <h4 style={{ margin: 0, fontFamily: 'var(--zm-font-display)', fontWeight: 600, fontSize: 14, color: 'var(--zm-fg)' }}>Site photos</h4>
+        <button className="zm-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--zm-surface)', border: '1px solid var(--zm-line)', borderRadius: 8, padding: '6px 10px', fontFamily: 'var(--zm-font-body)', fontSize: 12, fontWeight: 600, color: 'var(--zm-fg)', cursor: 'pointer' }}>
+          <Icon name="upload" size={13}/> Upload
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+        <PhotoTile caption="Storefront · day" hue={200}/>
+        <PhotoTile caption="Interior shell"   hue={30}/>
+        <PhotoTile caption="Foot traffic"     hue={140}/>
+        <PhotoTile caption="Adjacency map"    hue={280}/>
+      </div>
+    </section>
+  </div>
+);
+
+const SiteActivityTab = ({ site }) => {
+  const entries = [
+    { t: '12 min ago',  who: 'Riya Sharma',    act: 'uploaded LOI document',         tag: 'doc',  color: '#1E40AF' },
+    { t: '2 hr ago',    who: 'Aman Verma',     act: 'set LOI signing date to 2026-05-19', tag: 'edit', color: '#005F60' },
+    { t: '1 day ago',   who: 'Nikhil Iyer',    act: 'approved site shortlist',       tag: 'approve', color: '#047857' },
+    { t: '3 days ago',  who: 'Riya Sharma',    act: 'completed 20-field site form',  tag: 'edit', color: '#005F60' },
+    { t: '5 days ago',  who: 'Riya Sharma',    act: 'submitted pipeline for shortlist', tag: 'submit', color: '#1E40AF' },
+    { t: '6 days ago',  who: 'Riya Sharma',    act: 'created pipeline draft',        tag: 'create', color: '#6B7280' },
+  ];
+  return (
+    <div style={{
+      background: 'var(--zm-surface)', border: '1px solid var(--zm-line)', borderRadius: 10,
+      overflow: 'hidden',
+    }}>
+      {entries.map((e, i) => (
+        <div key={i} style={{
+          display: 'grid', gridTemplateColumns: '110px 1fr', alignItems: 'center', gap: 16,
+          padding: '14px 20px',
+          borderBottom: i < entries.length - 1 ? '1px solid var(--zm-line-faint)' : 'none',
+        }}>
+          <span style={{ fontFamily: 'var(--zm-font-mono)', fontSize: 11.5, color: 'var(--zm-fg-3)' }}>{e.t}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: e.color, flex: '0 0 6px' }}/>
+            <Avatar name={e.who} size={24}/>
+            <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 13, color: 'var(--zm-fg)' }}>
+              <strong style={{ fontWeight: 600 }}>{e.who}</strong> <span style={{ color: 'var(--zm-fg-2)' }}>{e.act}</span>
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const SiteDocsTab = () => {
+  const docs = [
+    { name: 'LOI · final signed.pdf',          size: '482 KB', when: '12 min ago',  who: 'Riya S.' },
+    { name: 'Carpet floor plan v3.pdf',        size: '1.2 MB', when: '3 days ago',  who: 'Riya S.' },
+    { name: 'Site photos · 14 images.zip',     size: '8.4 MB', when: '3 days ago',  who: 'Riya S.' },
+    { name: 'Rental agreement draft v2.docx',  size: '212 KB', when: '4 days ago',  who: 'Aman V.' },
+    { name: 'Estimated sales model.xlsx',      size: '88 KB',  when: '5 days ago',  who: 'Riya S.' },
+  ];
+  return (
+    <div style={{ background: 'var(--zm-surface)', border: '1px solid var(--zm-line)', borderRadius: 10, overflow: 'hidden' }}>
+      {docs.map((d, i) => (
+        <div key={i} style={{
+          display: 'grid', gridTemplateColumns: '28px 1fr 80px 110px 80px 24px', alignItems: 'center', gap: 14,
+          padding: '12px 16px',
+          borderBottom: i < docs.length - 1 ? '1px solid var(--zm-line-faint)' : 'none',
+        }}>
+          <span style={{ color: 'var(--zm-fg-3)' }}><Icon name="file" size={16}/></span>
+          <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 13, fontWeight: 500, color: 'var(--zm-fg)' }}>{d.name}</span>
+          <span style={{ fontFamily: 'var(--zm-font-mono)', fontSize: 11.5, color: 'var(--zm-fg-3)' }}>{d.size}</span>
+          <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 12, color: 'var(--zm-fg-3)' }}>{d.when}</span>
+          <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 12, color: 'var(--zm-fg-3)' }}>{d.who}</span>
+          <span style={{ color: 'var(--zm-fg-3)' }}><Icon name="download" size={14}/></span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const SiteDrawer = ({ site, onClose }) => {
+  const [tab, setTab] = React.useState('overview');
+  if (!site) return null;
+  return (
+    <>
+      <div onClick={onClose} style={{
+        position: 'absolute', inset: 0, background: 'rgba(17,24,39,0.32)',
+        animation: 'zm-fade 200ms var(--zm-ease)',
+      }}/>
+      <aside style={{
+        position: 'absolute', top: 0, right: 0, bottom: 0, width: 760, maxWidth: '92%',
+        background: 'var(--zm-bg)', borderLeft: '1px solid var(--zm-line)',
+        boxShadow: 'var(--zm-shadow-pop)',
+        display: 'flex', flexDirection: 'column',
+        animation: 'zm-slide 260ms var(--zm-ease-emp)',
+      }}>
+        <div style={{
+          padding: '20px 28px 0', display: 'flex', alignItems: 'flex-start', gap: 16,
+          background: 'var(--zm-surface)', borderBottom: '1px solid var(--zm-line)',
+        }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontFamily: 'var(--zm-font-mono)', fontSize: 11, color: 'var(--zm-fg-3)' }}>{site.code}</span>
+              <StatusPill stage={site.stage}/>
+            </span>
+            <h2 style={{ margin: 0, fontFamily: 'var(--zm-font-display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', color: 'var(--zm-fg)' }}>{site.name}</h2>
+            <span style={{ fontFamily: 'var(--zm-font-body)', fontSize: 13, color: 'var(--zm-fg-3)' }}>
+              {site.city} · {site.model} · created by {site.createdBy} · {site.createdAt}
+            </span>
+            <div style={{ marginTop: 10, display: 'flex', gap: 0, borderTop: '1px solid var(--zm-line)', marginTop: 18 }}>
+              <Tab label="Overview" active={tab === 'overview'} onClick={() => setTab('overview')}/>
+              <Tab label="Activity" count={6} active={tab === 'activity'} onClick={() => setTab('activity')}/>
+              <Tab label="Documents" count={5} active={tab === 'docs'} onClick={() => setTab('docs')}/>
+              <Tab label="Payments" count={1} active={tab === 'payments'} onClick={() => setTab('payments')}/>
+            </div>
+          </div>
+          <button onClick={onClose} className="zm-icon-btn" style={{
+            background: 'var(--zm-surface)', border: '1px solid var(--zm-line)', borderRadius: 8,
+            width: 30, height: 30, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--zm-fg-2)', cursor: 'pointer',
+          }}><Icon name="x" size={14}/></button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
+          {tab === 'overview' && <SiteOverviewTab site={site}/>}
+          {tab === 'activity' && <SiteActivityTab site={site}/>}
+          {tab === 'docs' && <SiteDocsTab/>}
+          {tab === 'payments' && (
+            <div style={{ padding: 32, textAlign: 'center', color: 'var(--zm-fg-3)', fontFamily: 'var(--zm-font-body)', fontSize: 13 }}>
+              1 draft payment ready for approval — open the Payments module to action.
+            </div>
+          )}
+        </div>
+
+        <div style={{
+          padding: '14px 28px', borderTop: '1px solid var(--zm-line)', background: 'var(--zm-surface)',
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <button className="zm-btn" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            height: 34, padding: '0 14px', borderRadius: 8, border: '1px solid var(--zm-line)',
+            background: 'var(--zm-surface)', color: 'var(--zm-fg)',
+            fontFamily: 'var(--zm-font-body)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+          }}><Icon name="message" size={14}/> Comment</button>
+          <span style={{ flex: 1 }}/>
+          <button className="zm-btn" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            height: 34, padding: '0 14px', borderRadius: 8, border: '1px solid var(--zm-line)',
+            background: 'var(--zm-surface)', color: 'var(--zm-fg-2)',
+            fontFamily: 'var(--zm-font-body)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+          }}>Re-assign</button>
+          <button className="zm-btn-primary" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            height: 34, padding: '0 16px', borderRadius: 8, border: 'none',
+            background: 'var(--zm-accent)', color: '#fff',
+            fontFamily: 'var(--zm-font-body)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            boxShadow: 'var(--zm-shadow-1)',
+          }}>Advance to payment <Icon name="arrow" size={14}/></button>
+        </div>
+      </aside>
+    </>
+  );
+};
+
+Object.assign(window, { SiteDrawer });

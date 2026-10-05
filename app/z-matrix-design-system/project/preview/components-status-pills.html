@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>html,body{margin:0;padding:0;background:var(--zm-bg);font-family:var(--zm-font-body)}
+.wrap{padding:22px 24px;display:flex;flex-wrap:wrap;gap:10px 12px;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 10px;border-radius:999px;font-family:var(--zm-font-body);font-weight:600;font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase}
+.dot{width:6px;height:6px;border-radius:999px;display:inline-block}
+.draft{background:#F1F3F6;color:#374151}.draft .dot{background:#6B7280}
+.short{background:#DBE5FB;color:#1E40AF}.short .dot{background:#1E40AF}
+.stag{background:#FDF1DD;color:#B45309}.stag .dot{background:#D97706}
+.over{background:#FBE0E0;color:#B91C1C}.over .dot{background:#B91C1C}
+.done{background:#D5F0E2;color:#047857}.done .dot{background:#047857}
+.rej{background:#FBE0E0;color:#B91C1C}.rej .dot{background:#B91C1C}
+</style></head>
+<body><div class="wrap">
+<span class="pill draft"><span class="dot"></span>Draft</span>
+<span class="pill short"><span class="dot"></span>Shortlist</span>
+<span class="pill stag"><span class="dot"></span>Staging · LOI</span>
+<span class="pill over"><span class="dot"></span>LOI overdue</span>
+<span class="pill done"><span class="dot"></span>LOI uploaded</span>
+<span class="pill rej"><span class="dot"></span>Rejected</span>
+</div></body></html>

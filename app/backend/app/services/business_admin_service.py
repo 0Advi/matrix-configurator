@@ -1,0 +1,1149 @@
+"""Business-admin service: per-module dept codes + pending-supervisor approvals.
+
+These endpoints power the /business-admin portal. The `module_codes` and
+`user_module_memberships` tables live outside the SQLAlchemy ORM, so this
+module talks to them via raw `text()` queries.
+
+Pending supervisors are encoded in the existing `users` table as
+`role='supervisor' AND is_active=false`. The module they applied for is
+stashed in `users.notes` as the marker
+`pending_module:<bd|legal|payment|design|project>`.
+On approval we activate the user, drop the marker, and register the module
+membership; on rejection we delete the row.
+"""
+from __future__ import annotations
+
+import secrets
+from datetime import datetime, timezone
+from typing import Optional
+from uuid import UUID
+
+from fastapi import HTTPException, status
+from sqlalchemy import desc, func, select, text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db import models
+from app.db.session import transaction
+from app.domain.schemas.business_admin import Module
+from app.services import storage_service
+from app.services._common import display_code, fetch_site_for_update_or_404, fetch_user_names
+from app.services.audit_service import write_audit_event
+# The predicate for "this deliverable's file_url is an object key we wrote, not a
+# legacy free-text link" already exists next door — purging exactly the set the
+# documents view signs keeps the two from drifting apart.
+from app.services.business_admin_documents_service import deliverable_storage_path
+from app.services.finance_service import svc_finance_approve, svc_finance_reject
+
+
+_PENDING_MODULE_PREFIX = "pending_module:"
+_VALID_MODULES: frozenset[str] = frozenset(("bd", "legal", "payment", "design", "project", "nso", "project_excellence"))
+
+
+def _new_dept_code() -> str:
+    return secrets.token_urlsafe(8).upper()
+
+
+def _parse_pending_module(notes: Optional[str]) -> Optional[str]:
+    """Return the module a pending supervisor applied for, or None if the
+    marker is missing/malformed."""
+    if not notes or not notes.startswith(_PENDING_MODULE_PREFIX):
+        return None
+    candidate = notes[len(_PENDING_MODULE_PREFIX):].strip().lower()
+    return candidate if candidate in _VALID_MODULES else None
+
+
+async def list_dept_codes(session: AsyncSession, tenant_id: str | UUID) -> list[dict]:
+    """Return every per-module department code for the tenant, ordered by module."""
+    rows = (await session.execute(
+        text("""
+            SELECT id, module, code, created_at, rotated_at
+              FROM module_codes
+             WHERE tenant_id = :tid
+             ORDER BY module
+        """),
+        {"tid": tenant_id},
+    )).mappings().all()
+    return [
+        {
+            "id": str(r["id"]),
+            "module": r["module"],
+            "code": r["code"],
+            "created_at": r["created_at"],
+            "rotated_at": r["rotated_at"],
+        }
+        for r in rows
+    ]
+
+
+async def rotate_dept_code(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    module: Module,
+    created_by: str | UUID,
+) -> dict:
+    """Mint and upsert a fresh join code for the module, returning the new code."""
+    async with transaction(session):
+        row = (await session.execute(
+            text("""
+                INSERT INTO module_codes (tenant_id, module, code, created_by)
+                VALUES (:tid, :module, :code, :uid)
+                ON CONFLICT (tenant_id, module) DO UPDATE
+                  SET code = EXCLUDED.code,
+                      rotated_at = now(),
+                      created_by = EXCLUDED.created_by
+                RETURNING module, code
+            """),
+            {"tid": tenant_id, "module": module, "code": _new_dept_code(), "uid": created_by},
+        )).mappings().one()
+    return {"module": row["module"], "code": row["code"]}
+
+
+# ── Observer: workspace-level code, pending queue, approve/reject ─────────────
+#
+# Mirrors the supervisor flow above, with one deliberate divergence: approving an
+# observer writes NO user_module_memberships row. An observer is workspace-wide,
+# and role_in_module is CHECK-constrained to supervisor/executive precisely so
+# that a copy-paste of approve_supervisor() below would fail loudly rather than
+# quietly filing an observer as a supervisor of some module.
+
+
+async def get_observer_code(session: AsyncSession, tenant_id: str | UUID) -> Optional[str]:
+    """The workspace's live observer code, or None if one was never minted."""
+    row = (await session.execute(
+        text("""
+            SELECT code FROM observer_codes
+             WHERE tenant_id = :tid AND revoked_at IS NULL
+        """),
+        {"tid": tenant_id},
+    )).mappings().first()
+    return row["code"] if row else None
+
+
+async def rotate_observer_code(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    created_by: str | UUID,
+) -> dict:
+    """Revoke the live code and mint a new one, so the old one stops working.
+
+    Revoke-then-insert rather than UPDATE ... SET code: the revoked row stays as
+    history of who held which code and when. The partial unique index on
+    (tenant_id) WHERE revoked_at IS NULL is what guarantees only one is live, so
+    a caller that forgets to revoke gets a constraint error, not two live codes.
+    """
+    async with transaction(session):
+        await session.execute(
+            text("""
+                UPDATE observer_codes
+                   SET revoked_at = now()
+                 WHERE tenant_id = :tid AND revoked_at IS NULL
+            """),
+            {"tid": tenant_id},
+        )
+        row = (await session.execute(
+            text("""
+                INSERT INTO observer_codes (tenant_id, code, created_by)
+                VALUES (:tid, :code, :uid)
+                RETURNING code
+            """),
+            {"tid": tenant_id, "code": _new_dept_code(), "uid": created_by},
+        )).mappings().one()
+    return {"code": row["code"]}
+
+
+async def list_pending_observers(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+) -> list[dict]:
+    """Inactive observer rows awaiting approval."""
+    rows = (await session.execute(
+        text("""
+            SELECT id, email, created_at
+              FROM users
+             WHERE tenant_id = :tid
+               AND role = 'observer'
+               AND is_active = false
+             ORDER BY created_at
+        """),
+        {"tid": tenant_id},
+    )).mappings().all()
+    return [
+        {"id": str(r["id"]), "email": r["email"], "created_at": r["created_at"]}
+        for r in rows
+    ]
+
+
+async def approve_observer(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    user_id: str | UUID,
+) -> None:
+    """Activate a pending observer. Idempotent on re-submit.
+
+    Deliberately does NOT touch user_module_memberships — see the note at the top
+    of this section. The only state change is users.is_active.
+    """
+    async with transaction(session):
+        target = (await session.execute(
+            text("""
+                SELECT is_active FROM users
+                 WHERE id = CAST(:uid AS uuid) AND tenant_id = :tid AND role = 'observer'
+            """),
+            {"uid": user_id, "tid": tenant_id},
+        )).mappings().first()
+        if not target or target["is_active"]:
+            return
+        await session.execute(
+            text("""
+                UPDATE users
+                   SET is_active = true, notes = NULL
+                 WHERE id = CAST(:uid AS uuid) AND tenant_id = :tid AND role = 'observer'
+            """),
+            {"uid": user_id, "tid": tenant_id},
+        )
+
+
+async def list_active_observers(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+) -> list[dict]:
+    """The observers who currently hold read access to the whole workspace.
+
+    Without this the role is invisible after approval: the pending queue empties
+    and nothing else lists an observer, because it holds no module membership so
+    it never appears in the org tree. An account that can read everything and
+    that nobody can see is the wrong shape.
+    """
+    rows = (await session.execute(
+        text("""
+            SELECT id, email, name, created_at
+              FROM users
+             WHERE tenant_id = :tid
+               AND role = 'observer'
+               AND is_active = true
+             ORDER BY email
+        """),
+        {"tid": tenant_id},
+    )).mappings().all()
+    return [
+        {"id": str(r["id"]), "email": r["email"], "name": r["name"],
+         "created_at": r["created_at"]}
+        for r in rows
+    ]
+
+
+async def revoke_observer(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    user_id: str | UUID,
+) -> None:
+    """Withdraw an active observer's access.
+
+    Deletes the row rather than flipping is_active, for two reasons. An inactive
+    observer would reappear in the PENDING queue — that query is
+    ``role = 'observer' AND is_active = false`` — so revoking would silently
+    re-offer the account for approval. And an observer never acts: the
+    stage_events.actor_role CHECK excludes the role, so unlike a supervisor
+    there is no audit trail hanging off the row to preserve. Same delete
+    reject_observer already does, on the other end of the lifecycle.
+    """
+    async with transaction(session):
+        await session.execute(
+            text("""
+                DELETE FROM users
+                 WHERE id = CAST(:uid AS uuid)
+                   AND tenant_id = :tid
+                   AND role = 'observer'
+                   AND is_active = true
+            """),
+            {"uid": user_id, "tid": tenant_id},
+        )
+
+
+async def reject_observer(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    user_id: str | UUID,
+) -> None:
+    """Delete a pending observer row. Only ever removes an INACTIVE one, so a
+    mis-click cannot delete an approved account."""
+    async with transaction(session):
+        await session.execute(
+            text("""
+                DELETE FROM users
+                 WHERE id = CAST(:uid AS uuid)
+                   AND tenant_id = :tid
+                   AND role = 'observer'
+                   AND is_active = false
+            """),
+            {"uid": user_id, "tid": tenant_id},
+        )
+
+
+async def list_pending_supervisors(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    module: Optional[Module] = None,
+) -> list[dict]:
+    """List inactive supervisor rows awaiting approval, optionally filtered by module."""
+    rows = (await session.execute(
+        text("""
+            SELECT id, email, notes, created_at
+              FROM users
+             WHERE tenant_id = :tid
+               AND role = 'supervisor'
+               AND is_active = false
+             ORDER BY created_at
+        """),
+        {"tid": tenant_id},
+    )).mappings().all()
+
+    items: list[dict] = []
+    for r in rows:
+        parsed = _parse_pending_module(r["notes"])
+        if parsed is None:
+            continue
+        if module is not None and parsed != module:
+            continue
+        items.append({
+            "id": str(r["id"]),
+            "email": r["email"],
+            "module": parsed,
+            "created_at": r["created_at"],
+        })
+    return items
+
+
+async def approve_supervisor(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    user_id: str | UUID,
+    module: Module,
+) -> None:
+    """Activate a pending supervisor and grant module membership; idempotent on re-submit.
+
+    Scoped to ``role = 'supervisor'``. The list query above already filters on
+    that, so the queue never OFFERS anything else — but this route takes a
+    user_id, and without the same filter here a request naming a pending
+    OBSERVER's id would activate it and write it a
+    ``role_in_module = 'supervisor'`` membership. The CHECK on that column
+    permits the value, so nothing downstream would refuse it: 20260816 claims
+    that constraint is what stops an observer holding a membership, and it is
+    not. Approve reads the same predicate as list, so the claim holds here
+    instead.
+
+    Not an escalation — ``_assert_may_write`` keys on ``users.role``, which stays
+    'observer', so the account still cannot write. It is the invariant that
+    breaks, not the boundary.
+    """
+    async with transaction(session):
+        # Only act on a genuinely PENDING candidate in this tenant. Without this
+        # guard a re-submit (double-click) re-activates the row and tries to
+        # inject a second membership — which the UNIQUE(user_id, module) then
+        # rejects as an unhandled 500. Idempotent no-op instead. (#123)
+        target = (await session.execute(
+            text("""
+                SELECT is_active FROM users
+                 WHERE id = CAST(:uid AS uuid)
+                   AND tenant_id = :tid
+                   AND role = 'supervisor'
+            """),
+            {"uid": user_id, "tid": tenant_id},
+        )).mappings().first()
+        if not target or target["is_active"]:
+            return
+        await session.execute(
+            text("""
+                UPDATE users
+                   SET is_active = true,
+                       notes = NULL
+                 WHERE id = CAST(:uid AS uuid)
+                   AND tenant_id = :tid
+                   AND role = 'supervisor'
+            """),
+            {"uid": user_id, "tid": tenant_id},
+        )
+        # ON CONFLICT guards the residual race where two approvals slip past the
+        # pending check concurrently.
+        await session.execute(
+            text("""
+                INSERT INTO user_module_memberships
+                       (user_id, tenant_id, module, role_in_module, supervisor_id)
+                VALUES (CAST(:uid AS uuid), :tid, :module, 'supervisor', NULL)
+                -- Targets uq_umm_user_module_unsupervised: a supervisor row
+                -- carries supervisor_id NULL and stays one-per-module.
+                ON CONFLICT (user_id, module) WHERE supervisor_id IS NULL DO NOTHING
+            """),
+            {"uid": user_id, "tid": tenant_id, "module": module},
+        )
+
+
+async def reject_supervisor(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    user_id: str | UUID,
+) -> None:
+    """Delete a still-pending (inactive) supervisor applicant from the tenant."""
+    async with transaction(session):
+        await session.execute(
+            text("""
+                DELETE FROM users
+                 WHERE id = CAST(:uid AS uuid)
+                   AND tenant_id = :tid
+                   AND is_active = false
+            """),
+            {"uid": user_id, "tid": tenant_id},
+        )
+
+
+async def list_executive_requests(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+) -> list[dict]:
+    """List pending supervisor executive access requests."""
+    res = await session.execute(
+        text("""
+            SELECT r.id, r.supervisor_id, u.email, u.name, r.module, r.status, r.created_at
+              FROM supervisor_executive_requests r
+              JOIN users u ON u.id = r.supervisor_id
+             WHERE r.tenant_id = :tid
+               AND r.status = 'pending'
+             ORDER BY r.created_at ASC
+        """),
+        {"tid": tenant_id},
+    )
+    return [
+        {
+            "id": str(r["id"]),
+            "supervisor_id": str(r["supervisor_id"]),
+            "supervisor_email": r["email"],
+            "supervisor_name": r["name"],
+            "module": r["module"],
+            "status": r["status"],
+            "created_at": r["created_at"],
+        }
+        for r in res.mappings()
+    ]
+
+
+async def approve_executive_request(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    request_id: str | UUID,
+    admin_id: str | UUID,
+) -> None:
+    """Approve a supervisor executive request and grant access."""
+    async with transaction(session):
+        row = (await session.execute(
+            text("""
+                UPDATE supervisor_executive_requests
+                   SET status = 'approved',
+                       decided_at = now(),
+                       decided_by = CAST(:aid AS uuid)
+                 WHERE id = CAST(:rid AS uuid)
+                   AND tenant_id = :tid
+                   AND status = 'pending'
+             RETURNING supervisor_id, module
+            """),
+            {"rid": request_id, "tid": tenant_id, "aid": admin_id},
+        )).mappings().first()
+        
+        if not row:
+            return  # Already decided or not found
+            
+        await session.execute(
+            text("""
+                UPDATE user_module_memberships
+                   SET has_executive_access = true
+                 WHERE user_id = :uid
+                   AND module = :module
+            """),
+            {"uid": row["supervisor_id"], "module": row["module"]},
+        )
+
+
+async def reject_executive_request(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    request_id: str | UUID,
+    admin_id: str | UUID,
+) -> None:
+    """Reject a supervisor executive request."""
+    async with transaction(session):
+        await session.execute(
+            text("""
+                UPDATE supervisor_executive_requests
+                   SET status = 'rejected',
+                       decided_at = now(),
+                       decided_by = CAST(:aid AS uuid)
+                 WHERE id = CAST(:rid AS uuid)
+                   AND tenant_id = :tid
+                   AND status = 'pending'
+            """),
+            {"rid": request_id, "tid": tenant_id, "aid": admin_id},
+        )
+
+
+
+async def unlink_or_deactivate_org_user(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    user_id: str | UUID,
+    actor: dict,
+    *,
+    module: str | None = None,
+    supervisor_id: str | UUID | None = None,
+) -> None:
+    """Remove someone from ONE supervisor's team, or from the workspace.
+
+    An executive can report to several supervisors in a module, so the org card
+    renders a Remove button inside each supervisor's group. With no context that
+    button would deactivate the whole account from either place — the same
+    control doing a workspace-wide thing in two rows.
+
+    With ``module`` + ``supervisor_id``: drop that one membership row. If the
+    person is then in no module at all, they have nowhere left to work, so fall
+    through to a full deactivation rather than leaving an active account nobody
+    can reach.
+
+    With neither: the original behaviour, which is what supervisors and the
+    unassigned-executive list still use.
+    """
+    if module is None or supervisor_id is None:
+        await deactivate_org_user(session, tenant_id, user_id, actor)
+        return
+
+    async with transaction(session):
+        # Take the users row first, so this serialises against
+        # supervisor_code_service.add_existing_executive, which locks the same
+        # row. Without it a supervisor can add a link between the membership
+        # count below and the deactivation, and an executive with a live team
+        # ends up switched off.
+        await session.execute(
+            text("""
+                SELECT 1 FROM users
+                 WHERE id = CAST(:uid AS uuid) AND tenant_id = :tid
+                 FOR UPDATE
+            """),
+            {"uid": user_id, "tid": tenant_id},
+        )
+        deleted = (await session.execute(
+            text("""
+                DELETE FROM user_module_memberships
+                 WHERE user_id = CAST(:uid AS uuid)
+                   AND tenant_id = :tid
+                   AND module = :module
+                   AND supervisor_id = CAST(:sid AS uuid)
+                   AND role_in_module = 'executive'
+            """),
+            {"uid": user_id, "tid": tenant_id, "module": module, "sid": supervisor_id},
+        )).rowcount
+        if deleted:
+            await write_audit_event(
+                session,
+                tenant_id=tenant_id,
+                site_id=None,
+                actor_id=actor.get("sub"),
+                actor_name=actor.get("name"),
+                action="executive_unlinked_from_supervisor",
+                entity_id=user_id,
+                entity_type="user_module_membership",
+                detail=f"module={module} supervisor={supervisor_id}",
+            )
+        remaining = (await session.execute(
+            text("""
+                SELECT 1 FROM user_module_memberships
+                 WHERE user_id = CAST(:uid AS uuid) AND tenant_id = :tid
+                 LIMIT 1
+            """),
+            {"uid": user_id, "tid": tenant_id},
+        )).first()
+
+        # `deleted` matters: if the DELETE matched nothing the admin clicked a
+        # stale row — the supervisor had already unlinked them — and the right
+        # answer is to do nothing, not to fall through and deactivate the whole
+        # account off a click that was never about that.
+        #
+        # Called INSIDE this block on purpose. transaction() takes its
+        # begin_nested() branch when one is already open, so the deactivation
+        # becomes a savepoint under ours and the two commit or roll back
+        # together. Called outside, the DELETE would already be durable if the
+        # deactivation then raised — the admin would see an error and the
+        # membership row would be gone anyway.
+        if deleted and not remaining:
+            await deactivate_org_user(session, tenant_id, user_id, actor)
+
+
+async def deactivate_org_user(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    user_id: str | UUID,
+    actor: dict,
+) -> None:
+    """Revoke an active user's access by deactivating them (is_active=false).
+
+    The per-request is_active recheck (#103) makes this an immediate kill switch
+    for live sessions + login, and list_org filters is_active=true so the user
+    drops out of the Departments view. We deactivate rather than hard-delete to
+    keep the audit trail and avoid FK cascades through sites/delegations/
+    memberships. Idempotent: removing an already-inactive (or unknown) user is a
+    no-op, so a double-click can't error.
+    """
+    async with transaction(session):
+        target = (await session.execute(
+            text("SELECT is_active, role FROM users WHERE id = CAST(:uid AS uuid) AND tenant_id = :tid"),
+            {"uid": user_id, "tid": tenant_id},
+        )).mappings().first()
+        if not target or not target["is_active"]:
+            return
+        # Only org users (supervisors/executives) are removable here. Refuse to
+        # touch business_admins (or any other role) so this endpoint can't be
+        # used to deactivate a peer admin via a crafted UUID.
+        if target["role"] not in ("supervisor", "executive"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only supervisors and executives can be removed.",
+            )
+        # Role is pinned in the predicate too, as a second guard.
+        await session.execute(
+            text("""
+                UPDATE users SET is_active = false
+                 WHERE id = CAST(:uid AS uuid)
+                   AND tenant_id = :tid
+                   AND role IN ('supervisor', 'executive')
+            """),
+            {"uid": user_id, "tid": tenant_id},
+        )
+        await write_audit_event(
+            session,
+            tenant_id=tenant_id,
+            site_id=None,
+            actor_id=actor.get("sub"),
+            actor_name=actor.get("name"),
+            action="user_deactivated",
+            entity_id=user_id,
+            entity_type="user",
+        )
+
+
+async def list_finance_approvals(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+) -> list[dict]:
+    """Return sites awaiting admin finance sign-off, oldest-updated first."""
+    rows = (await session.execute(
+        select(models.Site)
+        .where(
+            models.Site.tenant_id == tenant_id,
+            models.Site.finance_status == "awaiting_admin",
+        )
+        .order_by(models.Site.updated_at.asc())
+    )).scalars().all()
+
+    # Batch submitter names (1 query) instead of one per row (#91).
+    names = await fetch_user_names(session, [site.submitted_by for site in rows])
+    items: list[dict] = []
+    now = datetime.now(timezone.utc)
+    for site in rows:
+        updated_at = site.updated_at or site.created_at or now
+        try:
+            finance_amount = (
+                float(site.finance_amount)
+                if site.finance_amount is not None
+                else None
+            )
+        except (TypeError, ValueError):
+            finance_amount = None
+        items.append({
+            "site_id": str(site.id),
+            "site_code": display_code(site) or f"SITE-{str(site.id)[:8].upper()}",
+            "site_name": site.name or "Unnamed site",
+            "city": site.city or "Unknown city",
+            "site_status": site.status or "pending",
+            "submitted_by_name": names.get(site.submitted_by),
+            "ca_code": site.ca_code,
+            "finance_amount": finance_amount,
+            "kyc_verified": bool(site.kyc_verified),
+            "finance_status": site.finance_status or "awaiting_admin",
+            "legal_dd_status": site.legal_dd_status,
+            "agreement_status": site.agreement_status,
+            "licensing_status": site.licensing_status,
+            "updated_at": updated_at,
+        })
+    return items
+
+
+async def _fetch_optional_admin_sources(
+    session: AsyncSession, site_ids: list,
+) -> tuple[dict, dict, dict, dict]:
+    """Best-effort Project/NSO/Launch/Budget maps for the admin timeline.
+
+    Each source is optional: if a migration hasn't run, that probe aborts the
+    transaction, so we roll back and yield an empty map for it rather than
+    failing the whole timeline. Behaviour-preserving extract of list_admin_sites
+    (#240, PY-R1000).
+    """
+    project_by_site: dict = {}
+    nso_by_site: dict = {}
+    launch_by_site: dict = {}
+    budget_by_site: dict = {}
+    if not site_ids:
+        return project_by_site, nso_by_site, launch_by_site, budget_by_site
+    try:
+        project_rows = (await session.execute(
+            select(models.ProjectReview).where(models.ProjectReview.site_id.in_(site_ids))
+        )).scalars().all()
+        project_by_site = {
+            row.site_id: {
+                "project_status": row.project_status,
+                "current_stage": row.current_stage,
+                "project_completed_at": row.project_completed_at,
+            }
+            for row in project_rows
+        }
+    except SQLAlchemyError:
+        await session.rollback()
+    try:
+        nso_rows = (await session.execute(
+            select(models.NsoReview).where(models.NsoReview.site_id.in_(site_ids))
+        )).scalars().all()
+        nso_by_site = {
+            row.site_id: {"nso_status": row.nso_status, "current_stage": row.current_stage}
+            for row in nso_rows
+        }
+    except SQLAlchemyError:
+        await session.rollback()
+    try:
+        launch_rows = (await session.execute(
+            select(models.LaunchApproval).where(models.LaunchApproval.site_id.in_(site_ids))
+        )).scalars().all()
+        launch_by_site = {
+            row.site_id: {"status": row.status, "launched_at": row.launched_at}
+            for row in launch_rows
+        }
+    except SQLAlchemyError:
+        await session.rollback()
+    try:
+        budget_rows = (await session.execute(
+            select(models.SiteBudget).where(
+                models.SiteBudget.site_id.in_(site_ids),
+                models.SiteBudget.phase == "gfc",
+            )
+        )).scalars().all()
+        budget_by_site = {
+            row.site_id: {
+                "status": row.status,
+                "total": float(row.budget_total) if row.budget_total is not None else None,
+            }
+            for row in budget_rows
+        }
+    except SQLAlchemyError:
+        await session.rollback()
+    return project_by_site, nso_by_site, launch_by_site, budget_by_site
+
+
+def _admin_item_meta(site: dict, names: dict, now) -> dict:
+    """Derived/defaulted scalars for one admin-timeline item, split out to keep
+    _admin_site_item's cyclomatic complexity low (#240, PY-R1000). `names.get`
+    returns None for a missing/None id, so the old per-name guards are redundant.
+    """
+    try:
+        finance_amount = float(site["finance_amount"]) if site["finance_amount"] is not None else None
+    except (TypeError, ValueError):
+        finance_amount = None
+    return {
+        "created_at": site["created_at"] or site["updated_at"] or now,
+        "updated_at": site["updated_at"] or site["created_at"] or now,
+        "finance_amount": finance_amount,
+        "submitted_by_name": names.get(site["submitted_by"]),
+        "assigned_to_name": names.get(site["assigned_to"]),
+        "supervisor_name": names.get(site["supervisor_id"]),
+    }
+
+
+def _admin_site_item(site: dict, *, project: dict, nso: dict, launch: dict, budget: dict, names: dict, now) -> dict:
+    """Build one admin-timeline item from a site snapshot + its optional sources.
+
+    Behaviour-preserving extract of list_admin_sites' per-row builder (#240).
+    """
+    meta = _admin_item_meta(site, names, now)
+    return {
+        "site_id": str(site["id"]),
+        "site_code": site["ca_code"] or site["code"] or f"SITE-{str(site['id'])[:8].upper()}",
+        "site_name": site["name"] or "Unnamed site",
+        "city": site["city"] or "Unknown city",
+        "site_status": site["status"] or "pending",
+        "submitted_by_name": meta["submitted_by_name"],
+        "assigned_to_name": meta["assigned_to_name"],
+        "supervisor_name": meta["supervisor_name"],
+        "legal_dd_status": site["legal_dd_status"],
+        "agreement_status": site["agreement_status"],
+        "licensing_status": site["licensing_status"],
+        "finance_status": site["finance_status"] or "pending",
+        "design_status": site["design_status"] or "pending",
+        "financial_closure_status": site["financial_closure_status"] or "pending",
+        "project_status": project.get("project_status") or site.get("project_status", "pending"),
+        "project_current_stage": project.get("current_stage"),
+        "project_budget_status": budget.get("status"),
+        "project_completed_at": project.get("project_completed_at"),
+        "nso_status": nso.get("nso_status") or site.get("nso_status", "pending"),
+        "nso_current_stage": nso.get("current_stage"),
+        "launch_status": launch.get("status") or site.get("launch_status", "pending"),
+        "is_launched": bool(site["is_launched"]),
+        "launched_at": site["launched_at"] or launch.get("launched_at"),
+        "ca_code": site["ca_code"],
+        "finance_amount": meta["finance_amount"],
+        "kyc_verified": bool(site["kyc_verified"]),
+        "created_at": meta["created_at"],
+        "updated_at": meta["updated_at"],
+        "draft_submitted_at": site["draft_submitted_at"],
+        "shortlisted_at": site["shortlisted_at"],
+        "details_submitted_at": site["details_submitted_at"],
+        "approved_at": site["approved_at"],
+        "loi_uploaded_at": site["loi_uploaded_at"],
+        "legal_review_at": site["legal_review_at"],
+        "legal_approved_at": site["legal_approved_at"],
+        "legal_rejected_at": site["legal_rejected_at"],
+        "pushed_to_payments_at": site["pushed_to_payments_at"],
+        "design_approved_at": site["design_approved_at"],
+        "rejection_reason": site["rejection_reason"],
+    }
+
+
+async def list_admin_sites(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    limit: int = 200,
+    offset: int = 0,
+) -> dict:
+    """Return the admin site timeline with merged project/NSO/launch/budget status."""
+    try:
+        safe_limit = int(limit)
+    except (TypeError, ValueError):
+        safe_limit = 200
+    safe_limit = max(1, min(safe_limit, 500))
+    try:
+        safe_offset = int(offset)
+    except (TypeError, ValueError):
+        safe_offset = 0
+    safe_offset = max(0, safe_offset)
+    rows = (await session.execute(
+        select(models.Site)
+        .where(models.Site.tenant_id == tenant_id)
+        .order_by(desc(models.Site.updated_at))
+        .offset(safe_offset)
+        .limit(safe_limit)
+    )).scalars().all()
+
+    total_count = await session.scalar(
+        select(func.count(models.Site.id))
+        .where(models.Site.tenant_id == tenant_id)
+    )
+
+    # Snapshot site fields before the optional Project join. If the deployed
+    # database has not run the Project migration yet, Postgres aborts the
+    # transaction and a rollback can expire ORM instances. Keeping primitive
+    # values here lets the admin timeline remain available while Project is
+    # treated as an empty optional source.
+    site_rows = []
+    user_ids = set()
+    for site in rows:
+        data = {
+            "id": site.id,
+            "submitted_by": site.submitted_by,
+            "assigned_to": site.assigned_to,
+            "supervisor_id": site.supervisor_id,
+            "ca_code": site.ca_code,
+            "code": site.code,
+            "name": site.name,
+            "city": site.city,
+            "status": site.status,
+            "legal_dd_status": site.legal_dd_status,
+            "agreement_status": site.agreement_status,
+            "licensing_status": site.licensing_status,
+            "finance_status": site.finance_status,
+            "design_status": site.design_status,
+            "financial_closure_status": site.financial_closure_status,
+            "project_status": getattr(site, "project_status", "pending"),
+            "nso_status": getattr(site, "nso_status", "pending"),
+            "launch_status": getattr(site, "launch_status", "pending"),
+            "is_launched": site.is_launched,
+            "launched_at": site.launched_at,
+            "finance_amount": site.finance_amount,
+            "kyc_verified": site.kyc_verified,
+            "created_at": site.created_at,
+            "updated_at": site.updated_at,
+            "draft_submitted_at": site.draft_submitted_at,
+            "shortlisted_at": site.shortlisted_at,
+            "details_submitted_at": site.details_submitted_at,
+            "approved_at": site.approved_at,
+            "loi_uploaded_at": site.loi_uploaded_at,
+            "legal_review_at": site.legal_review_at,
+            "legal_approved_at": site.legal_approved_at,
+            "legal_rejected_at": site.legal_rejected_at,
+            "pushed_to_payments_at": site.pushed_to_payments_at,
+            "design_approved_at": site.design_approved_at,
+            "rejection_reason": site.rejection_reason,
+        }
+        site_rows.append(data)
+        for key in ("submitted_by", "assigned_to", "supervisor_id"):
+            if data[key]:
+                user_ids.add(data[key])
+
+    site_ids = [site["id"] for site in site_rows]
+    project_by_site, nso_by_site, launch_by_site, budget_by_site = (
+        await _fetch_optional_admin_sources(session, site_ids)
+    )
+
+    names: dict = {}
+    if user_ids:
+        pairs = (await session.execute(
+            select(models.User.id, models.User.name).where(models.User.id.in_(user_ids))
+        )).all()
+        names = dict(pairs)
+
+    now = datetime.now(timezone.utc)
+    items = [
+        _admin_site_item(
+            site,
+            project=project_by_site.get(site["id"], {}),
+            nso=nso_by_site.get(site["id"], {}),
+            launch=launch_by_site.get(site["id"], {}),
+            budget=budget_by_site.get(site["id"], {}),
+            names=names,
+            now=now,
+        )
+        for site in site_rows
+    ]
+    return {"items": items, "total": total_count}
+
+
+async def delete_site(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    site_id: str | UUID,
+    actor: dict,
+) -> dict:
+    """Permanently delete a site and everything attached to it.
+
+    This is the only hard-delete in the product. It exists for the duplicate-row
+    case: two people file the same location, and the admin needs one of them gone
+    rather than archived (an archived duplicate still occupies its CA code and
+    still shows up in the closed views). Archive/revive remains the reversible
+    path — this one is not recoverable, which is why the UI gates it behind two
+    confirmations.
+
+    Every child table cascades from sites(id) (20260814), so the single DELETE
+    tears down details, files, audit trail, delegations, legal / design / project
+    / NSO / launch rows and budgets atomically. The record of the deletion itself
+    is written with ``site_id=None`` — a row carrying site_id would be cascaded
+    away by the very delete it exists to document.
+
+    Storage objects are removed after the commit, best-effort: an unreachable
+    storage API must not resurrect a site the database has already dropped.
+    """
+    async with transaction(session):
+        # Row-locked + tenant-scoped: an admin cannot delete another workspace's
+        # site, and a concurrent workflow write can't interleave with the delete.
+        site = await fetch_site_for_update_or_404(session, site_id=site_id, tenant_id=tenant_id)
+        label = display_code(site) or str(site.id)
+
+        # Collect the storage keys BEFORE the rows go away. Design deliverables
+        # only carry an object key when the path is one we wrote (legacy free-text
+        # file_url values are links, not keys) — same predicate the documents
+        # service uses to decide what it can sign.
+        paths = list((await session.execute(
+            select(models.SiteFile.storage_path).where(models.SiteFile.site_id == site.id)
+        )).scalars().all())
+        paths += [
+            key for key in (await session.execute(
+                select(models.DesignDeliverable.file_url).where(
+                    models.DesignDeliverable.site_id == site.id,
+                    models.DesignDeliverable.file_url.isnot(None),
+                )
+            )).scalars().all()
+            if deliverable_storage_path(key)
+        ]
+
+        await write_audit_event(
+            session,
+            tenant_id=tenant_id,
+            site_id=None,
+            actor_id=actor.get("sub"),
+            actor_name=actor.get("name"),
+            action="site_deleted",
+            entity_id=site.id,
+            entity_type="site",
+            detail=(
+                f"code={label} name={site.name} city={site.city} "
+                f"status={site.status} files={len(paths)}"
+            ),
+        )
+        await session.delete(site)
+
+    for path in paths:
+        # delete_object logs and swallows its own failures; an orphaned blob is a
+        # cleanup chore, a failed request here would be a lie about the outcome.
+        await storage_service.delete_object(path=path)
+
+    return {"ok": True, "message": f"Site {label} deleted", "site_id": str(site_id)}
+
+
+async def approve_finance(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    site_id: str | UUID,
+    actor: dict,
+) -> dict:
+    """Approve a site's finance review on the admin's behalf via the finance service."""
+    return await svc_finance_approve(
+        session,
+        tenant_id=tenant_id,
+        actor=actor,
+        site_id=site_id,
+    )
+
+
+async def reject_finance(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    site_id: str | UUID,
+    actor: dict,
+    reason: str | None = None,
+) -> dict:
+    """Reject a site's finance review on the admin's behalf, with an optional reason."""
+    return await svc_finance_reject(
+        session,
+        tenant_id=tenant_id,
+        actor=actor,
+        site_id=site_id,
+        reason=reason,
+    )
+
+
+# ── Department org tree (supervisors + the executives under them) ─────────────
+
+# Departments shown in the org view. Payment is an approval sub-workflow, not a
+# dept onboarded via a code, so it is intentionally omitted here.
+_ORG_MODULES: tuple[str, ...] = ("bd", "legal", "design", "project", "nso", "project_excellence")
+
+# Modules that have NO executive role — supervisors only. NSO is reviewed by a
+# supervisor; executives are not part of its flow, so the org view never surfaces
+# executive slots / invite-codes for them and executive sign-ups are refused.
+_SUPERVISOR_ONLY_MODULES: frozenset[str] = frozenset({"nso"})
+
+
+def _place_executives(execs: list[dict], index: dict[str, dict]) -> list[dict]:
+    """Nest each executive under every supervisor it reports to; return the rest.
+
+    An executive holds one membership row per supervisor, so the same person
+    legitimately appears under several of them — `execs` is a list of ROWS, not
+    of people.
+
+    Someone counts as unassigned only when NO row of theirs resolves to a
+    supervisor in this module. The FK is ON DELETE SET NULL, so an executive can
+    carry a leftover supervisor_id-NULL row alongside a real one; without the
+    first pass they would render under a supervisor AND in Unassigned, reading as
+    two different people.
+
+    NOT pure, despite reading like it: it pops "_supervisor_id" off every row
+    and appends into `index`. Both are deliberate — the marker must not reach
+    the response and the nesting has to land somewhere — but it means calling
+    this twice on the same rows raises KeyError. One call per module.
+
+    Extracted from list_org, which is on the Departments tab's hot path and had
+    grown past the complexity gate (PY-R1000).
+    """
+    placed = {
+        e["id"] for e in execs
+        if e.get("_supervisor_id") and e["_supervisor_id"] in index
+    }
+    unassigned: list[dict] = []
+    seen: set[str] = set()
+    for e in execs:
+        sid = e.pop("_supervisor_id")
+        if sid and sid in index:
+            index[sid]["executives"].append(e)
+        elif e["id"] not in placed and e["id"] not in seen:
+            seen.add(e["id"])
+            unassigned.append(e)
+    return unassigned
+
+
+async def list_org(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+    *,
+    include_codes: bool = True,
+) -> dict:
+    """Per-department code + the active supervisors and the executives reporting
+    to each (from user_module_memberships.supervisor_id). Executives with no (or
+    an unknown) supervisor land in `unassigned_executives`.
+
+    ``include_codes=False`` returns the same directory with every join code
+    blanked. The observer portal renders this exact payload, and a join code is
+    a credential: an observer cannot write, but a department code lets it
+    onboard a supervisor who can. The department tree itself is fine for it to
+    see — only the codes come out.
+    """
+    codes = {
+        r["module"]: r["code"]
+        for r in (await session.execute(
+            text("SELECT module, code FROM module_codes WHERE tenant_id = :tid"),
+            {"tid": tenant_id},
+        )).mappings().all()
+    } if include_codes else {}
+
+    rows = (await session.execute(
+        text("""
+            SELECT umm.module AS module, umm.role_in_module AS role_in_module,
+                   umm.supervisor_id AS supervisor_id, umm.joined_at AS joined_at,
+                   u.id AS id, u.email AS email, u.name AS name
+              FROM user_module_memberships umm
+              JOIN users u ON u.id = umm.user_id
+             WHERE umm.tenant_id = :tid
+               AND u.is_active = true
+             ORDER BY umm.role_in_module, u.name
+        """),
+        {"tid": tenant_id},
+    )).mappings().all()
+
+    sups_by_mod: dict[str, list[dict]] = {m: [] for m in _ORG_MODULES}
+    execs_by_mod: dict[str, list[dict]] = {m: [] for m in _ORG_MODULES}
+    for r in rows:
+        mod = r["module"]
+        if mod not in sups_by_mod:
+            continue  # skip payment / any non-dept module
+        person = {
+            "id": str(r["id"]),
+            "email": r["email"],
+            "name": r["name"],
+            "joined_at": r["joined_at"],
+        }
+        if r["role_in_module"] == "supervisor":
+            sups_by_mod[mod].append({**person, "executives": []})
+        else:
+            execs_by_mod[mod].append({
+                **person,
+                "_supervisor_id": str(r["supervisor_id"]) if r["supervisor_id"] else None,
+            })
+
+    modules: list[dict] = []
+    for m in _ORG_MODULES:
+        exec_enabled = m not in _SUPERVISOR_ONLY_MODULES
+        supervisors = sups_by_mod[m]
+        index = {s["id"]: s for s in supervisors}
+        unassigned: list[dict] = []
+        # Supervisor-only modules (NSO) never surface executives — each supervisor's
+        # `executives` stays [] and there are no unassigned execs to show.
+        if exec_enabled:
+            unassigned = _place_executives(execs_by_mod[m], index)
+        modules.append({
+            "module": m,
+            "code": codes.get(m),
+            "supervisors": supervisors,
+            "unassigned_executives": unassigned,
+            "executives_enabled": exec_enabled,
+        })
+    return {"modules": modules}

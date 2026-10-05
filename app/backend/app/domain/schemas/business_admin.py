@@ -1,0 +1,208 @@
+"""Pydantic schemas for the /business-admin portal."""
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Literal, Optional
+
+from pydantic import BaseModel, ConfigDict, EmailStr, model_validator
+
+
+Module = Literal["bd", "legal", "design", "project", "nso", "project_excellence"]  # 'payment' retired (202606132); 'project_excellence' added (202606134)
+
+
+class ModuleCodeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    module: Module
+    code: str
+    created_at: datetime
+    rotated_at: Optional[datetime] = None
+
+
+class DeptCodeRotateOut(BaseModel):
+    module: Module
+    code: str
+
+
+# ── Observer: workspace-wide read-only role ───────────────────────────────────
+# No `module` field on any of these — an observer is workspace-wide, which is the
+# whole difference from the supervisor shapes above.
+
+
+class ObserverCodeOut(BaseModel):
+    """The live workspace observer code, or null when none has been minted."""
+    code: Optional[str] = None
+
+
+class PendingObserverOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    email: EmailStr
+    created_at: datetime
+
+
+class ActiveObserverOut(BaseModel):
+    """An observer who currently holds workspace-wide read access."""
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    email: EmailStr
+    name: Optional[str] = None
+    created_at: datetime
+
+
+class PendingSupervisorOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    email: EmailStr
+    module: Module
+    created_at: datetime
+
+
+class RemoveOrgUserIn(BaseModel):
+    """Which supervisor's group the Remove button was pressed in.
+
+    Both fields or neither. Naming a module without a supervisor is ambiguous
+    once an executive has several links in that module — and the ambiguity is not
+    harmless: the service treats a missing pair as "no context", which is
+    whole-account deactivation. So a half-filled payload would silently switch
+    off an account when it meant to unlink one team. Rejected at the edge rather
+    than guessed at.
+    """
+    module: Optional[Module] = None
+    supervisor_id: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _both_or_neither(self) -> "RemoveOrgUserIn":
+        if (self.module is None) != (self.supervisor_id is None):
+            raise ValueError(
+                "module and supervisor_id must be given together, or both omitted"
+            )
+        return self
+
+
+class ApproveSupervisorIn(BaseModel):
+    module: Module
+
+
+class ExecutiveRequestOut(BaseModel):
+    id: str
+    supervisor_id: str
+    supervisor_email: str
+    supervisor_name: str
+    module: Module
+    status: str
+    created_at: datetime
+
+
+
+class FinanceApprovalOut(BaseModel):
+    site_id: str
+    site_code: str
+    site_name: str
+    city: str
+    site_status: str
+    submitted_by_name: Optional[str] = None
+    ca_code: Optional[str] = None
+    finance_amount: Optional[float] = None
+    kyc_verified: bool = False
+    finance_status: str
+    # Upstream legal/agreement/licensing state, so the admin's finance sign-off
+    # shows the real legal status instead of a default "pending".
+    legal_dd_status: Optional[str] = None
+    agreement_status: Optional[str] = None
+    licensing_status: Optional[str] = None
+    updated_at: datetime
+
+
+class AdminSiteOut(BaseModel):
+    site_id: str
+    site_code: str
+    site_name: str
+    city: str
+    site_status: str
+    submitted_by_name: Optional[str] = None
+    assigned_to_name: Optional[str] = None
+    supervisor_name: Optional[str] = None
+    legal_dd_status: Optional[str] = None
+    agreement_status: Optional[str] = None
+    licensing_status: Optional[str] = None
+    finance_status: str = "pending"
+    design_status: Optional[str] = None
+    project_status: Optional[str] = None
+    project_current_stage: Optional[str] = None
+    project_budget_status: Optional[str] = None
+    project_completed_at: Optional[datetime] = None
+    nso_status: Optional[str] = None
+    nso_current_stage: Optional[str] = None
+    launch_status: Optional[str] = None
+    financial_closure_status: Optional[str] = None
+    is_launched: bool = False
+    launched_at: Optional[datetime] = None
+    ca_code: Optional[str] = None
+    finance_amount: Optional[float] = None
+    kyc_verified: bool = False
+    created_at: datetime
+    updated_at: datetime
+    draft_submitted_at: Optional[datetime] = None
+    shortlisted_at: Optional[datetime] = None
+    details_submitted_at: Optional[datetime] = None
+    approved_at: Optional[datetime] = None
+    loi_uploaded_at: Optional[datetime] = None
+    legal_review_at: Optional[datetime] = None
+    legal_approved_at: Optional[datetime] = None
+    legal_rejected_at: Optional[datetime] = None
+    pushed_to_payments_at: Optional[datetime] = None
+    design_approved_at: Optional[datetime] = None
+    rejection_reason: Optional[str] = None
+
+
+class AdminSitesResponse(BaseModel):
+    items: list[AdminSiteOut]
+    total: int
+
+
+# ── Department org tree (supervisors + the executives under them) ─────────────
+
+class OrgExecutiveOut(BaseModel):
+    id: str
+    email: EmailStr
+    name: str
+    joined_at: Optional[datetime] = None
+
+
+class OrgSupervisorOut(BaseModel):
+    id: str
+    email: EmailStr
+    name: str
+    joined_at: Optional[datetime] = None
+    executives: list[OrgExecutiveOut] = []
+
+
+class OrgModuleOut(BaseModel):
+    module: Module
+    code: Optional[str] = None
+    supervisors: list[OrgSupervisorOut] = []
+    unassigned_executives: list[OrgExecutiveOut] = []
+    # False for supervisor-only modules (NSO) — the UI hides executive slots/codes.
+    executives_enabled: bool = True
+
+
+class OrgResponse(BaseModel):
+    modules: list[OrgModuleOut]
+
+
+# ── Site documents (admin review of all uploaded files, incl. closed sites) ──
+
+class SiteDocumentItem(BaseModel):
+    id: str
+    file_name: str
+    file_type: str
+    module: str
+    uploaded_at: Optional[str] = None
+    uploaded_by: Optional[str] = None
+    url: Optional[str] = None
+
+
+class SiteDocumentsResponse(BaseModel):
+    site_id: str
+    documents: list[SiteDocumentItem] = []

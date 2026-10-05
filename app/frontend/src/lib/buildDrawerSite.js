@@ -1,0 +1,49 @@
+export function buildDrawerSite(row) {
+  const details = row.details || {};
+  const first = (...values) => values.find((value) => value !== undefined && value !== null && value !== '');
+  const createdBy = typeof row.createdBy === 'object' ? row.createdBy?.name : row.createdBy;
+  const rent = first(row.rent, row.expectedRent, details.rent);
+  const cam = first(row.cam, details.cam);
+  const totalOpCost = first(row.totalOpCost, details.totalOpCost);
+
+  return {
+    ...row,
+    id: row.id || row.code,
+    code: row.code || '—',
+    name: row.name || details.name || 'Untitled site',
+    city: row.city || details.city || '—',
+    stage: row.stage || 'shortlist',
+    carpet: first(row.carpet, details.carpet),
+    opCost: totalOpCost,
+    rent,
+    rentType: first(row.rentType, details.rentType),
+    cam,
+    deposit: first(row.deposit, details.deposit),
+    lockin: first(row.lockin, details.lockin),
+    tenure: first(row.tenure, details.tenure),
+    escalation: first(row.expectedEscalationPct, row.escalation, details.escalation),
+    escalationYears: first(row.expectedEscalationYears, details.escalationYears),
+    staggeredEscalation: first(row.staggeredEscalation, row.staggered_escalation, details.staggeredEscalation),
+    revshare: first(row.expectedRevsharePct, row.revshare, details.revshare),
+    // Revenue-share split (FEATURE_RENT_V2) — surfaced so the approval drawer can
+    // read the flat Dine-in / Delivery %; per-year split rides in staggeredEscalation.
+    revshareDinein: first(row.revshareDineinPct, details.revshareDineinPct),
+    revshareDelivery: first(row.revshareDeliveryPct, details.revshareDeliveryPct),
+    rentFree: first(row.rentFreeDays, details.rentFreeDays),
+    estSales: first(row.estSales, details.estSales),
+    nearestStarbucks: first(row.nearestStarbucks, details.nearestStarbucks),
+    nearestTWC: first(row.nearestTWC, details.nearestTWC),
+    cadex: first(row.cadex, row.capex, details.cadex, details.capex),
+    capex: first(row.capex, row.cadex, details.capex, details.cadex),
+    brokerage: first(row.brokerage, details.brokerage),
+    model: first(row.model, details.model),
+    pin: first(row.googlePin, row.pin, details.googlePin),
+    googleMapsUrl: first(row.googleMapsUrl, details.googleMapsUrl),
+    photos: Array.isArray(details.photos) ? details.photos : [],
+    loiSignedAt: first(row.loiUploadedAt, row._loiUploadedAt),
+    loiSubmittedAt: first(row.loiUploadedAt, row._loiUploadedAt),
+    days: row.days ?? row.daysSinceApproval ?? 0,
+    createdAt: first(row.createdAt, row.visitDate),
+    createdBy,
+  };
+}

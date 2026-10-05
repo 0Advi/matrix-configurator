@@ -1,0 +1,121 @@
+/* RentTermsForm — the hover/focus affordances inline styles can't express.
+ *
+ * Uses only --zm-* custom properties, which are declared on plain :root
+ * (public/colors_and_type.css) and therefore resolve identically on the BD
+ * surface and inside the business-admin portal's createPortal drawer. This
+ * stylesheet deliberately lives beside the component rather than reusing the
+ * portal's approval-center.css, which is scoped to that module only.
+ *
+ * DELIBERATE: nothing here sets `border-color`.
+ * A selected rent-type option marks itself with an inline
+ * `border: 1px solid var(--zm-accent)`. The portal's own .ac-interactive uses
+ * `border-color: var(--zm-line-strong) !important` on hover, which would beat
+ * that inline style and ERASE the selection ring the moment you hovered the
+ * selected card. Hover here changes only elevation, never colour.
+ */
+
+.rt-option {
+  transition: transform .16s ease, box-shadow .16s ease, background-color .2s ease;
+}
+.rt-option:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--zm-shadow-2);
+}
+.rt-option:active:not(:disabled) {
+  transform: translateY(0);
+}
+/* Roving tabindex means only the checked option is a tab stop, so the ring has
+   to be unmistakable when it lands. */
+.rt-option:focus-visible {
+  outline: 2px solid var(--zm-accent);
+  outline-offset: 2px;
+}
+.rt-option:disabled {
+  cursor: default;
+}
+
+/* NumField renders a borderless <input> inside a bordered wrapper, so the focus
+   ring must come from the wrapper — :focus-within, not :focus. */
+.rt-field {
+  transition: border-color .14s ease, box-shadow .14s ease;
+}
+.rt-field:focus-within {
+  border-color: var(--zm-accent) !important;
+  box-shadow: var(--zm-ring-focus);
+}
+
+/* REV SHARE switch.
+ *
+ * The control used to be a bare <input> with an inline background and
+ * `position: relative` anchoring a thumb that was never written — .rt-switch had
+ * no rules at all. With appearance:none stripping the native tick, the result was
+ * a flat pill whose only state signal was hue: a WCAG 1.4.1 failure, and the old
+ * off-track (--zm-line-strong, #CBD5E1) sat at 1.35:1 on white besides.
+ *
+ * State is now carried by thumb POSITION as well as colour, and the geometry
+ * lives here rather than inline so the reduced-motion block below can actually
+ * cancel it — a CSS `transition: none` cannot override an inline transition.
+ */
+.rt-switch__control {
+  position: relative;
+  flex: 0 0 34px;
+  height: 20px;
+}
+/* opacity, never display:none/visibility:hidden — those drop the input from the
+   accessibility tree, taking getByRole and keyboard focus with it. */
+.rt-switch__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+.rt-switch__track {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--zm-r-pill);
+  transition: background-color var(--zm-dur-1) var(--zm-ease),
+              box-shadow var(--zm-dur-1) var(--zm-ease);
+}
+.rt-switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--zm-r-pill);
+  background: var(--zm-accent-on);
+  box-shadow: var(--zm-shadow-1);
+  transition: transform var(--zm-dur-1) var(--zm-ease);
+}
+/* 34 track − 2 left − 2 right − 16 thumb */
+.rt-switch__track[data-on='true'] .rt-switch__thumb {
+  transform: translateX(14px);
+}
+/* Elevation only on hover — never border-color, per the note at the top. */
+.rt-switch:hover .rt-switch__input:not(:disabled) + .rt-switch__track {
+  box-shadow: var(--zm-shadow-2);
+}
+/* The global *:focus-visible ring lands on the transparent input where nobody can
+   see it; forward it to the track the user is actually looking at. */
+.rt-switch__input:focus-visible + .rt-switch__track {
+  box-shadow: var(--zm-ring-focus);
+}
+.rt-switch__track[data-disabled='true'] {
+  opacity: .6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rt-option,
+  .rt-field,
+  .rt-switch__track,
+  .rt-switch__thumb {
+    transition: none;
+  }
+  .rt-option:hover:not(:disabled),
+  .rt-option:active:not(:disabled) {
+    transform: none;
+  }
+}
