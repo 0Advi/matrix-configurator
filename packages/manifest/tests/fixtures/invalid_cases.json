@@ -928,6 +928,143 @@
      ]
     }
    ]
+  },
+  {
+   "name": "borrowed_unknown_module",
+   "rule": "R2",
+   "expect": {
+    "code": "unknown_module",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/stages/2/approvals/0/module",
+     "value": "quality"
+    }
+   ]
+  },
+  {
+   "name": "borrowed_other_subject",
+   "rule": "R3",
+   "expect": {
+    "code": "invalid_actor",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "append",
+     "path": "subjects",
+     "value": {
+      "key": "vendor",
+      "label": "Vendor"
+     }
+    },
+    {
+     "op": "set",
+     "path": "modules/0/subject",
+     "value": "vendor"
+    },
+    {
+     "op": "set",
+     "path": "modules/1/entry_gate",
+     "value": null
+    },
+    {
+     "op": "set",
+     "path": "modules/1/stages/2/approvals/0",
+     "value": {
+      "role": "supervisor",
+      "module": "site_survey"
+     }
+    }
+   ]
+  },
+  {
+   "name": "borrowed_role_not_member",
+   "rule": "R3",
+   "expect": {
+    "code": "invalid_actor",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/stages/2/approvals/0",
+     "value": {
+      "role": "finance_reviewer",
+      "module": "site_survey"
+     }
+    }
+   ]
+  },
+  {
+   "name": "restrict_roles_not_submitters",
+   "rule": "R3",
+   "expect": {
+    "code": "invalid_actor",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/stages/0/submit/restricted_to",
+     "value": "case_creator"
+    },
+    {
+     "op": "set",
+     "path": "modules/0/stages/0/submit/restrict_roles",
+     "value": [
+      "business_admin"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "approval_field_dup_key",
+   "rule": "R1",
+   "expect": {
+    "code": "duplicate_key",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/stages/1/approvals/0/fields",
+     "value": [
+      {
+       "key": "monthly_rent",
+       "label": "Rent again",
+       "type": "money"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "approval_field_validation",
+   "rule": "R8",
+   "expect": {
+    "code": "field_validation",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/stages/1/approvals/0/fields",
+     "value": [
+      {
+       "key": "start_on",
+       "label": "Start on",
+       "type": "date",
+       "validation": {
+        "min_date": "2027-01-01",
+        "max_date": "2026-01-01"
+       }
+      }
+     ]
+    }
+   ]
   }
  ]
 }

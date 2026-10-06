@@ -102,3 +102,19 @@ def test_adapter_registered_ok():
 
 def test_non_object():
     assert validate([])["ok"] is False
+
+
+def test_generic_additions_validate():
+    """Task 4 additions: subject_creator + restrict_roles, borrowed approval tier, approval fields, rework send-back."""
+    m = load_example()
+    plan = m["modules"][1]["stages"][0]
+    plan["submit"] = {"roles": ["executive", "supervisor"], "restricted_to": "subject_creator", "restrict_roles": ["executive"]}
+    plan["send_back_to"] = ["plan"]
+    handover = m["modules"][1]["stages"][2]
+    handover["approvals"].append({"role": "supervisor", "module": "site_survey", "actions": ["approve", "send_back"], "label": "Survey lead sign-off"})
+    handover["approvals"][0]["fields"] = [{"key": "accepted_on", "label": "Accepted on", "type": "date", "required": True}]
+    rep = validate(m)
+    assert rep["ok"], rep["findings"]
+    # approval fields are addressable by gates/rollups like stage fields
+    m["modules"][1]["stages"][1]["gate"]["conditions"].append({"source": "fit_out", "stage": "plan", "field": "budget", "op": "lte", "value": 100})
+    assert validate(m)["ok"]

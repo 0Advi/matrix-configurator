@@ -1,0 +1,361 @@
+{
+  "template": {
+    "key": "matrix-bd/project",
+    "version": "1.0.0",
+    "title": "Project execution",
+    "source": {
+      "repo": "Matrix-bd",
+      "commit": "3d4f277beb22c5be02c2abacea61b6afaee7cdeb",
+      "extracted_from": "building-blocks/from-matrix-bd/matrix-bd-flow.json",
+      "module": "project"
+    },
+    "visibility": "customer-private"
+  },
+  "requires": {
+    "subject": "site",
+    "modules": [
+      "design",
+      "project_excellence"
+    ],
+    "roles": [
+      "business_admin",
+      "executive",
+      "supervisor"
+    ],
+    "outcomes": [
+      "allocated",
+      "approved",
+      "done",
+      "in_progress",
+      "rejected",
+      "submitted"
+    ]
+  },
+  "module": {
+    "key": "project",
+    "name": "Project execution",
+    "icon": "hammer",
+    "subject": "site",
+    "members": [
+      "executive",
+      "supervisor"
+    ],
+    "delegation": true,
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "design",
+          "outcome": "approved"
+        }
+      ],
+      "refusal_message": "Project is locked until Design receives final GFC approval."
+    },
+    "stages": [
+      {
+        "key": "initialization",
+        "name": "Initialization date",
+        "submit": {
+          "roles": [
+            "business_admin",
+            "supervisor"
+          ]
+        },
+        "outcome": "allocated",
+        "description": "Proposed by the admin (from the PE approval) or a supervisor; the executive accepts or sends it back.",
+        "approvals": [
+          {
+            "role": "executive",
+            "actions": [
+              "approve",
+              "send_back"
+            ],
+            "label": "Accept date"
+          }
+        ],
+        "fields": [
+          {
+            "key": "initialization_date",
+            "label": "Initialization date",
+            "required": true,
+            "type": "date"
+          }
+        ]
+      },
+      {
+        "key": "expected_completion",
+        "name": "Expected completion",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "outcome": "submitted",
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "send_back"
+            ]
+          }
+        ],
+        "fields": [
+          {
+            "key": "expected_completion_date",
+            "label": "Expected completion date",
+            "required": true,
+            "type": "date"
+          }
+        ]
+      },
+      {
+        "key": "mid_project_visit",
+        "name": "Mid-project visit",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "outcome": "in_progress",
+        "fields": [
+          {
+            "key": "mid_project_visit_date",
+            "label": "Mid-project visit date",
+            "required": true,
+            "type": "date"
+          }
+        ]
+      },
+      {
+        "key": "quality_audit",
+        "name": "Quality audit",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "outcome": "approved",
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "reject",
+              "send_back"
+            ],
+            "fields": [
+              {
+                "key": "quality_audit_comments",
+                "label": "Comments",
+                "required": false,
+                "type": "text"
+              }
+            ]
+          },
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "send_back"
+            ],
+            "module": "project_excellence",
+            "label": "Project Excellence sign-off"
+          }
+        ],
+        "fields": [
+          {
+            "key": "inspection_date",
+            "label": "Inspection date",
+            "required": true,
+            "type": "date"
+          }
+        ]
+      },
+      {
+        "key": "push_to_nso",
+        "name": "Push to NSO",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "outcome": "done"
+      }
+    ],
+    "exit": {
+      "on_complete": "done",
+      "on_reject": "rejected"
+    },
+    "adapter": {
+      "key": "matrix_bd.project",
+      "version": "1.0.0",
+      "hooks": [
+        "syncExternalState"
+      ]
+    },
+    "template": {
+      "key": "matrix-bd/project",
+      "version": "1.0.0"
+    }
+  },
+  "summary": {
+    "stages": [
+      {
+        "key": "initialization",
+        "name": "Initialization date",
+        "submit": {
+          "roles": [
+            "business_admin",
+            "supervisor"
+          ]
+        },
+        "approvals": [
+          {
+            "role": "executive",
+            "actions": [
+              "approve",
+              "send_back"
+            ],
+            "label": "Accept date"
+          }
+        ],
+        "fields": [
+          "initialization_date"
+        ],
+        "approval_fields": [],
+        "outcome": "allocated"
+      },
+      {
+        "key": "expected_completion",
+        "name": "Expected completion",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "send_back"
+            ]
+          }
+        ],
+        "fields": [
+          "expected_completion_date"
+        ],
+        "approval_fields": [],
+        "outcome": "submitted"
+      },
+      {
+        "key": "mid_project_visit",
+        "name": "Mid-project visit",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "approvals": [],
+        "fields": [
+          "mid_project_visit_date"
+        ],
+        "approval_fields": [],
+        "outcome": "in_progress"
+      },
+      {
+        "key": "quality_audit",
+        "name": "Quality audit",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "reject",
+              "send_back"
+            ]
+          },
+          {
+            "role": "supervisor",
+            "module": "project_excellence",
+            "actions": [
+              "approve",
+              "send_back"
+            ],
+            "label": "Project Excellence sign-off"
+          }
+        ],
+        "fields": [
+          "inspection_date"
+        ],
+        "approval_fields": [
+          "quality_audit_comments"
+        ],
+        "outcome": "approved"
+      },
+      {
+        "key": "push_to_nso",
+        "name": "Push to NSO",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "approvals": [],
+        "fields": [],
+        "approval_fields": [],
+        "outcome": "done"
+      }
+    ],
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "design",
+          "outcome": "approved"
+        }
+      ],
+      "refusal_message": "Project is locked until Design receives final GFC approval."
+    },
+    "exit_outcomes": {
+      "on_complete": "done",
+      "on_reject": "rejected"
+    },
+    "approval_tiers": [
+      "executive",
+      "supervisor",
+      "supervisor@project_excellence"
+    ]
+  },
+  "adapter_hooks": [
+    {
+      "hook": "syncExternalState",
+      "purpose": "Consume project.initialization_proposed and submit the initialization stage with that date on behalf of the proposing admin (runtime command, attributed to them).",
+      "why_not_generic": "Cross-module seeding (see Project Excellence).",
+      "matrix_bd_source": "backend/app/services/project_service.py seed_initialization_from_pe",
+      "generic_candidate": "field.prefill_from + auto-submit"
+    }
+  ],
+  "behaviour": {
+    "generic": [
+      "initialization → expected completion → mid visit → quality audit → push to NSO",
+      "quality audit's second tier is the PROJECT EXCELLENCE supervisor (approval.module) — no hidden cross-module role check",
+      "'project done' opens NSO stage 3 (NSO's stage gate)"
+    ],
+    "matrix_bd_specific": [
+      "legacy business-admin confirmation route for the quality audit (not carried over)",
+      "initialization seeded from PE (adapter)"
+    ]
+  },
+  "renamed_fields": {}
+}

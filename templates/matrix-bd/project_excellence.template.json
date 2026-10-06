@@ -1,0 +1,415 @@
+{
+  "template": {
+    "key": "matrix-bd/project_excellence",
+    "version": "1.0.0",
+    "title": "Project Excellence",
+    "source": {
+      "repo": "Matrix-bd",
+      "commit": "3d4f277beb22c5be02c2abacea61b6afaee7cdeb",
+      "extracted_from": "building-blocks/from-matrix-bd/matrix-bd-flow.json",
+      "module": "pex"
+    },
+    "visibility": "customer-private"
+  },
+  "requires": {
+    "subject": "site",
+    "modules": [
+      "design"
+    ],
+    "roles": [
+      "business_admin",
+      "executive",
+      "supervisor"
+    ],
+    "outcomes": [
+      "approved",
+      "done",
+      "rejected"
+    ]
+  },
+  "module": {
+    "key": "project_excellence",
+    "name": "Project Excellence",
+    "icon": "gauge",
+    "subject": "site",
+    "members": [
+      "executive",
+      "supervisor"
+    ],
+    "delegation": true,
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "design",
+          "outcome": "approved"
+        }
+      ],
+      "refusal_message": "Project Excellence is locked until Design GFC is approved."
+    },
+    "stages": [
+      {
+        "key": "gfc_budget",
+        "name": "GFC budget (11 heads)",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "outcome": "approved",
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "reject",
+              "send_back"
+            ],
+            "fields": [
+              {
+                "key": "pex_supervisor_comments",
+                "label": "Supervisor comments",
+                "required": false,
+                "type": "text"
+              }
+            ]
+          },
+          {
+            "role": "business_admin",
+            "actions": [
+              "approve",
+              "reject",
+              "send_back"
+            ],
+            "fields": [
+              {
+                "key": "pex_initialization_date",
+                "label": "Project initialization date",
+                "required": true,
+                "type": "date"
+              },
+              {
+                "key": "pex_admin_comments",
+                "label": "Admin comments",
+                "required": false,
+                "type": "text"
+              }
+            ]
+          }
+        ],
+        "fields": [
+          {
+            "key": "pex_professional_fees",
+            "label": "Professional Fees",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "pex_hvac",
+            "label": "HVAC",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "pex_furniture_light_planters",
+            "label": "Furniture, Light & Planters",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "pex_civil_interiors",
+            "label": "Civil & Interiors",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "pex_kitchen_equipment",
+            "label": "Kitchen Equipment",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "pex_branding",
+            "label": "Branding",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "pex_crockery_small_equipments",
+            "label": "Crockery & Small Equipments",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "pex_utilities",
+            "label": "Utilities",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "pex_licencing",
+            "label": "Licencing",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "pex_bd_cost",
+            "label": "BD Cost",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "pex_misc",
+            "label": "Misc",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "pex_total_indoor_area_sqft",
+            "label": "Total indoor area (sqft)",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "key": "pex_total_area_sqft",
+            "label": "Total area (sqft)",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "key": "pex_covers",
+            "label": "Covers",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "key": "pex_documents",
+            "label": "Budget documents",
+            "required": false,
+            "type": "file",
+            "validation": {
+              "accept": [
+                "image/png",
+                "image/jpeg",
+                "application/pdf"
+              ],
+              "max_size_mb": 5
+            }
+          }
+        ]
+      },
+      {
+        "key": "quality_audit_reports",
+        "name": "Quality-audit reports",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ],
+          "restricted_to": "assignee",
+          "restrict_roles": [
+            "executive"
+          ]
+        },
+        "outcome": "done",
+        "fields": [
+          {
+            "key": "qa_before_report",
+            "label": "Quality audit — before",
+            "required": true,
+            "type": "file",
+            "validation": {
+              "accept": [
+                "application/pdf"
+              ]
+            }
+          },
+          {
+            "key": "qa_after_report",
+            "label": "Quality audit — after",
+            "required": true,
+            "type": "file",
+            "validation": {
+              "accept": [
+                "application/pdf"
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "exit": {
+      "on_complete": "done",
+      "on_reject": "rejected"
+    },
+    "adapter": {
+      "key": "matrix_bd.project_excellence",
+      "version": "1.0.0",
+      "hooks": [
+        "afterApprove"
+      ]
+    },
+    "template": {
+      "key": "matrix-bd/project_excellence",
+      "version": "1.0.0"
+    }
+  },
+  "summary": {
+    "stages": [
+      {
+        "key": "gfc_budget",
+        "name": "GFC budget (11 heads)",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "reject",
+              "send_back"
+            ]
+          },
+          {
+            "role": "business_admin",
+            "actions": [
+              "approve",
+              "reject",
+              "send_back"
+            ]
+          }
+        ],
+        "fields": [
+          "pex_professional_fees",
+          "pex_hvac",
+          "pex_furniture_light_planters",
+          "pex_civil_interiors",
+          "pex_kitchen_equipment",
+          "pex_branding",
+          "pex_crockery_small_equipments",
+          "pex_utilities",
+          "pex_licencing",
+          "pex_bd_cost",
+          "pex_misc",
+          "pex_total_indoor_area_sqft",
+          "pex_total_area_sqft",
+          "pex_covers",
+          "pex_documents"
+        ],
+        "approval_fields": [
+          "pex_supervisor_comments",
+          "pex_initialization_date",
+          "pex_admin_comments"
+        ],
+        "outcome": "approved"
+      },
+      {
+        "key": "quality_audit_reports",
+        "name": "Quality-audit reports",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ],
+          "restricted_to": "assignee",
+          "restrict_roles": [
+            "executive"
+          ]
+        },
+        "approvals": [],
+        "fields": [
+          "qa_before_report",
+          "qa_after_report"
+        ],
+        "approval_fields": [],
+        "outcome": "done"
+      }
+    ],
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "design",
+          "outcome": "approved"
+        }
+      ],
+      "refusal_message": "Project Excellence is locked until Design GFC is approved."
+    },
+    "exit_outcomes": {
+      "on_complete": "done",
+      "on_reject": "rejected"
+    },
+    "approval_tiers": [
+      "business_admin",
+      "supervisor"
+    ]
+  },
+  "adapter_hooks": [
+    {
+      "hook": "afterApprove",
+      "purpose": "On the admin's budget approval, propose the Project initialization date (emits event project.initialization_proposed {date, proposed_by}).",
+      "why_not_generic": "One module seeding another module's step is cross-module behaviour; it must travel as an event.",
+      "matrix_bd_source": "backend/app/services/project_service.py seed_initialization_from_pe"
+    }
+  ],
+  "behaviour": {
+    "generic": [
+      "11 budget heads as money fields; supervisor then admin approval",
+      "initialization date is an approval field the admin must fill to approve",
+      "QA reports by an assigned executive or a supervisor"
+    ],
+    "matrix_bd_specific": [
+      "seeding Project's initialization date (adapter → event)"
+    ]
+  },
+  "renamed_fields": {}
+}

@@ -17,7 +17,8 @@ R2  no unknown refs    — every role, outcome, subject, module, stage and field
                          module ``members`` are module-scope roles.
 R3  valid actors       — every stage has at least one valid submitter; every actor (submit role,
                          approval tier) is known, not read-only, and either a member role of the
-                         module or a workspace-scope role.
+                         module (or of the module it is borrowed from via ``module``, which must run
+                         on the same subject) or a workspace-scope role; ``restrict_roles`` ⊆ submit roles.
 R4  gates              — sources exist; no entry gate waits on its own module; stage/field references
                          exist; a stage gate never waits on its own stage or a later stage.
 R5  no dead gates      — a gate is dead when it can never open: its source is disabled, on another
@@ -161,8 +162,13 @@ class _Context:
     def stage_index(self, mod: Dict[str, Any]) -> Dict[str, int]:
         return {s.get("key"): i for i, s in enumerate(self.stages(mod))}
 
+    @staticmethod
+    def stage_fields(s: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Submit-form fields plus the fields approvers enter: one namespace per stage."""
+        return _dicts(s.get("fields")) + [f for a in _dicts(s.get("approvals")) for f in _dicts(a.get("fields"))]
+
     def field_map(self, mod: Dict[str, Any]) -> Dict[str, Dict[str, Dict[str, Any]]]:
-        return {s.get("key"): {f.get("key"): f for f in _dicts(s.get("fields"))} for s in self.stages(mod)}
+        return {s.get("key"): {f.get("key"): f for f in self.stage_fields(s)} for s in self.stages(mod)}
 
     def can_reject(self, mod: Dict[str, Any]) -> bool:
         return any("reject" in _list(a.get("actions", ["approve", "reject", "send_back"]))
@@ -209,7 +215,7 @@ def _r1_unique(r: _Report, c: _Context) -> None:
         for d in _dups(v.get("key") for v in _dicts(mod.get("views"))):
             r.error("R1", "duplicate_key", f"view key {d!r} repeats in module {mk!r}", f"modules/{i}/views", module=mk)
         for j, s in enumerate(c.stages(mod)):
-            _unique_fields(r, _dicts(s.get("fields")), f"modules/{i}/stages/{j}/fields", module=mk, stage=s.get("key"))
+            _unique_fields(r, c.stage_fields(s), f"modules/{i}/stages/{j}", module=mk, stage=s.get("key"))
     for i, sub in enumerate(c.subjects):
         _unique_fields(r, _dicts(sub.get("fields")), f"subjects/{i}/fields")
 
@@ -263,8 +269,9 @@ def _r2_refs(r: _Report, c: _Context) -> None:
             for t in _list(s.get("send_back_to")):
                 if t not in idx:
                     r.error("R2", "unknown_stage", f"send_back_to names unknown stage {t!r}", f"{sp}/send_back_to", module=mk, stage=s.get("key"))
-                elif idx[t] >= j:
-                    r.error("R2", "bad_send_back", f"send_back_to {t!r} is not an earlier stage", f"{sp}/send_back_to", module=mk, stage=s.get("key"))
+                elif idx[t] > j:
+                    r.error("R2", "bad_send_back", f"send_back_to {t!r} is a later stage; only this stage (rework) or earlier stages",
+                            f"{sp}/send_back_to", module=mk, stage=s.get("key"))
     for i, g in enumerate(c.grants):
         for role in _list(g.get("roles")):
             _role_ref(r, c, role, f"permissions/{i}/roles")
@@ -274,6 +281,21 @@ def _r2_refs(r: _Report, c: _Context) -> None:
 
 
 # ── R3 ────────────────────────────────────────────────────────────────────────────────────────────
+def _borrowed(r: _Report, c: _Context, mod: Dict[str, Any], other: Any, path: str, **where: Any) -> Optional[Dict[str, Any]]:
+    """Resolve ``module`` on a submit/approval: the module whose membership supplies the role."""
+    if other is None:
+        return mod
+    src = c.module.get(other)
+    if src is None:
+        r.error("R2", "unknown_module", f"actors borrowed from unknown module {other!r}", path, **where)
+        return None
+    if src.get("subject") != mod.get("subject"):
+        r.error("R3", "invalid_actor", f"actors borrowed from {other!r}, which runs on subject {src.get('subject')!r}, "
+                                       f"not {mod.get('subject')!r}", path, **where)
+        return None
+    return src
+
+
 def _actor_ok(r: _Report, c: _Context, mod: Dict[str, Any], role: Any, path: str, what: str, **where: Any) -> bool:
     if not _role_ref(r, c, role, path, **where):
         return False
@@ -293,8 +315,16 @@ def _r3_actors(r: _Report, c: _Context) -> None:
         for j, s in enumerate(c.stages(mod)):
             sk, sp = s.get("key"), f"modules/{i}/stages/{j}"
             sub = s.get("submit") if isinstance(s.get("submit"), dict) else {}
+            smod = _borrowed(r, c, mod, sub.get("module"), f"{sp}/submit/module", module=mk, stage=sk)
             valid = [ro for ro in _list(sub.get("roles"))
-                     if _actor_ok(r, c, mod, ro, f"{sp}/submit/roles", "submit", module=mk, stage=sk)]
+                     if smod is not None and _actor_ok(r, c, smod, ro, f"{sp}/submit/roles", "submit", module=mk, stage=sk)]
+            extra = set(_list(sub.get("restrict_roles"))) - set(_list(sub.get("roles")))
+            if extra:
+                r.error("R3", "invalid_actor", f"restrict_roles {sorted(extra)} are not submit roles of stage {sk!r}",
+                        f"{sp}/submit/restrict_roles", module=mk, stage=sk)
+            if sub.get("restrict_roles") and not sub.get("restricted_to"):
+                r.warn("R3", "restrict_roles_unused", "restrict_roles has no effect without restricted_to",
+                       f"{sp}/submit/restrict_roles", module=mk, stage=sk)
             if not valid:
                 r.error("R3", "stage_without_actor", f"stage {sk!r} has no valid submitter; no one could ever complete it",
                         f"{sp}/submit", module=mk, stage=sk)
@@ -303,8 +333,10 @@ def _r3_actors(r: _Report, c: _Context) -> None:
                        f"stage {sk!r} is restricted to the assignee but module {mk!r} has delegation off; "
                        "only cases the creator assigned at open time can progress", f"{sp}/submit/restricted_to", module=mk, stage=sk)
             for k, a in enumerate(_dicts(s.get("approvals"))):
-                _actor_ok(r, c, mod, a.get("role"), f"{sp}/approvals/{k}/role", f"approval tier {k + 1}", module=mk, stage=sk)
-            tiers = [a.get("role") for a in _dicts(s.get("approvals"))]
+                amod = _borrowed(r, c, mod, a.get("module"), f"{sp}/approvals/{k}/module", module=mk, stage=sk)
+                if amod is not None:
+                    _actor_ok(r, c, amod, a.get("role"), f"{sp}/approvals/{k}/role", f"approval tier {k + 1}", module=mk, stage=sk)
+            tiers = [a.get("role") for a in _dicts(s.get("approvals")) if not a.get("module")]
             if mod.get("separation_of_duties", True) and len(tiers) == 1 and _list(sub.get("roles")) == tiers:
                 r.warn("R3", "separation_of_duties_conflict",
                        f"stage {sk!r}: the only submitter role is also the only approver role; with separation of "
@@ -513,6 +545,9 @@ def _r8_fields(r: _Report, c: _Context) -> None:
     for i, mod in enumerate(c.modules):
         for j, s in enumerate(c.stages(mod)):
             groups.append((f"modules/{i}/stages/{j}/fields", _dicts(s.get("fields")), {"module": mod.get("key"), "stage": s.get("key")}))
+            for k, a in enumerate(_dicts(s.get("approvals"))):
+                groups.append((f"modules/{i}/stages/{j}/approvals/{k}/fields", _dicts(a.get("fields")),
+                               {"module": mod.get("key"), "stage": s.get("key")}))
     for path, fields, where in groups:
         for k, f in enumerate(fields):
             fp, v = f"{path}/{k}", f.get("validation") if isinstance(f.get("validation"), dict) else {}

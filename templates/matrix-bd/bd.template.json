@@ -1,0 +1,467 @@
+{
+  "template": {
+    "key": "matrix-bd/bd",
+    "version": "1.0.0",
+    "title": "BD — site identification",
+    "source": {
+      "repo": "Matrix-bd",
+      "commit": "3d4f277beb22c5be02c2abacea61b6afaee7cdeb",
+      "extracted_from": "building-blocks/from-matrix-bd/matrix-bd-flow.json",
+      "module": "bd"
+    },
+    "visibility": "customer-private"
+  },
+  "requires": {
+    "subject": "site",
+    "modules": [],
+    "roles": [
+      "executive",
+      "supervisor"
+    ],
+    "outcomes": [
+      "approved",
+      "done",
+      "in_progress",
+      "rejected"
+    ]
+  },
+  "module": {
+    "key": "bd",
+    "name": "BD — site identification",
+    "icon": "map-pin",
+    "subject": "site",
+    "members": [
+      "executive",
+      "supervisor"
+    ],
+    "delegation": true,
+    "separation_of_duties": false,
+    "entry_gate": null,
+    "stages": [
+      {
+        "key": "draft",
+        "name": "Draft & shortlist",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "outcome": "in_progress",
+        "description": "An executive or supervisor captures the site; a supervisor shortlists, rejects or archives it.",
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "reject",
+              "send_back"
+            ],
+            "label": "Shortlist",
+            "fields": [
+              {
+                "key": "rejection_reasons",
+                "label": "Rejection reasons",
+                "required": false,
+                "type": "long_text",
+                "validation": {
+                  "pattern": "list; used only when rejecting"
+                },
+                "help": "list; used only when rejecting"
+              }
+            ]
+          }
+        ],
+        "fields": [
+          {
+            "key": "rent_type",
+            "label": "Rent type",
+            "required": false,
+            "type": "choice",
+            "options": [
+              {
+                "value": "fixed",
+                "label": "fixed"
+              },
+              {
+                "value": "revshare",
+                "label": "revshare"
+              },
+              {
+                "value": "mg_revshare",
+                "label": "mg_revshare"
+              },
+              {
+                "value": "staggered",
+                "label": "staggered"
+              }
+            ]
+          },
+          {
+            "key": "expected_rent",
+            "label": "Expected rent / MG / base rent",
+            "required": false,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            },
+            "help": "₹ per month; required when staggered"
+          },
+          {
+            "key": "staggered_escalation",
+            "label": "Staggered escalation schedule",
+            "required": false,
+            "type": "long_text",
+            "help": "Up to 5 rows of {year, percent}; checked by the template adapter (validateBusinessRule)."
+          }
+        ]
+      },
+      {
+        "key": "details",
+        "name": "Details review",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "outcome": "approved",
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "reject",
+              "send_back"
+            ],
+            "fields": [
+              {
+                "key": "expected_loi_days",
+                "label": "Expected LOI days",
+                "required": true,
+                "type": "number",
+                "help": "set by the supervisor at approval → LOI deadline"
+              }
+            ]
+          }
+        ],
+        "fields": [
+          {
+            "key": "score",
+            "label": "Score",
+            "required": false,
+            "type": "number",
+            "validation": {
+              "min": 1,
+              "max": 5
+            }
+          },
+          {
+            "key": "est_sales",
+            "label": "Estimated monthly sales",
+            "required": false,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "nearest_competitor_a_m",
+            "label": "Nearest competitor A (m)",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "key": "nearest_competitor_b_m",
+            "label": "Nearest competitor B (m)",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "key": "carpet_area_sqft",
+            "label": "Carpet area (sqft)",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "key": "cam_charges",
+            "label": "CAM charges",
+            "required": false,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "rent",
+            "label": "Rent",
+            "required": false,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "security_deposit",
+            "label": "Security deposit",
+            "required": false,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "capex",
+            "label": "Capex",
+            "required": false,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "brokerage",
+            "label": "Brokerage",
+            "required": false,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "lock_in_months",
+            "label": "Lock-in (months)",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "key": "tenure_months",
+            "label": "Tenure (months)",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "key": "rent_free_days",
+            "label": "Rent-free days",
+            "required": false,
+            "type": "number"
+          }
+        ]
+      },
+      {
+        "key": "loi",
+        "name": "LOI",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "outcome": "done",
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "send_back"
+            ],
+            "label": "Send to Legal",
+            "fields": [
+              {
+                "key": "loi_send_back_comments",
+                "label": "Send-back comments",
+                "required": false,
+                "type": "text",
+                "validation": {
+                  "pattern": "required when the supervisor sends the LOI back"
+                },
+                "help": "required when the supervisor sends the LOI back"
+              }
+            ]
+          }
+        ],
+        "fields": [
+          {
+            "key": "loi_document",
+            "label": "Signed LOI",
+            "required": true,
+            "type": "file"
+          }
+        ],
+        "send_back_to": [
+          "loi"
+        ]
+      }
+    ],
+    "exit": {
+      "on_complete": "done",
+      "on_reject": "rejected"
+    },
+    "adapter": {
+      "key": "matrix_bd.bd",
+      "version": "1.0.0",
+      "hooks": [
+        "afterApprove",
+        "validateBusinessRule"
+      ]
+    },
+    "template": {
+      "key": "matrix-bd/bd",
+      "version": "1.0.0"
+    }
+  },
+  "summary": {
+    "stages": [
+      {
+        "key": "draft",
+        "name": "Draft & shortlist",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "reject",
+              "send_back"
+            ],
+            "label": "Shortlist"
+          }
+        ],
+        "fields": [
+          "rent_type",
+          "expected_rent",
+          "staggered_escalation"
+        ],
+        "approval_fields": [
+          "rejection_reasons"
+        ],
+        "outcome": "in_progress"
+      },
+      {
+        "key": "details",
+        "name": "Details review",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "reject",
+              "send_back"
+            ]
+          }
+        ],
+        "fields": [
+          "score",
+          "est_sales",
+          "nearest_competitor_a_m",
+          "nearest_competitor_b_m",
+          "carpet_area_sqft",
+          "cam_charges",
+          "rent",
+          "security_deposit",
+          "capex",
+          "brokerage",
+          "lock_in_months",
+          "tenure_months",
+          "rent_free_days"
+        ],
+        "approval_fields": [
+          "expected_loi_days"
+        ],
+        "outcome": "approved"
+      },
+      {
+        "key": "loi",
+        "name": "LOI",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "send_back"
+            ],
+            "label": "Send to Legal"
+          }
+        ],
+        "fields": [
+          "loi_document"
+        ],
+        "approval_fields": [
+          "loi_send_back_comments"
+        ],
+        "outcome": "done",
+        "send_back_to": [
+          "loi"
+        ]
+      }
+    ],
+    "entry_gate": null,
+    "exit_outcomes": {
+      "on_complete": "done",
+      "on_reject": "rejected"
+    },
+    "approval_tiers": [
+      "supervisor"
+    ]
+  },
+  "adapter_hooks": [
+    {
+      "hook": "validateBusinessRule",
+      "purpose": "Rent terms: which amounts are required depends on rent_type (fixed / revshare / mg_revshare / staggered); the staggered schedule has at most 5 {year, percent} rows.",
+      "why_not_generic": "Conditional requirements and repeating rows are not expressible in workspace-manifest/1.",
+      "matrix_bd_source": "rent-terms.json; backend/app/domain/schemas/site.py CreateDraftRequest",
+      "generic_candidate": "field.required_if + a 'table' field type"
+    },
+    {
+      "hook": "afterApprove",
+      "purpose": "On details approval, turn expected_loi_days into an LOI deadline (emits event bd.loi_deadline_set {due_at}).",
+      "why_not_generic": "Per-case deadlines computed from a field are not expressible (stage.sla_hours is static).",
+      "matrix_bd_source": "backend/app/services/bd_service.py approve",
+      "generic_candidate": "stage.sla_from_field"
+    }
+  ],
+  "behaviour": {
+    "generic": [
+      "capture → shortlist → details → LOI as stages with explicit submit roles and supervisor tiers",
+      "reject (shortlist / details) ends the case with 'rejected'",
+      "LOI send-back = rework inside the LOI stage (send_back_to: [loi])",
+      "supervisors may shortlist their own draft: separation_of_duties off (Matrix-bd exempts supervisors and admins)",
+      "'BD done' (Legal can start) = LOI approved, i.e. the supervisor's 'send to Legal' (fix for D18)",
+      "site name, city, visit date, model, SPOC, maps link and area are SUBJECT fields shared by every module"
+    ],
+    "matrix_bd_specific": [
+      "archive with a revivable 'archived_from_status' (no generic withdraw/revive; mapped to reject)",
+      "draft and shortlist are one stage here; 'submitted' is no longer separately reached by BD",
+      "rent-terms conditional fields and the staggered schedule (adapter)",
+      "LOI deadline from expected_loi_days (adapter)"
+    ]
+  },
+  "renamed_fields": {
+    "nearest_starbucks_m": "nearest_competitor_a_m",
+    "nearest_twc_m": "nearest_competitor_b_m"
+  }
+}

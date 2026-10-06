@@ -1,0 +1,337 @@
+{
+  "template": {
+    "key": "matrix-bd/launch_approval",
+    "version": "1.0.0",
+    "title": "Launch approval",
+    "source": {
+      "repo": "Matrix-bd",
+      "commit": "3d4f277beb22c5be02c2abacea61b6afaee7cdeb",
+      "extracted_from": "building-blocks/from-matrix-bd/matrix-bd-flow.json",
+      "module": "launch_approval"
+    },
+    "visibility": "customer-private"
+  },
+  "requires": {
+    "subject": "site",
+    "modules": [
+      "nso"
+    ],
+    "roles": [
+      "business_admin",
+      "executive",
+      "supervisor"
+    ],
+    "outcomes": [
+      "approved",
+      "done",
+      "submitted"
+    ]
+  },
+  "module": {
+    "key": "launch_approval",
+    "name": "Launch approval",
+    "icon": "rocket",
+    "subject": "site",
+    "members": [
+      "executive",
+      "supervisor"
+    ],
+    "delegation": false,
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "nso",
+          "outcome": "done"
+        }
+      ],
+      "refusal_message": "Launch approval is locked: waiting for NSO final approval."
+    },
+    "stages": [
+      {
+        "key": "admin_review",
+        "name": "Admin review",
+        "submit": {
+          "roles": [
+            "business_admin"
+          ]
+        },
+        "outcome": "submitted",
+        "fields": [
+          {
+            "key": "rent_terms",
+            "label": "Rent terms",
+            "required": false,
+            "type": "long_text",
+            "validation": {
+              "pattern": "field group rent-terms.json"
+            },
+            "help": "Rent-terms group (rent type and its conditional amounts); checked by the template adapter."
+          },
+          {
+            "key": "admin_review_comment",
+            "label": "Admin comment",
+            "required": false,
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "key": "creator_review",
+        "name": "Creator review",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ],
+          "restricted_to": "subject_creator"
+        },
+        "outcome": "submitted",
+        "fields": [
+          {
+            "key": "exec_verdict",
+            "label": "Verdict",
+            "required": true,
+            "type": "choice",
+            "options": [
+              {
+                "value": "approved",
+                "label": "approved",
+                "score": "positive"
+              },
+              {
+                "value": "rejected",
+                "label": "rejected",
+                "score": "negative"
+              }
+            ]
+          },
+          {
+            "key": "exec_comment",
+            "label": "Comment",
+            "required": false,
+            "type": "text"
+          },
+          {
+            "key": "rent_start_date",
+            "label": "Rent start date",
+            "required": true,
+            "type": "date",
+            "help": "The only field the site's creator may edit in this loop."
+          }
+        ]
+      },
+      {
+        "key": "supervisor_review",
+        "name": "Supervisor review",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "outcome": "submitted",
+        "fields": [
+          {
+            "key": "supervisor_verdict",
+            "label": "Verdict",
+            "required": true,
+            "type": "choice",
+            "options": [
+              {
+                "value": "approved",
+                "label": "approved",
+                "score": "positive"
+              },
+              {
+                "value": "rejected",
+                "label": "rejected",
+                "score": "negative"
+              }
+            ]
+          },
+          {
+            "key": "supervisor_comment",
+            "label": "Comment",
+            "required": false,
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "key": "admin_final",
+        "name": "Admin final confirm",
+        "submit": {
+          "roles": [
+            "business_admin"
+          ]
+        },
+        "outcome": "approved",
+        "fields": [
+          {
+            "key": "admin_final_comment",
+            "label": "Final comment",
+            "required": false,
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "key": "launch",
+        "name": "Launch",
+        "submit": {
+          "roles": [
+            "business_admin"
+          ]
+        },
+        "outcome": "done"
+      }
+    ],
+    "exit": {
+      "on_complete": "done"
+    },
+    "adapter": {
+      "key": "matrix_bd.launch_approval",
+      "version": "1.0.0",
+      "hooks": [
+        "afterSubmit",
+        "syncExternalState",
+        "validateBusinessRule"
+      ]
+    },
+    "template": {
+      "key": "matrix-bd/launch_approval",
+      "version": "1.0.0"
+    }
+  },
+  "summary": {
+    "stages": [
+      {
+        "key": "admin_review",
+        "name": "Admin review",
+        "submit": {
+          "roles": [
+            "business_admin"
+          ]
+        },
+        "approvals": [],
+        "fields": [
+          "rent_terms",
+          "admin_review_comment"
+        ],
+        "approval_fields": [],
+        "outcome": "submitted"
+      },
+      {
+        "key": "creator_review",
+        "name": "Creator review",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ],
+          "restricted_to": "subject_creator"
+        },
+        "approvals": [],
+        "fields": [
+          "exec_verdict",
+          "exec_comment",
+          "rent_start_date"
+        ],
+        "approval_fields": [],
+        "outcome": "submitted"
+      },
+      {
+        "key": "supervisor_review",
+        "name": "Supervisor review",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "approvals": [],
+        "fields": [
+          "supervisor_verdict",
+          "supervisor_comment"
+        ],
+        "approval_fields": [],
+        "outcome": "submitted"
+      },
+      {
+        "key": "admin_final",
+        "name": "Admin final confirm",
+        "submit": {
+          "roles": [
+            "business_admin"
+          ]
+        },
+        "approvals": [],
+        "fields": [
+          "admin_final_comment"
+        ],
+        "approval_fields": [],
+        "outcome": "approved"
+      },
+      {
+        "key": "launch",
+        "name": "Launch",
+        "submit": {
+          "roles": [
+            "business_admin"
+          ]
+        },
+        "approvals": [],
+        "fields": [],
+        "approval_fields": [],
+        "outcome": "done"
+      }
+    ],
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "nso",
+          "outcome": "done"
+        }
+      ],
+      "refusal_message": "Launch approval is locked: waiting for NSO final approval."
+    },
+    "exit_outcomes": {
+      "on_complete": "done"
+    },
+    "approval_tiers": []
+  },
+  "adapter_hooks": [
+    {
+      "hook": "syncExternalState",
+      "purpose": "Open the launch case automatically when NSO completes (consumes case.completed for nso; runtime 'open case' command).",
+      "why_not_generic": "Auto-opening a module when its gate opens is not a manifest option.",
+      "matrix_bd_source": "backend/app/services/nso_service.py final approval → launch_approvals",
+      "generic_candidate": "module.auto_open: true"
+    },
+    {
+      "hook": "validateBusinessRule",
+      "purpose": "Rent-terms group is consistent (same rule as BD).",
+      "why_not_generic": "Conditional/grouped fields (see BD).",
+      "matrix_bd_source": "rent-terms.json",
+      "generic_candidate": "field.required_if + 'table' field type"
+    },
+    {
+      "hook": "afterSubmit",
+      "purpose": "admin_final: emit subject.rent_terms_committed with the agreed terms; launch: emit subject.launched.",
+      "why_not_generic": "Matrix-bd commits the staged terms into the site; here it becomes an event the subject owner applies — never a direct write into BD's data.",
+      "matrix_bd_source": "backend/app/services/launch_service.py _commit_rent_to_canonical, launch"
+    }
+  ],
+  "behaviour": {
+    "generic": [
+      "admin → creator → supervisor → admin loop as four ordered stages",
+      "creator review bound to the SITE's creator (subject_creator)",
+      "verdicts are data; the admin's final confirmation decides",
+      "launch completes the module → opens Financial closure"
+    ],
+    "matrix_bd_specific": [
+      "auto-open on NSO completion; rent terms committed back onto the site (adapter → events)"
+    ]
+  },
+  "renamed_fields": {}
+}

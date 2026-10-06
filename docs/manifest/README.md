@@ -12,13 +12,13 @@ else. The runtime has **no built-in module, no fixed role list and no fixed outc
 | `packages/manifest/workspace_manifest/validate.py` | Validator: the cross-reference rules a schema cannot express (R1–R10) |
 | `packages/manifest/workspace_manifest/from_v5.py` | Converter from today's configurator-v5 releases (migration path; sandbox only) |
 | `packages/manifest/examples/acme-retail.manifest.json` | Example: 2 modules × 3 stages, entry + stage gates, approval tiers, custom role, typed fields, saved views, grants |
-| `packages/manifest/tests/` | 67 tests: the example is clean, **each rule has at least one failing fixture** (`fixtures/invalid_cases.json`, 52 cases), the v5 converter reproduces runtime semantics |
+| `packages/manifest/tests/` | 74 tests: the example is clean, **each rule has at least one failing fixture** (`fixtures/invalid_cases.json`, 58 cases), the v5 converter reproduces runtime semantics, the Task 4 additions validate |
 
 ```bash
 cd packages/manifest
 python -m workspace_manifest validate examples/acme-retail.manifest.json          # OK: 0 error(s), 0 warning(s)
 python -m workspace_manifest validate my.json --adapters registry.json --json      # full report; exit 1 on errors
-python -m pytest -q                                                                # 67 passed
+python -m pytest -q                                                                # 74 passed
 ```
 
 ## 1. Model in one picture
@@ -33,8 +33,8 @@ workspace ── subjects[] ─────────── what cases are abo
                ├─ subject, members[] (module-scope roles that exist here), delegation, separation_of_duties
                ├─ entry_gate ─────── conditions on other modules/signals of the SAME subject
                ├─ stages[] (ordered)
-               │    ├─ submit {roles, restricted_to: case_creator|assignee}
-               │    ├─ approvals[] ── ordered tiers {role, actions: approve|reject|send_back}
+               │    ├─ submit {roles, module?, restricted_to: case_creator|subject_creator|assignee, restrict_roles?}
+               │    ├─ approvals[] ── ordered tiers {role, module?, actions: approve|reject|send_back, fields[]}
                │    ├─ fields[] ───── typed: text, long_text, number, money, date, choice, multi_choice, yes_no, file, person
                │    ├─ gate ───────── extra condition before this stage can be submitted
                │    ├─ outcome ────── what the module has REACHED when this stage completes
@@ -53,12 +53,14 @@ the same subject see each other through gates: `fit_out` opens when `site_survey
 | Concept | Rule |
 |---|---|
 | Stage flow | Stages run in array order. A stage's step sequence is `submit` → `approvals[0]` → `approvals[1]` …; the last step completes the stage and adds `stage.outcome` to the module's **reached** set. |
-| Send back | From any approval step, to the previous stage by default or to a stage listed in `send_back_to` (always earlier). |
+| Send back | From any approval step back to this stage's submit step (rework, the default) or to an earlier stage listed in `send_back_to`. |
 | Reject | Any tier whose `actions` include `reject` ends the case with `exit.on_reject`. |
 | Exit | After the last stage the case ends with the roll-up result if a roll-up is defined, else `exit.on_complete`. |
 | Gates | `match: all|any`; a condition is true when the source has **reached** an outcome (cumulative, never "currently is"), completed a stage, or a submitted field compares true. Only sources on the **same subject** count. |
 | Separation of duties | On by default: one person acts on at most one step of a stage pass. |
-| Restricted submit | `case_creator`: only the person who opened the case (among the submit roles); `assignee`: only the current assignee. Others act only through an `override_step` grant, recorded as an override. |
+| Restricted submit | `case_creator`: only the person who opened the case; `subject_creator`: only whoever created the subject; `assignee`: only the current assignee — applied to `restrict_roles` (default: all submit roles). Others act only through an `override_step` grant, recorded as an override. |
+| Borrowed actors | `submit.module` / `approval.module`: the role is taken from that module's membership (same subject), e.g. a project-excellence supervisor signs off a project audit. |
+| Approval fields | `approvals[].fields` are entered by that tier with its decision; they share the stage's field namespace (gates, roll-ups, views can use them). |
 | Release pinning | A case runs on the release it opened on until it is migrated (Task 3, `migrate running cases`). |
 | Roles | `rank` orders roles for display and escalation lists; it **never** grants anything. Permissions come only from stage actors and `permissions[]` grants (Task 6). |
 
@@ -107,7 +109,13 @@ The app's current `validate.py` (configurator-v5) cannot see:
 | M8 | **Adapters declare their hooks** in the manifest | A reviewer sees every place custom code runs; the validator checks them against the installed registry (Task 5) |
 | M9 | `rank`, icons, labels are presentation | The runtime never branches on them |
 
-## 4. Migration from today's releases
+## 4. Additions from Task 4
+
+Modelling Matrix-bd's real flows (`docs/templates/`) added five generic capabilities: `restricted_to: subject_creator`,
+`submit.restrict_roles`, `submit.module` / `approval.module`, `approvals[].fields`, and same-stage rework in
+`send_back_to`. Each has validator coverage and fixtures.
+
+## 5. Migration from today's releases
 
 `from_v5.convert(v5_manifest)` → `(manifest, report)`. Verified by tests on the three configurator wizard
 templates (vendor onboarding, retail expansion, franchise compliance): each converts and validates clean, and the

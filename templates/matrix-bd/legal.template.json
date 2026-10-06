@@ -1,0 +1,661 @@
+{
+  "template": {
+    "key": "matrix-bd/legal",
+    "version": "1.0.0",
+    "title": "Legal & Compliance",
+    "source": {
+      "repo": "Matrix-bd",
+      "commit": "3d4f277beb22c5be02c2abacea61b6afaee7cdeb",
+      "extracted_from": "building-blocks/from-matrix-bd/matrix-bd-flow.json",
+      "module": "legal"
+    },
+    "visibility": "customer-private"
+  },
+  "requires": {
+    "subject": "site",
+    "modules": [
+      "bd"
+    ],
+    "roles": [
+      "executive",
+      "supervisor"
+    ],
+    "outcomes": [
+      "approved",
+      "done",
+      "rejected",
+      "submitted"
+    ]
+  },
+  "module": {
+    "key": "legal",
+    "name": "Legal & Compliance",
+    "icon": "scale",
+    "subject": "site",
+    "members": [
+      "executive",
+      "supervisor"
+    ],
+    "delegation": true,
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "bd",
+          "outcome": "done"
+        }
+      ],
+      "refusal_message": "Legal & Compliance is locked: waiting for BD to send the signed LOI to Legal."
+    },
+    "stages": [
+      {
+        "key": "ddr",
+        "name": "Due diligence report (DDR)",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ],
+          "restricted_to": "assignee",
+          "restrict_roles": [
+            "executive"
+          ]
+        },
+        "outcome": "approved",
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "reject",
+              "send_back"
+            ],
+            "label": "Final verdict",
+            "fields": [
+              {
+                "key": "dd_final_verdict",
+                "label": "Final verdict",
+                "required": true,
+                "type": "choice",
+                "options": [
+                  {
+                    "value": "positive",
+                    "label": "positive",
+                    "score": "positive"
+                  },
+                  {
+                    "value": "negative",
+                    "label": "negative",
+                    "score": "negative"
+                  }
+                ],
+                "affects_outcome": true
+              },
+              {
+                "key": "dd_rejection_reason",
+                "label": "Rejection reason",
+                "required": false,
+                "type": "text",
+                "validation": {
+                  "pattern": "required when the verdict is negative"
+                },
+                "help": "required when the verdict is negative"
+              }
+            ]
+          }
+        ],
+        "fields": [
+          {
+            "key": "dd_title_doc",
+            "label": "Title document",
+            "required": false,
+            "type": "choice",
+            "options": [
+              {
+                "value": "yes",
+                "label": "yes",
+                "score": "positive"
+              },
+              {
+                "value": "no",
+                "label": "no",
+                "score": "negative"
+              },
+              {
+                "value": "n_a",
+                "label": "n/a",
+                "score": "neutral"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "dd_sanctioned_plan",
+            "label": "Sanctioned plan",
+            "required": false,
+            "type": "choice",
+            "options": [
+              {
+                "value": "yes",
+                "label": "yes",
+                "score": "positive"
+              },
+              {
+                "value": "no",
+                "label": "no",
+                "score": "negative"
+              },
+              {
+                "value": "n_a",
+                "label": "n/a",
+                "score": "neutral"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "dd_oc_cc",
+            "label": "OC / CC",
+            "required": false,
+            "type": "choice",
+            "options": [
+              {
+                "value": "yes",
+                "label": "yes",
+                "score": "positive"
+              },
+              {
+                "value": "no",
+                "label": "no",
+                "score": "negative"
+              },
+              {
+                "value": "n_a",
+                "label": "n/a",
+                "score": "neutral"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "dd_commercial_use",
+            "label": "Commercial use permitted",
+            "required": false,
+            "type": "choice",
+            "options": [
+              {
+                "value": "yes",
+                "label": "yes",
+                "score": "positive"
+              },
+              {
+                "value": "no",
+                "label": "no",
+                "score": "negative"
+              },
+              {
+                "value": "n_a",
+                "label": "n/a",
+                "score": "neutral"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "dd_property_tax",
+            "label": "Property tax",
+            "required": false,
+            "type": "choice",
+            "options": [
+              {
+                "value": "yes",
+                "label": "yes",
+                "score": "positive"
+              },
+              {
+                "value": "no",
+                "label": "no",
+                "score": "negative"
+              },
+              {
+                "value": "n_a",
+                "label": "n/a",
+                "score": "neutral"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "dd_electricity",
+            "label": "Electricity",
+            "required": false,
+            "type": "choice",
+            "options": [
+              {
+                "value": "yes",
+                "label": "yes",
+                "score": "positive"
+              },
+              {
+                "value": "no",
+                "label": "no",
+                "score": "negative"
+              },
+              {
+                "value": "n_a",
+                "label": "n/a",
+                "score": "neutral"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "dd_fire_noc",
+            "label": "Fire NOC",
+            "required": false,
+            "type": "choice",
+            "options": [
+              {
+                "value": "yes",
+                "label": "yes",
+                "score": "positive"
+              },
+              {
+                "value": "no",
+                "label": "no",
+                "score": "negative"
+              },
+              {
+                "value": "n_a",
+                "label": "n/a",
+                "score": "neutral"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "dd_other_1",
+            "label": "Other check 1 (custom label)",
+            "required": false,
+            "type": "choice",
+            "options": [
+              {
+                "value": "yes",
+                "label": "yes",
+                "score": "positive"
+              },
+              {
+                "value": "no",
+                "label": "no",
+                "score": "negative"
+              },
+              {
+                "value": "n_a",
+                "label": "n/a",
+                "score": "neutral"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "dd_other_2",
+            "label": "Other check 2 (custom label)",
+            "required": false,
+            "type": "choice",
+            "options": [
+              {
+                "value": "yes",
+                "label": "yes",
+                "score": "positive"
+              },
+              {
+                "value": "no",
+                "label": "no",
+                "score": "negative"
+              },
+              {
+                "value": "n_a",
+                "label": "n/a",
+                "score": "neutral"
+              }
+            ],
+            "affects_outcome": true
+          }
+        ]
+      },
+      {
+        "key": "agreement",
+        "name": "Agreement",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "outcome": "submitted",
+        "fields": [
+          {
+            "key": "agr_signed",
+            "label": "Agreement signed",
+            "required": false,
+            "type": "yes_no"
+          },
+          {
+            "key": "agr_registered",
+            "label": "Agreement registered",
+            "required": false,
+            "type": "yes_no"
+          },
+          {
+            "key": "agr_document",
+            "label": "Agreement document",
+            "required": false,
+            "type": "file"
+          }
+        ]
+      },
+      {
+        "key": "licensing",
+        "name": "Licensing",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ],
+          "restricted_to": "assignee",
+          "restrict_roles": [
+            "executive"
+          ]
+        },
+        "outcome": "done",
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "send_back"
+            ]
+          }
+        ],
+        "fields": [
+          {
+            "key": "lic_fssai",
+            "label": "FSSAI",
+            "required": true,
+            "type": "choice",
+            "options": [
+              {
+                "value": "yes",
+                "label": "yes",
+                "score": "positive"
+              },
+              {
+                "value": "no",
+                "label": "no",
+                "score": "negative"
+              },
+              {
+                "value": "n_a",
+                "label": "n/a",
+                "score": "neutral"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "lic_health_trade",
+            "label": "Health & trade",
+            "required": true,
+            "type": "choice",
+            "options": [
+              {
+                "value": "yes",
+                "label": "yes",
+                "score": "positive"
+              },
+              {
+                "value": "no",
+                "label": "no",
+                "score": "negative"
+              },
+              {
+                "value": "n_a",
+                "label": "n/a",
+                "score": "neutral"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "lic_shops_estab",
+            "label": "Shops & establishment",
+            "required": true,
+            "type": "choice",
+            "options": [
+              {
+                "value": "yes",
+                "label": "yes",
+                "score": "positive"
+              },
+              {
+                "value": "no",
+                "label": "no",
+                "score": "negative"
+              },
+              {
+                "value": "n_a",
+                "label": "n/a",
+                "score": "neutral"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "lic_fire_noc",
+            "label": "Fire NOC",
+            "required": true,
+            "type": "choice",
+            "options": [
+              {
+                "value": "yes",
+                "label": "yes",
+                "score": "positive"
+              },
+              {
+                "value": "no",
+                "label": "no",
+                "score": "negative"
+              },
+              {
+                "value": "n_a",
+                "label": "n/a",
+                "score": "neutral"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "lic_storage",
+            "label": "Storage licence",
+            "required": true,
+            "type": "choice",
+            "options": [
+              {
+                "value": "yes",
+                "label": "yes",
+                "score": "positive"
+              },
+              {
+                "value": "no",
+                "label": "no",
+                "score": "negative"
+              },
+              {
+                "value": "n_a",
+                "label": "n/a",
+                "score": "neutral"
+              }
+            ],
+            "affects_outcome": true
+          }
+        ]
+      }
+    ],
+    "exit": {
+      "on_complete": "done",
+      "on_reject": "rejected"
+    },
+    "adapter": {
+      "key": "matrix_bd.legal",
+      "version": "1.0.0",
+      "hooks": [
+        "syncExternalState",
+        "validateBusinessRule"
+      ]
+    },
+    "template": {
+      "key": "matrix-bd/legal",
+      "version": "1.0.0"
+    }
+  },
+  "summary": {
+    "stages": [
+      {
+        "key": "ddr",
+        "name": "Due diligence report (DDR)",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ],
+          "restricted_to": "assignee",
+          "restrict_roles": [
+            "executive"
+          ]
+        },
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "reject",
+              "send_back"
+            ],
+            "label": "Final verdict"
+          }
+        ],
+        "fields": [
+          "dd_title_doc",
+          "dd_sanctioned_plan",
+          "dd_oc_cc",
+          "dd_commercial_use",
+          "dd_property_tax",
+          "dd_electricity",
+          "dd_fire_noc",
+          "dd_other_1",
+          "dd_other_2"
+        ],
+        "approval_fields": [
+          "dd_final_verdict",
+          "dd_rejection_reason"
+        ],
+        "outcome": "approved"
+      },
+      {
+        "key": "agreement",
+        "name": "Agreement",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "approvals": [],
+        "fields": [
+          "agr_signed",
+          "agr_registered",
+          "agr_document"
+        ],
+        "approval_fields": [],
+        "outcome": "submitted"
+      },
+      {
+        "key": "licensing",
+        "name": "Licensing",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ],
+          "restricted_to": "assignee",
+          "restrict_roles": [
+            "executive"
+          ]
+        },
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "send_back"
+            ]
+          }
+        ],
+        "fields": [
+          "lic_fssai",
+          "lic_health_trade",
+          "lic_shops_estab",
+          "lic_fire_noc",
+          "lic_storage"
+        ],
+        "approval_fields": [],
+        "outcome": "done"
+      }
+    ],
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "bd",
+          "outcome": "done"
+        }
+      ],
+      "refusal_message": "Legal & Compliance is locked: waiting for BD to send the signed LOI to Legal."
+    },
+    "exit_outcomes": {
+      "on_complete": "done",
+      "on_reject": "rejected"
+    },
+    "approval_tiers": [
+      "supervisor"
+    ]
+  },
+  "adapter_hooks": [
+    {
+      "hook": "validateBusinessRule",
+      "purpose": "A negative DDR verdict requires a rejection reason and can only be rejected; approving requires a positive verdict. Licensing completes only when every item is yes or n/a.",
+      "why_not_generic": "Cross-field rules between an approval field and the chosen action are not expressible.",
+      "matrix_bd_source": "backend/app/services/legal_service.py",
+      "generic_candidate": "action.requires (field condition per action) + field.required_if"
+    },
+    {
+      "hook": "syncExternalState",
+      "purpose": "Change-request loop: an approved BD change request that clears the last failing DD item reopens a rejected Legal case (consumes event change_request.approved; asks the runtime to reopen).",
+      "why_not_generic": "Reopening a closed case is not a runtime action today.",
+      "matrix_bd_source": "backend/app/services/change_request_service.py _maybe_recover_dd_verdict",
+      "generic_candidate": "a 'reopen' action + grant"
+    }
+  ],
+  "behaviour": {
+    "generic": [
+      "entry gate on BD 'done'",
+      "executives act only on cases assigned to them (restricted_to: assignee for executives); supervisors always",
+      "DDR verdict is an approval field; a negative verdict rejects the case",
+      "reaching 'approved' at the DDR opens Design (with Finance)"
+    ],
+    "matrix_bd_specific": [
+      "verdict ⇄ action consistency and licensing completeness (adapter)",
+      "change-request revival of a rejected DDR (adapter)",
+      "Indian licence names (FSSAI, shops & establishments) are the customer's field labels"
+    ]
+  },
+  "renamed_fields": {}
+}

@@ -543,9 +543,23 @@
         "restricted_to": {
           "enum": [
             "case_creator",
+            "subject_creator",
             "assignee"
           ],
-          "description": "only the case's creator / current assignee among those roles may submit; others act only as a recorded override (if a grant allows it)"
+          "description": "case_creator: whoever opened this case; subject_creator: whoever created the subject (e.g. the site); assignee: the case's current assignee. Applies to restrict_roles (default: all submit roles). Others act only through an override_step grant, recorded as an override."
+        },
+        "restrict_roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/key"
+          },
+          "description": "the subset of submit.roles the restriction applies to (e.g. executives must be assigned, supervisors need not)"
+        },
+        "module": {
+          "$ref": "#/$defs/key",
+          "description": "take the submit roles from THIS module's membership (same subject), e.g. a closure module staffed by the project team"
         }
       }
     },
@@ -578,6 +592,18 @@
         },
         "label": {
           "type": "string"
+        },
+        "module": {
+          "$ref": "#/$defs/key",
+          "description": "take this tier's role from another module's membership (same subject), e.g. the project-excellence supervisor signs off a project quality audit"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/field"
+          },
+          "default": [],
+          "description": "data the approver enters with the decision (e.g. a date that is required to approve). Keys share the stage's field namespace."
         }
       }
     },
@@ -633,7 +659,7 @@
           "items": {
             "$ref": "#/$defs/key"
           },
-          "description": "earlier stages a send_back may return to; default = the previous stage"
+          "description": "stages a send_back may return to: this stage's own key (rework: back to its submit step, the default) and/or earlier stages"
         },
         "sla_hours": {
           "type": "integer",
