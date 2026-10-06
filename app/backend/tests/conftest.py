@@ -223,13 +223,13 @@ LEGACY_REGISTRY = [
     # key, label, position, has_membership, supervisor_only, surface
     ("bd", "BD", 10, True, False, "module"),
     ("legal", "Legal & Compliance", 20, True, False, "module"),
-    ("finance_ca", "Finance / CA approval", 25, False, False, "module"),
-    ("design", "Design", 30, True, False, "module"),
+    ("finance_ca", "CA / Commercial Code", 25, False, False, "module"),
+    ("design", "Design / Technical", 30, True, False, "module"),
     ("project_excellence", "Project Excellence", 40, True, False, "module"),
-    ("project", "Project execution", 50, True, False, "module"),
+    ("project", "Project Execution", 50, True, False, "module"),
     ("nso", "NSO", 60, True, True, "module"),
-    ("launch_approval", "Launch approval", 70, False, False, "module"),
-    ("financial_closure", "Financial closure", 80, False, False, "module"),
+    ("launch_approval", "Launch Approval", 70, False, False, "module"),
+    ("financial_closure", "Financial Closure", 80, False, False, "module"),
     ("quality_audit", "Quality audit reports", 90, False, False, "scope"),
 ]
 

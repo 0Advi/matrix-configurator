@@ -43,7 +43,7 @@ The seed gets the **map** right and the **mechanics** only partly right.
 | `financial_closure` | Financial Closure ✓ | `launch_approval:approved` → `:done` (same source, different token) | 2 → 4 | 1/1 | The admin *sends* for closure. The **Project** team enters actuals against the 11 GFC heads (variation), then supervisor → admin. |
 
 Totals: 9/9 modules · gates 7/9 exact (8/9 same source) · supervisor-only 9/9 · stages 25 vs 36 ·
-13 stage names shared · 10/13 approver sets equal on shared stages · mean field-key Jaccard 0.11.
+13 stage names shared · 9/13 approver sets equal on shared stages (was 10 before patch 01: the seed's Quality audit still lists the business admin, D11) · mean field-key Jaccard 0.11.
 The seed's `exit_signal` is `approved` on every module (the factory default). Its gates actually wait on
 stage outcomes such as `bd:done` and `nso:done`, so `exit_signal` is decorative in the seed (only 3/9 agree with
 the modelled reality).

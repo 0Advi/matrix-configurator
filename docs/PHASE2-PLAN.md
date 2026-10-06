@@ -113,12 +113,13 @@ Source: `docs/catalogue-crosscheck/proposed-patches/` (G2). **Trigger: as soon a
 backend; a parallel migration would collide). Applied by the lead, verified, BEFORE F5 starts.
 | Patch | What | Fixes | Apply |
 |---|---|---|---|
-| 01 | generator diff `01-build-matrix-bd-flow.mjs.diff` → regenerate `building-blocks/from-matrix-bd/matrix-bd-flow.json` (must equal `01-…json-patch.json` result, sha256 3ee69173…); update the 10→9 approver figure in `SEED-VS-REALITY.md` | D04, D10, D11, D15, D17, D30 (+ gateTriple, creatorRule, executiveScope) | queued |
-| 02 | `02-module_catalog-corrections.sql` as a NEW forward migration named AFTER G3's last migration (8-digit date + `_N`, see ordering hazards) | D18 (loi_uploaded→done gate bug), D19 (unreachable outcomes), D21 | queued |
-| 03 | `03-approvals.json-patch.json` (stale "supervisor drafts skip review") | D04 | queued |
+| 01 | generator diff `01-build-matrix-bd-flow.mjs.diff` → regenerate `building-blocks/from-matrix-bd/matrix-bd-flow.json` (must equal `01-…json-patch.json` result, sha256 3ee69173…); update the 10→9 approver figure in `SEED-VS-REALITY.md` | D04, D10, D11, D15, D17, D30 (+ gateTriple, creatorRule, executiveScope) | **applied 2026-10-06** — via generator; sha256 3ee69173c323 = G2's prediction; SEED-VS-REALITY 10→9 |
+| 02 | `02-module_catalog-corrections.sql` as a NEW forward migration named AFTER G3's last migration (8-digit date + `_N`, see ordering hazards) | D18 (loi_uploaded→done gate bug), D19 (unreachable outcomes), D21 | **applied 2026-10-06** as `20261005_4_module_catalog_corrections.sql` via the app runner (8 stmts, ledger 74); seed diff deliberately NOT applied (runner checksums applied files; forward UPDATE also fixes fresh installs); conftest label mirror updated (D20) |
+| 03 | `03-approvals.json-patch.json` (stale "supervisor drafts skip review") | D04 | **applied 2026-10-06** — 1-line text substitution (first attempt reformatted the file; reverted and redone minimally) |
 | 02b | optional view change — **NOT approved / not applied** (SQL never run against Postgres) | — | skipped |
 After applying: building-blocks tests, third_party adapter tests (production-flow open order may legitimately change),
 agent-configurator tests, backend pytest, frontend vitest, smoke-existing, smoke-configurator, smoke-g3 — all green.
+**Result (lead, 2026-10-06):** building-blocks 109/109 · third_party 36/36 (same open order) · agent-configurator 49/49 · crosscheck 16/16 (made state-aware: pre-apply = applies cleanly, post-apply = target holds every patched value) · pytest 683/1 · vitest 695/697 (2 env-only) · smokes 41/41, 67/67, 59/59.
 
 ## Findings about the REAL project (report to user; do not change the real repo)
 - **SEC-1 (confirmed by lead in origin/main):** unclaimed-account takeover. `tenancy_service.approve_workspace_request`

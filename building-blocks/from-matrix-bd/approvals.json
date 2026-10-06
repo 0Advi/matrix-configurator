@@ -23,7 +23,7 @@
       "state": "sites.status",
       "statuses": ["draft_submitted", "shortlisted", "rejected", "archived"],
       "steps": [
-        { "actor": "executive|supervisor", "action": "create draft", "to": "draft_submitted (executive) / shortlisted (supervisor-created drafts skip review)", "route": "POST /api/bd/drafts" },
+        { "actor": "executive|supervisor", "action": "create draft", "to": "draft_submitted (every creator; no supervisor auto-shortlist since Matrix-bd cd70220, 2026-07-14)", "route": "POST /api/bd/drafts" },
         { "actor": "supervisor", "action": "shortlist", "from": "draft_submitted", "to": "shortlisted", "route": "POST /api/bd/drafts/{site_id}/shortlist" },
         { "actor": "supervisor", "action": "reject (reasons[] + note) / archive (note required)", "to": "rejected | archived", "route": "POST /api/bd/drafts/{site_id}/reject | /archive" }
       ],

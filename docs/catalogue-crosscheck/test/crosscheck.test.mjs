@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CC = path.resolve(HERE, '..');                 // docs/catalogue-crosscheck
@@ -101,6 +102,26 @@ function applyPatch(doc, ops) {
     else if (op.op === 'add') { if (Array.isArray(parent)) { if (last === '-') parent.push(op.value); else parent.splice(+last, 0, op.value); } else parent[last] = op.value; }
     else if (op.op === 'remove') { if (Array.isArray(parent)) parent.splice(+last, 1); else delete parent[last]; }
     else throw new Error('unsupported op ' + op.op);
+  }
+  return doc;
+}
+
+/**
+ * Before the patch is applied: its `test` ops hold, so apply it (as G2 wrote the check).
+ * After the lead applied it (user-approved, 2026-10-06): the target must already contain every
+ * replaced/added value — the patch is fully in. These patches use only test/replace/add.
+ */
+function applyOrConfirmApplied(doc, ops) {
+  const testsHold = ops.filter(o => o.op === 'test').every(o => { try { applyPatch(doc, [o]); return true; } catch { return false; } });
+  if (testsHold) return applyPatch(doc, ops);
+  for (const op of ops.filter(o => o.op === 'replace' || o.op === 'add')) {
+    const parts = op.path.split('/').slice(1).map(s => s.replace(/~1/g, '/').replace(/~0/g, '~'));
+    const last = parts.pop();
+    let parent = doc;
+    for (const p of parts) parent = Array.isArray(parent) ? parent[+p] : parent[p];
+    assert.ok(parent !== undefined, 'applied-state: parent missing at ' + op.path);
+    if (Array.isArray(parent)) assert.ok(parent.some(x => isDeepStrictEqual(x, op.value)), 'applied-state: value missing at ' + op.path);
+    else assert.deepEqual(parent[last], op.value, 'applied-state: value differs at ' + op.path);
   }
   return doc;
 }
@@ -284,7 +305,7 @@ test('patch 02 (module_catalog): fixes D18, leaves only the documented unreachab
 test('patch 01 (matrix-bd-flow.json): applies cleanly and fixes the stale facts', async () => {
   const ops = readJson(`${CCP}/proposed-patches/01-matrix-bd-flow.json-patch.json`);
   assert.ok(ops.every(o => o['x-g2']), 'every op names its finding');
-  const patched = applyPatch(flow, ops);
+  const patched = applyOrConfirmApplied(flow, ops);
   const st = (k, o) => patched.modules.find(m => m.key === k).stages.find(s => s.order === o);
   assert.ok(!/skips this review|starts at shortlisted/.test(st('bd', 1)['x-matrix'].note));
   assert.ok(st('pex', 3).fields.some(f => f.key === 'pex_initialization_date' && f.kind === 'date' && f.required));
@@ -306,6 +327,6 @@ test('patch 01 (matrix-bd-flow.json): applies cleanly and fixes the stale facts'
 
 test('patch 03 (approvals.json): removes the stale supervisor-skip claim', () => {
   const approvals = readJson('building-blocks/from-matrix-bd/approvals.json');
-  const out = applyPatch(approvals, readJson(`${CCP}/proposed-patches/03-approvals.json-patch.json`));
+  const out = applyOrConfirmApplied(approvals, readJson(`${CCP}/proposed-patches/03-approvals.json-patch.json`));
   assert.ok(!JSON.stringify(out).includes('skip review'));
 });

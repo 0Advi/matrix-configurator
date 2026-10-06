@@ -143,10 +143,10 @@
                 "route": "POST /api/bd/drafts"
               }
             ],
-            "note": "A supervisor-created draft starts at shortlisted (skips this review).",
+            "note": "Every draft, executive- or supervisor-created, enters as draft_submitted: there is no supervisor auto-shortlist (removed in Matrix-bd cd70220, 2026-07-14). A supervisor may then shortlist its own draft (_assert_not_self_approval exempts supervisors and business admins).",
             "sources": [
               "backend/app/domain/schemas/site.py CreateDraftRequest",
-              "backend/app/services/bd_service.py svc_create_draft"
+              "backend/app/services/bd_service.py svc_create_draft, _assert_not_self_approval"
             ]
           }
         },
@@ -970,6 +970,17 @@
         "membershipModule": "legal",
         "routeGuard": "require_module('legal')",
         "realGate": "sites.status ∈ {legal_review, legal_rejected} (BD supervisor: LOI_UPLOADED → LEGAL_REVIEW; seeds legal_dd_checklist)",
+        "gateTriple": {
+          "source": "bd",
+          "stage": "LOI",
+          "event": "send_to_legal",
+          "statusSet": [
+            "legal_review",
+            "legal_rejected"
+          ],
+          "v5Approximation": "bd:done",
+          "evidence": "backend/app/services/bd_service.py svc_push_to_payments (LOI_UPLOADED → LEGAL_REVIEW)"
+        },
         "state": "legal_dd_checklist, site_agreement, site_licensing → sites.legal_dd_status / agreement_status / licensing_status, sites.status",
         "exitSignal": "licensing complete → sites.status legal_review → legal_approved (then pushed_to_payments once finance is approved)",
         "intermediateSignal": "DDR positive → sites.legal_dd_status='positive' (this — not full Legal completion — is what Design waits for)",
@@ -1154,6 +1165,22 @@
         "membershipModule": null,
         "routeGuard": "require_role only — finance lives in the BD Site Tracker (Finance tab) and the business-admin portal; no module of its own",
         "realGate": "sites.status ∈ {loi_uploaded, legal_review, legal_approved, pushed_to_payments} — opens at LOI UPLOAD, i.e. before BD sends to Legal (v5 cannot express this: both happen inside BD's LOI stage)",
+        "gateTriple": {
+          "source": "bd",
+          "stage": "LOI",
+          "event": "loi_uploaded",
+          "statusSet": [
+            "loi_uploaded",
+            "legal_review",
+            "legal_approved",
+            "pushed_to_payments"
+          ],
+          "closedWhile": [
+            "legal_rejected"
+          ],
+          "v5Approximation": "bd:done",
+          "evidence": "backend/app/services/finance_service.py _LOI_AND_BEYOND, svc_save_finance_draft, svc_finance_request_approval"
+        },
         "state": "sites.finance_status (+ kyc_verified, ca_code, finance_amount)",
         "statusVocabulary": [
           "pending",
@@ -1741,6 +1768,18 @@
           ],
           "fields": [
             {
+              "key": "pex_initialization_date",
+              "label": "Project initialization date",
+              "kind": "date",
+              "required": true,
+              "validation": "required to approve",
+              "affects_outcome": false,
+              "x-matrix": {
+                "column": "project_reviews.initialization_date",
+                "note": "set by the business admin on approval; seeds Project initialization as proposed"
+              }
+            },
+            {
               "key": "pex_admin_comments",
               "label": "Admin comments",
               "kind": "text",
@@ -1750,16 +1789,18 @@
             }
           ],
           "x-matrix": {
-            "realState": "pending_admin → approved | rejected",
+            "realState": "pending_admin → approved (+ project_reviews.initialization_status=proposed) | rejected",
             "actors": [
               {
                 "role": "business_admin",
-                "action": "approve / reject",
+                "action": "approve (initialization date required) / reject",
                 "route": "POST /api/project-excellence/{site_id}/budget/admin-review"
               }
             ],
+            "handover": "approval is the hand-over into Project: it proposes the initialization date the project executive then accepts or rejects",
             "sources": [
-              "backend/app/services/project_excellence_service.py svc_admin_review_pe_budget"
+              "backend/app/services/project_excellence_service.py svc_admin_review_pe_budget",
+              "backend/app/services/project_service.py seed_initialization_from_pe"
             ]
           }
         },
@@ -1952,8 +1993,13 @@
             "preStep": "supervisor allocates (POST /api/project/{site_id}/allocate) → project_status=allocated",
             "actors": [
               {
+                "role": "business_admin",
+                "action": "propose while approving the PE budget (primary path)",
+                "route": "POST /api/project-excellence/{site_id}/budget/admin-review"
+              },
+              {
                 "role": "supervisor",
-                "action": "propose",
+                "action": "propose (recovery path when no date was seeded)",
                 "route": "POST /api/project/{site_id}/initialization/propose"
               },
               {
@@ -1968,7 +2014,7 @@
               }
             ],
             "sources": [
-              "backend/app/services/project_service.py svc_propose/respond/finalize_initialization"
+              "backend/app/services/project_service.py seed_initialization_from_pe, svc_propose/respond/finalize_initialization"
             ]
           }
         },
@@ -2047,8 +2093,7 @@
           "outcome": "approved",
           "terminal": false,
           "approvers": [
-            "supervisor",
-            "business_admin"
+            "supervisor"
           ],
           "fields": [
             {
@@ -2082,14 +2127,25 @@
                 "route": "POST /api/project/{site_id}/quality-audit/supervisor-approve"
               },
               {
+                "role": "supervisor (project_excellence)",
+                "action": "Completed — tier-2 sign-off → project completes",
+                "route": "POST /api/project-excellence/{site_id}/quality-audit/complete"
+              },
+              {
                 "role": "business_admin",
-                "action": "confirm → project completes",
+                "action": "confirm → project completes (LEGACY: route kept, admin UI read-only)",
                 "route": "POST /api/project/{site_id}/quality-audit/admin-confirm"
               }
             ],
-            "alternative": "Project Excellence supervisor completion / QA report push also completes the project (two modules co-own this stage)",
+            "coOwner": {
+              "module": "pex",
+              "role": "supervisor",
+              "action": "tier-2 sign-off (svc_pe_complete_quality_audit replaced the business-admin confirmation)"
+            },
+            "alternative": "pushing the PE 'before' QA report, or the final_completion_date milestone, also completes the project",
             "sources": [
-              "backend/app/services/project_service.py svc_submit_inspection_date, svc_supervisor_approve_quality_audit, svc_admin_confirm_quality_audit"
+              "backend/app/services/project_service.py svc_submit_inspection_date, svc_supervisor_approve_quality_audit, svc_pe_complete_quality_audit, svc_admin_confirm_quality_audit",
+              "frontend/src/modules/business-admin/approval/SiteApprovalPanel.jsx QualityAuditBlock"
             ]
           }
         },
@@ -2488,8 +2544,9 @@
                 "route": "POST /api/nso/{site_id}/final-approval"
               }
             ],
+            "fieldsCapturedAt": "final_signoff_1/2 are saved by the stage-three form (svc_save_stage_three) by the NSO supervisor; final approval only checks _stage_three_complete",
             "sources": [
-              "backend/app/services/nso_service.py svc_final_approval"
+              "backend/app/services/nso_service.py svc_final_approval, svc_save_stage_three, _stage_three_complete"
             ]
           }
         }
@@ -2689,6 +2746,17 @@
           "x-matrix": {
             "realState": "under_exec_review → under_supervisor_review",
             "actor": "the SITE CREATOR (executive, or a supervisor who created the pipeline)",
+            "creatorRule": {
+              "identity": "sites.submitted_by OR sites.assigned_to",
+              "roles": [
+                "executive",
+                "supervisor"
+              ],
+              "appliesToAnyRole": true,
+              "businessAdminBypass": false,
+              "scope": "exec-review verdict; rent_start_date while under_exec_review",
+              "frontendDivergence": "LaunchPage.jsx Review tab matches submitted_by only"
+            },
             "actors": [
               {
                 "role": "executive|supervisor (creator)",
@@ -2885,6 +2953,7 @@
           "fields": [],
           "x-matrix": {
             "realState": "financial_closure_status pending → open (closure budget seeded from the gfc labels)",
+            "stageGate": "site launched AND an approved Project Excellence (GFC) budget exists (svc_send_for_financial_closure)",
             "actors": [
               {
                 "role": "business_admin",
@@ -3137,7 +3206,7 @@
         "realModuleKey": "financial_closure",
         "membershipModule": null,
         "routeGuard": "require_module('project') — the Project team does closure; site_delegations scope 'financial_closure'",
-        "realGate": "sites.is_launched AND business_admin 'send for financial closure' (financial_closure_status != 'pending')",
+        "realGate": "sites.is_launched AND business_admin 'send for financial closure' (financial_closure_status != 'pending') AND an approved Project Excellence (GFC) budget as baseline",
         "state": "site_budgets(phase='closure') + 11 items (variation vs gfc) → sites.financial_closure_status",
         "statusVocabulary": [
           "pending",
@@ -3609,6 +3678,44 @@
       }
     ],
     "siteLifecycle": "see modules-and-vocabularies.json#/siteStateMachine",
+    "executiveScope": {
+      "bd": {
+        "rule": "an executive sees and acts on a site only if sites.submitted_by = me OR sites.assigned_to = me",
+        "appliesTo": [
+          "bd (lists, reads, details, LOI)",
+          "finance_ca (save / request approval)",
+          "legal change requests (raise)",
+          "launch_approval creator review (any role)"
+        ],
+        "handoff": "POST /api/bd/shortlist/{site_id}/reassign sets assigned_to; the submitter keeps access",
+        "sources": [
+          "backend/app/services/_common.py apply_role_scope, assert_executive_owns_site",
+          "backend/app/services/bd_service.py _assert_can_edit_details",
+          "backend/app/services/loi_service.py svc_upload_loi",
+          "backend/app/services/launch_service.py _assert_is_site_creator"
+        ]
+      },
+      "modules": {
+        "rule": "module executives act only on sites delegated to them (site_delegations.module, revocable; a supervisor may take a site itself)",
+        "appliesTo": [
+          "legal",
+          "design",
+          "pex",
+          "project",
+          "financial_closure",
+          "quality_audit"
+        ],
+        "sources": [
+          "backend/app/services/delegation_service.py svc_is_delegated",
+          "backend/app/services/legal_service.py _require_executive_legal_delegation"
+        ]
+      },
+      "tenantWide": [
+        "supervisor",
+        "business_admin",
+        "observer"
+      ]
+    },
     "stageLevelGates": [
       {
         "module": "legal",
@@ -3644,6 +3751,11 @@
         "module": "nso",
         "stage": "Stage 3 · Launch readiness",
         "gate": "Project pushed the site (handover_pushed_at) AND Legal licensing complete AND Project done — three-source STAGE gate"
+      },
+      {
+        "module": "financial_closure",
+        "stage": "Send for closure",
+        "gate": "site launched AND an approved Project Excellence (GFC) budget exists (svc_send_for_financial_closure)"
       }
     ],
     "orchestrationToday": "Inter-module order is stated in four places that must agree by hand: state_machine.py ALLOWED_TRANSITIONS (+ frontend/src/lib/stateMachine.js mirror), workflow_unlocks.py, per-service _assert_*_unlocked guards, and the sites.* mirror columns (docs/14-dynamic-platform/dynamic-flow-transformation-plan.html §2)."
@@ -3677,7 +3789,7 @@
         "real": 36
       },
       "stagesWithSameName": 13,
-      "approverMatchesOnSharedStages": 10,
+      "approverMatchesOnSharedStages": 9,
       "meanFieldKeyJaccard": 0.11
     },
     "modules": [
@@ -4277,10 +4389,9 @@
               "business_admin"
             ],
             "real": [
-              "supervisor",
-              "business_admin"
+              "supervisor"
             ],
-            "match": true
+            "match": false
           }
         ],
         "fieldKeyJaccard": 0,
