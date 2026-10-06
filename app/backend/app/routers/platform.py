@@ -11,6 +11,7 @@ POST /tenancy/admin/login, 30-minute TTL) — the same authority as the existing
 - POST /platform/workspaces/{ref}/releases          validate + publish a manifest (new version)
 - POST /platform/workspaces/{ref}/releases/validate dry-run of the publish checks
 - GET  /platform/workspaces/{ref}/releases/{version} one release incl. its manifest
+- POST /platform/workspaces/{ref}/admin-setup-code  F5a: re-issue the UNCLAIMED business admin's setup code
 - POST /platform/workspaces/{ref}/migrations        G3: dry-run / execute "migrate running cases"
 - GET  /platform/workspaces/{ref}/migrations        G3: executed migrations (newest first)
 - GET  /platform/workspaces/{ref}/migrations/{id}   G3: one migration incl. its journal items
@@ -122,6 +123,12 @@ async def get_release(ref: Ref, version: Annotated[int, Path(ge=1)], db: DbDep, 
     return await svc.svc_get_release(db, ref, version)
 
 
+@router.post("/workspaces/{ref}/admin-setup-code",
+             summary="Platform admin: re-issue the one-time setup code of the (unclaimed) business admin")
+async def reissue_admin_setup_code(ref: Ref, db: DbDep, admin: PlatformAdmin) -> dict:
+    return await svc.svc_reissue_admin_setup_code(db, ref=ref, actor_email=admin["email"])
+
+
 # ── G3 #2: migrate running cases ──────────────────────────────────────────────
 
 _UUID = Annotated[str, StringConstraints(pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")]
@@ -145,6 +152,9 @@ class MigrateIn(BaseModel):
     stage_map: Optional[dict[_MODULE, dict[str, Optional[int]]]] = Field(
         default=None, description='{module_key: {"<from stage order>": <to stage order> | null}}')
     restart_stage_on_chain_change: bool = False
+    # F5a: also re-pin sites pinned to a source release that have NO running case (default: G3
+    # behaviour — they keep their release, so a case opened there later still starts on it).
+    include_idle_sites: bool = False
 
 
 @router.post("/workspaces/{ref}/migrations",
@@ -156,7 +166,8 @@ async def migrate_running_cases(ref: Ref, body: MigrateIn, db: DbDep, admin: Pla
         all_older=body.from_release_version == "all_older", to_version=body.to_release_version,
         scope=body.scope.model_dump(exclude_none=True), reason=body.reason, dry_run=body.dry_run,
         options={"stage_map": body.stage_map or {},
-                 "restart_stage_on_chain_change": body.restart_stage_on_chain_change},
+                 "restart_stage_on_chain_change": body.restart_stage_on_chain_change,
+                 "include_idle_sites": body.include_idle_sites},
     )
 
 

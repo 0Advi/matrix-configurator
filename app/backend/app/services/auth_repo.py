@@ -259,12 +259,17 @@ async def get_supervisor_invite_code(db: AsyncSession, code: str) -> Optional[Ma
 
 async def insert_pending_signup(
     db: AsyncSession, *, user_id: Any, tenant_id: Any, role: str, email: str, name: str, notes: str,
+    password_hash: Optional[str] = None,
 ) -> None:
-    """Insert an inactive pending signup row (does not commit)."""
+    """Insert an inactive pending signup row (does not commit).
+
+    ``password_hash`` (F5a / SEC-1) is the applicant's own password, chosen at
+    signup; approval only activates the row, so nobody else can claim it.
+    """
     await db.execute(
         text("""
-            INSERT INTO users (id, tenant_id, role, email, name, is_active, notes)
-            VALUES (:id, :tid, :role, :email, :name, false, :notes)
+            INSERT INTO users (id, tenant_id, role, email, name, is_active, notes, password_hash)
+            VALUES (:id, :tid, :role, :email, :name, false, :notes, :pwd)
         """),
         {
             "id":    user_id,
@@ -273,5 +278,6 @@ async def insert_pending_signup(
             "email": email,
             "name":  name,
             "notes": notes,
+            "pwd":   password_hash,
         },
     )

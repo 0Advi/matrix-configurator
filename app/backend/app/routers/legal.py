@@ -36,7 +36,7 @@ from app.domain.schemas.legal_change_request import (
     ChangeRequestResponse,
     ReviewChangeRequestRequest,
 )
-from app.rbac.guards import require_module, require_role
+from app.rbac.guards import require_module, require_module_enabled, require_role
 from app.rbac.roles import Role
 from app.services.change_request_service import (
     svc_approve_change_request,
@@ -64,7 +64,13 @@ from app.services.legal_service import (
     svc_submit_licensing_for_review,
 )
 
-router = APIRouter(prefix="/legal", tags=["Legal"])
+# F5a: every route — including the business-admin tier that has no require_module
+# guard — is refused (403) when the tenant's published configuration switches the
+# "legal" module OFF (rbac/guards.require_module_enabled; data from tenant_modules).
+router = APIRouter(
+    prefix="/legal", tags=["Legal"],
+    dependencies=[Depends(require_module_enabled("legal"))],
+)
 
 # Both supervisor and executive in the legal module can access legal routes.
 # Finalize + agreement are supervisor-only. Licensing saves are allowed for

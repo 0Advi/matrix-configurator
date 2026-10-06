@@ -8,7 +8,7 @@ import { apiUpload, workspaceLoginUrl } from './adminApi.js';
 //     never reached the branded login page,
 //   - `variant="configurator"` swaps the intro copy (the configurator's tenant has a business
 //     admin, not a supervisor) and the setup-code note names the exact place to enter it.
-export default function CredentialsDialog({ result, keyValue, onClose, variant = 'request' }) {
+export default function CredentialsDialog({ result, keyValue, onClose, variant = 'request', withAuth }) {
   const [name, setName] = React.useState(result?.company || '');
   const [logoFile, setLogoFile] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
@@ -30,7 +30,9 @@ export default function CredentialsDialog({ result, keyValue, onClose, variant =
       const fd = new FormData();
       if (name.trim()) fd.append('name', name.trim());
       if (logoFile) fd.append('logo', logoFile);
-      await apiUpload(`/tenancy/tenants/${result.tenant_id}/branding`, { key: keyValue, formData: fd });
+      // F5a: through the portal's re-auth (a 401 asks to sign in again and retries) when given.
+      const send = (k) => apiUpload(`/tenancy/tenants/${result.tenant_id}/branding`, { key: k, formData: fd });
+      await (withAuth ? withAuth(send) : send(keyValue));
       setSaved(true);
     } catch (e2) { setBErr(e2.message || 'Could not save branding.'); }
     finally { setBusy(false); }
@@ -70,7 +72,7 @@ export default function CredentialsDialog({ result, keyValue, onClose, variant =
         {result.admin_setup_token && (
           <p role="note" style={{ margin: 0, padding: '10px 12px', borderRadius: 8, background: 'rgba(250,204,21,0.10)', color: '#FDE68A', fontSize: 12, lineHeight: 1.5 }}>
             {isCfg
-              ? <><b>Share privately — shown only once.</b> The business admin&#39;s account has no password yet. On the login page they enter their email, then the <b>setup code</b> with a new password, to activate sign-in. It expires in 30 days and cannot be shown again; if it is lost, confirm a password reset for them under “Password resets”.</>
+              ? <><b>Share privately — shown only once.</b> The business admin&#39;s account has no password yet. On the login page they enter their email, then the <b>setup code</b> with a new password, to activate sign-in. It expires in 30 days and cannot be shown again; if it is lost, issue a new one under Workspaces → Provisioned workspaces → Details.</>
               : <>The admin&#39;s account has no password yet. Share the <b>setup code</b> with them privately —
                 on their login page they enter it (with a new password) to activate sign-in. It is shown only once and expires in 30 days.</>}
           </p>

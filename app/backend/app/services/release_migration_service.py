@@ -24,6 +24,16 @@ trail) with a hash-chained ``release_migrated`` runtime event + provenance {from
 to_release, actor, reason, before/after stage, mapping, fields, approvals carried, pre_state}; per
 site ``site_release_migrated``; per migration ``release_migration_executed``.
 Dry run (default) writes nothing.
+
+F5a (robustness): an executing migration stamps a heartbeat + progress into its header's
+``summary`` after every site; a header still ``running`` whose heartbeat is older than
+``STALE_AFTER_SECONDS`` (the process died mid-run) is marked ``failed`` — on app startup, before the
+next execute of that tenant — with a recovery note; committed sites are never touched (each site
+was its own transaction; the journal shows which moved). A second execute for a tenant whose
+migration is still live is refused (409 ``migration_in_progress``). Optional
+``include_idle_sites``: also re-pin sites pinned to a source release that have NO running case
+(journal item + ``site_release_migrated`` audit, policy ``idle``); finished cases keep the release
+they finished on. Default off (G3 behaviour).
 """
 from __future__ import annotations
 
@@ -43,6 +53,14 @@ from app.services.audit_service import write_provenance_audit
 from app.services.module_runtime import migrate, runtime
 
 logger = logging.getLogger("matrix.release_migration")
+
+
+# A running migration whose heartbeat is older than this is treated as dead (F5a). Every site is
+# one short transaction followed by a heartbeat, so 10 minutes without one means the process stopped.
+STALE_AFTER_SECONDS = 600
+
+_STALE_SQL = """coalesce((m.summary->>'heartbeat_at')::timestamptz, m.created_at)
+                < now() - make_interval(secs => :stale)"""
 
 
 class _SiteSkipped(Exception):
@@ -370,6 +388,179 @@ async def _migrate_site(session, *, tenant_id, mig_id: str, site_id: str, target
     return out
 
 
+# ── F5a: crash recovery, heartbeat, one live migration per tenant ─────────────
+
+_RECOVERY_NOTE = ("The process running this migration stopped before it finished. Sites listed in its "
+                  "journal were migrated (each in its own committed transaction); no other site or case was "
+                  "touched. Run the migration again to move the rest.")
+
+
+async def recover_stale_migrations(session: AsyncSession, *, tenant_id=None,
+                                   stale_after_seconds: int = STALE_AFTER_SECONDS) -> list[dict]:
+    """Mark migrations stuck in 'running' (no heartbeat for ``stale_after_seconds``) as 'failed'.
+
+    Own transaction. Touches only the header (status/summary/finished_at — the only mutable columns
+    while running) plus one audit row per recovered migration; never a site, record or journal item.
+    Safe with several app instances: a live migration heartbeats after every site.
+    """
+    tenant_clause = "AND m.tenant_id = CAST(:tid AS uuid)" if tenant_id is not None else ""
+    async with transaction(session):
+        rows = (await session.execute(text(f"""
+            UPDATE module_release_migrations m
+               SET status = 'failed', finished_at = now(),
+                   summary = coalesce(m.summary, '{{}}'::jsonb) || jsonb_build_object(
+                       'recovered', true, 'recovered_at', now(), 'failure', CAST(:note AS text),
+                       'journal', jsonb_build_object(
+                           'sites', (SELECT count(*) FROM module_release_migration_items i
+                                      WHERE i.migration_id = m.id AND i.record_id IS NULL),
+                           'records', (SELECT count(*) FROM module_release_migration_items i
+                                        WHERE i.migration_id = m.id AND i.record_id IS NOT NULL)))
+             WHERE m.status = 'running' AND {_STALE_SQL} {tenant_clause}
+            RETURNING m.id, m.tenant_id, m.to_release_id, m.summary
+        """), {"note": _RECOVERY_NOTE, "stale": stale_after_seconds,
+               **({"tid": str(tenant_id)} if tenant_id is not None else {})})).mappings().all()  # noqa: S608
+        for r in rows:
+            await write_provenance_audit(
+                session, tenant_id=r["tenant_id"], actor_name="system",
+                action="release_migration_recovered", entity_id=r["id"], entity_type="module_release_migration",
+                detail="stale running migration marked failed (process stopped mid-run)",
+                config_release_id=r["to_release_id"],
+                provenance={"policy": "release_migration", "migration_id": str(r["id"]), "actor": "system",
+                            "recovered": True, "journal": (r["summary"] or {}).get("journal")},
+            )
+    for r in rows:
+        logger.warning("release migration %s (tenant %s) was left running; marked failed", r["id"], r["tenant_id"])
+    return [{"id": str(r["id"]), "tenant_id": str(r["tenant_id"])} for r in rows]
+
+
+async def _refuse_if_live_migration(session: AsyncSession, tenant_id) -> None:
+    live = (await session.execute(text(f"""
+        SELECT m.id FROM module_release_migrations m
+         WHERE m.tenant_id = :tid AND m.status = 'running' AND NOT ({_STALE_SQL})
+         LIMIT 1
+    """), {"tid": tenant_id, "stale": STALE_AFTER_SECONDS})).mappings().first()  # noqa: S608
+    if live:
+        raise ApiProblem(http_status.HTTP_409_CONFLICT,
+                         "Another migration of this workspace is still running. Wait for it to finish.",
+                         code="migration_in_progress", migration_id=str(live["id"]))
+
+
+async def _heartbeat(session: AsyncSession, mig_id: str, *, done: int, total: int) -> None:
+    await session.rollback()
+    async with transaction(session):
+        await session.execute(text("""
+            UPDATE module_release_migrations
+               SET summary = jsonb_build_object('progress', jsonb_build_object('sites_done', CAST(:d AS int),
+                                                                                'sites_total', CAST(:t AS int)),
+                                                'heartbeat_at', now())
+             WHERE id = :id AND status = 'running'
+        """), {"d": done, "t": total, "id": mig_id})
+
+
+async def _mark_failed(session: AsyncSession, mig_id: str, exc: BaseException) -> None:
+    """Best effort: an unexpected error mid-run marks the header failed instead of leaving it running."""
+    try:
+        await session.rollback()
+        async with transaction(session):
+            await session.execute(text("""
+                UPDATE module_release_migrations
+                   SET status = 'failed', finished_at = now(),
+                       summary = coalesce(summary, '{}'::jsonb) || jsonb_build_object('failure', CAST(:f AS text))
+                 WHERE id = :id AND status = 'running'
+            """), {"id": mig_id, "f": f"aborted: {type(exc).__name__}"})
+    except Exception:  # noqa: BLE001 — recover_stale_migrations() catches what this cannot
+        logger.exception("release migration %s: could not mark it failed", mig_id)
+
+
+# ── F5a: idle sites (pinned to a source release, no running case) ──────────────
+
+async def _idle_sites(session, tenant_id, versions: list[int], scope: dict) -> list[dict]:
+    if scope.get("record_ids") or not versions:
+        return []  # a record-targeted migration never re-pins idle sites
+    where = ["s.tenant_id = :tid", "rel.version = ANY(:versions)"]
+    params: dict[str, Any] = {"tid": tenant_id, "versions": versions, "inflight": list(migrate.IN_FLIGHT)}
+    if scope.get("site_ids"):
+        where.append("s.id::text = ANY(:sites)")
+        params["sites"] = [str(x) for x in scope["site_ids"]]
+    rows = (await session.execute(text(f"""
+        SELECT s.id, s.name, s.code, s.ca_code, s.config_release_id, rel.version AS from_version,
+               (SELECT count(*) FROM module_records r WHERE r.site_id = s.id) AS finished_cases
+          FROM sites s JOIN tenant_config_releases rel ON rel.id = s.config_release_id
+         WHERE {' AND '.join(where)}
+           AND NOT EXISTS (SELECT 1 FROM module_records r
+                            WHERE r.site_id = s.id AND (r.runtime_state->>'status') = ANY(:inflight))
+         ORDER BY s.name
+    """), params)).mappings().all()  # noqa: S608 — `where` is built from fixed literals only
+    return [dict(r) for r in rows]
+
+
+def _idle_out(site: dict, target: dict, outcome: str, message: Optional[str] = None) -> dict:
+    return {"site": {"id": str(site["id"]), "name": site["name"], "code": site["ca_code"] or site["code"]},
+            "from_version": site["from_version"], "to_version": target["version"],
+            "finished_cases": site["finished_cases"], "outcome": outcome, "message": message}
+
+
+async def _repin_idle_site(session, *, tenant_id, mig_id: str, site: dict, target: dict, sources: list[int],
+                           actor_email: str, reason: str) -> dict:
+    """One locked transaction: re-check (still on a source release, still no running case), journal, move."""
+    async with transaction(session):
+        await session.execute(text("SELECT set_config('matrix.release_migration', :mid, true)"), {"mid": mig_id})
+        cur = (await session.execute(text("""
+            SELECT s.config_release_id, rel.version FROM sites s
+              JOIN tenant_config_releases rel ON rel.id = s.config_release_id
+             WHERE s.id = :sid AND s.tenant_id = :tid FOR UPDATE OF s
+        """), {"sid": site["id"], "tid": tenant_id})).mappings().first()
+        recs = await _site_records(session, tenant_id, [str(site["id"])], lock=True)
+        if not cur or cur["version"] not in sources or any(_in_flight(r) for r in recs):
+            raise _SiteSkipped("changed since the dry run (moved, or a case was opened)", [])
+        await session.execute(text("""
+            INSERT INTO module_release_migration_items
+                (migration_id, tenant_id, site_id, from_release_id, to_release_id, plan)
+            VALUES (:mid, :tid, :sid, :frm, :to, CAST(:plan AS jsonb))
+        """), {"mid": mig_id, "tid": tenant_id, "sid": site["id"], "frm": cur["config_release_id"],
+               "to": target["id"], "plan": json.dumps({"idle": True, "records": [],
+                                                       "finished_cases": [str(r["id"]) for r in recs]})})
+        await session.execute(text("UPDATE sites SET config_release_id = :to WHERE id = :sid"),
+                              {"to": target["id"], "sid": site["id"]})
+        await write_provenance_audit(
+            session, tenant_id=tenant_id, site_id=site["id"], actor_name=actor_email,
+            action="site_release_migrated", entity_id=site["id"], entity_type="site",
+            detail=f"idle site pin v{cur['version']} -> v{target['version']}: {reason}",
+            config_release_id=target["id"],
+            provenance={"policy": "release_migration", "idle": True, "migration_id": mig_id,
+                        "from": str(cur["config_release_id"]), "to": target["id"],
+                        "release_version": target["version"], "actor": actor_email, "reason": reason,
+                        "finished_cases_stay": [str(r["id"]) for r in recs]},
+        )
+    return _idle_out(site, target, "repinned")
+
+
+async def _execute_idle(session, *, tenant_id, mig_id, idle: list[dict], target, sources, actor_email,
+                        reason) -> list[dict]:
+    out = []
+    for site in idle:
+        await session.rollback()
+        try:
+            out.append(await _repin_idle_site(session, tenant_id=tenant_id, mig_id=mig_id, site=site,
+                                              target=target, sources=sources, actor_email=actor_email,
+                                              reason=reason))
+        except _SiteSkipped as sk:
+            await session.rollback()
+            out.append(_idle_out(site, target, "skipped", sk.reason))
+        except Exception as exc:  # noqa: BLE001 — one failing site must not stop the others
+            await session.rollback()
+            logger.exception("release migration %s: idle site %s failed", mig_id, site["id"])
+            out.append(_idle_out(site, target, "failed", f"database refused the move: {type(exc).__name__}"))
+    return out
+
+
+def _idle_summary(idle_items: list[dict]) -> dict:
+    by: dict[str, int] = {}
+    for i in idle_items:
+        by[i["outcome"]] = by.get(i["outcome"], 0) + 1
+    return {"total": len(idle_items), "by_outcome": by}
+
+
 # ── the command ───────────────────────────────────────────────────────────────
 
 def _summary(items: list[dict]) -> dict:
@@ -405,6 +596,9 @@ async def svc_migrate_running_cases(
             "from": {"spec": spec, "versions": sources}, "to": {"id": target["id"], "version": target["version"]},
             "scope": scope, "options": options, "reason": reason or None, "actor": actor_email}
 
+    include_idle = bool(options.get("include_idle_sites"))
+    idle = await _idle_sites(session, tenant_id, sources, scope) if include_idle else []
+
     if dry_run:
         items = list(closed_items)
         for site in sites.values():
@@ -419,17 +613,50 @@ async def svc_migrate_running_cases(
                                        outcome="would_migrate" if pl["compatible"] else "blocked",
                                        approvals=approvals.get(str(rec["id"]), 0)))
         await session.rollback()
-        return {**head, "migration_id": None, "summary": _summary(items), "items": items}
+        out = {**head, "migration_id": None, "summary": _summary(items), "items": items}
+        if include_idle:
+            out["idle_sites"] = [_idle_out(x, target, "would_repin") for x in idle]
+            out["summary"]["idle_sites"] = _idle_summary(out["idle_sites"])
+        return out
 
     await session.rollback()  # end the planning reads before the write transactions
+    await recover_stale_migrations(session, tenant_id=tenant_id)
     mig_id = str(uuid.uuid4())
     async with transaction(session):
+        # one live migration per tenant: serialise check + insert (released at commit)
+        await session.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"),
+                              {"k": f"release_migration:{tenant_id}"})
+        await _refuse_if_live_migration(session, tenant_id)
         await session.execute(text("""
             INSERT INTO module_release_migrations (id, tenant_id, to_release_id, from_spec, scope, reason, actor)
             VALUES (:id, :tid, :to, :spec, CAST(:scope AS jsonb), :reason, :actor)
         """), {"id": mig_id, "tid": tenant_id, "to": target["id"], "spec": spec,
                "scope": json.dumps({**scope, "options": options}), "reason": reason, "actor": actor_email})
+    try:
+        items, idle_items = await _execute_all(
+            session, tenant_id=tenant_id, mig_id=mig_id, sites=sites, idle=idle, closed_items=closed_items,
+            target=target, sources=sources, scoped_ids=scoped_ids, options=options, actor_email=actor_email,
+            reason=reason)
+        summary = _summary(items)
+        if include_idle:
+            summary["idle_sites"] = _idle_summary(idle_items)
+        await _finish(session, tenant_id=tenant_id, mig_id=mig_id, summary=summary, spec=spec, target=target,
+                      scope=scope, actor_email=actor_email, reason=reason)
+    except BaseException as exc:
+        await _mark_failed(session, mig_id, exc)
+        raise
+    logger.info("release migration %s for ref=%s: %s", mig_id, ref, summary)
+    out = {**head, "migration_id": mig_id, "summary": summary, "items": items}
+    if include_idle:
+        out["idle_sites"] = idle_items
+    return out
+
+
+async def _execute_all(session, *, tenant_id, mig_id, sites: dict, idle: list[dict], closed_items: list[dict],
+                       target, sources, scoped_ids, options, actor_email, reason) -> tuple[list[dict], list[dict]]:
+    """Every site in its own transaction (running cases first, then idle sites), heartbeat after each."""
     items = list(closed_items)
+    total, done = len(sites) + len(idle), 0
     for site_id, site in sites.items():
         await session.rollback()
         try:
@@ -450,7 +677,18 @@ async def svc_migrate_running_cases(
             for rec, planned, co in site["records"]:
                 items.append(_item_out(rec, planned, target=target, co_migrated=co, outcome="failed",
                                        approvals=0, message=f"database refused the move: {type(exc).__name__}"))
-    summary = _summary(items)
+        done += 1
+        await _heartbeat(session, mig_id, done=done, total=total)
+    idle_items = []
+    for site in idle:
+        idle_items += await _execute_idle(session, tenant_id=tenant_id, mig_id=mig_id, idle=[site], target=target,
+                                          sources=sources, actor_email=actor_email, reason=reason)
+        done += 1
+        await _heartbeat(session, mig_id, done=done, total=total)
+    return items, idle_items
+
+
+async def _finish(session, *, tenant_id, mig_id, summary, spec, target, scope, actor_email, reason) -> None:
     await session.rollback()
     async with transaction(session):
         await session.execute(text("""
@@ -465,8 +703,6 @@ async def svc_migrate_running_cases(
                         "reason": reason, "from": spec, "to_version": target["version"], "scope": scope,
                         "summary": summary},
         )
-    logger.info("release migration %s for ref=%s: %s", mig_id, ref, summary)
-    return {**head, "migration_id": mig_id, "summary": summary, "items": items}
 
 
 # ── history ───────────────────────────────────────────────────────────────────
@@ -480,13 +716,15 @@ async def svc_list_migrations(session: AsyncSession, ref: str) -> dict:
     ws = await _workspace(session, ref)
     rows = (await session.execute(text("""
         SELECT m.id, m.from_spec, m.scope, m.reason, m.actor, m.status, m.summary, m.created_at, m.finished_at,
-               r.version AS to_version
+               r.version AS to_version, (m.status = 'running' AND {stale}) AS stale
           FROM module_release_migrations m JOIN tenant_config_releases r ON r.id = m.to_release_id
          WHERE m.tenant_id = :tid ORDER BY m.created_at DESC LIMIT 100
-    """), {"tid": ws["tenant_id"]})).mappings().all()
+    """.format(stale=_STALE_SQL)), {"tid": ws["tenant_id"], "stale": STALE_AFTER_SECONDS})).mappings().all()
+    # `stale` (F5a): still 'running' but no heartbeat for STALE_AFTER_SECONDS — the process died; it is
+    # marked failed on the next execute of this workspace or the next app start.
     return {"items": [{"id": str(r["id"]), "from": r["from_spec"], "to_version": r["to_version"],
                        "scope": r["scope"], "reason": r["reason"], "actor": r["actor"], "status": r["status"],
-                       "summary": r["summary"], "created_at": _iso(r["created_at"]),
+                       "stale": bool(r["stale"]), "summary": r["summary"], "created_at": _iso(r["created_at"]),
                        "finished_at": _iso(r["finished_at"])} for r in rows]}
 
 
@@ -495,10 +733,11 @@ async def svc_get_migration(session: AsyncSession, ref: str, migration_id: str) 
     ws = await _workspace(session, ref)
     head = (await session.execute(text("""
         SELECT m.id, m.from_spec, m.scope, m.reason, m.actor, m.status, m.summary, m.created_at, m.finished_at,
-               r.version AS to_version
+               r.version AS to_version, (m.status = 'running' AND {stale}) AS stale
           FROM module_release_migrations m JOIN tenant_config_releases r ON r.id = m.to_release_id
          WHERE m.tenant_id = :tid AND m.id::text = :mid
-    """), {"tid": ws["tenant_id"], "mid": migration_id})).mappings().first()
+    """.format(stale=_STALE_SQL)), {"tid": ws["tenant_id"], "mid": migration_id,
+                                    "stale": STALE_AFTER_SECONDS})).mappings().first()
     if not head:
         raise HTTPException(status_code=404, detail="Migration not found.")
     items = (await session.execute(text("""
@@ -510,7 +749,7 @@ async def svc_get_migration(session: AsyncSession, ref: str, migration_id: str) 
     """), {"mid": head["id"]})).mappings().all()
     return {"id": str(head["id"]), "from": head["from_spec"], "to_version": head["to_version"],
             "scope": head["scope"], "reason": head["reason"], "actor": head["actor"], "status": head["status"],
-            "summary": head["summary"], "created_at": _iso(head["created_at"]),
+            "stale": bool(head["stale"]), "summary": head["summary"], "created_at": _iso(head["created_at"]),
             "finished_at": _iso(head["finished_at"]),
             "items": [{"site_id": str(i["site_id"]), "record_id": str(i["record_id"]) if i["record_id"] else None,
                        "module_key": i["module_key"], "from_version": i["from_version"],

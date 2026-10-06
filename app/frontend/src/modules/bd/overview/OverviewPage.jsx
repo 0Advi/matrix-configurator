@@ -372,9 +372,13 @@ export default function OverviewPage({ onOpenSite: onOpenSiteProp }) {
   const navigate = useNavigate();
   const ctx = usePageContext();
   const onOpenSite = onOpenSiteProp || ctx.onOpenSite;
-  const { role, user } = useSession();
+  const { role, user, disabledModules } = useSession();
   const { drafts, shortlist, staging, archive, sites } = useSites();
   const launch = useLaunchSites();
+  // F5a: the Payments / Launch tiles open pages of the finance_ca / launch_approval modules;
+  // when the workspace's published configuration switched one off, its tile stays a count
+  // (it is computed from /sites) but no longer opens a page the API would refuse (403).
+  const moduleOff = (key) => (disabledModules || []).includes(key);
 
   // view: which KPI is expanded in place (payments / launch navigate away).
   const [view, setView] = React.useState(null); // null | 'sites' | 'archived'
@@ -488,8 +492,8 @@ export default function OverviewPage({ onOpenSite: onOpenSiteProp }) {
   };
 
   const selectKpi = (key) => {
-    if (key === 'payments') { navigate(ROUTES.PAYMENT); return; }
-    if (key === 'launch') { navigate(ROUTES.LAUNCH); return; }
+    if (key === 'payments') { if (!moduleOff('finance_ca')) navigate(ROUTES.PAYMENT); return; }
+    if (key === 'launch') { if (!moduleOff('launch_approval')) navigate(ROUTES.LAUNCH); return; }
     setView(v => (v === key ? null : key));
     setStage('all');
     setSubFilter('all');

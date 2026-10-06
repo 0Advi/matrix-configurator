@@ -11,12 +11,14 @@ in the service (not from the JWT's single module claim), so one user can work in
 - GET  /m/{module_key}/records/{record_id}           case detail: pinned release, stages, form, actions, gate, audit
 - POST /m/{module_key}/records/{record_id}/actions   submit | approve | reject | send_back
 - POST /m/{module_key}/records/{record_id}/assign    supervisor/admin assigns the case to an executive
+- POST /m/{module_key}/records/{record_id}/files     F5a: upload a file for a `kind: file` field (multipart)
+- GET  /m/{module_key}/files/{file_id}               F5a: file metadata + short-lived signed download URL
 """
 from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Optional
 
-from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi import APIRouter, Depends, File, Form, Path, Query, UploadFile, status
 from pydantic import BaseModel, Field, model_validator
 
 from app.core.deps import DbDep, TenantId
@@ -101,3 +103,22 @@ async def assign(module_key: ModuleKey, record_id: RecordId, body: AssignIn, db:
                  current_user: ModuleUser, tenant_id: TenantId) -> dict:
     return await svc.svc_assign(db, tenant_id=tenant_id, current_user=current_user, module_key=module_key,
                                 record_id=record_id, executive_id=body.executive_id)
+
+
+# ── F5a: files for `kind: file` fields ────────────────────────────────────────
+
+@router.post("/{module_key}/records/{record_id}/files", status_code=status.HTTP_201_CREATED,
+             summary="Upload a file for a file field of the case's current form step (returns its id)")
+async def upload_file(module_key: ModuleKey, record_id: RecordId, db: DbDep, current_user: ModuleUser,
+                      tenant_id: TenantId,
+                      field: str = Form(..., pattern=r"^[A-Za-z0-9_]{1,64}$", description="the file field's key"),
+                      file: UploadFile = File(...)) -> dict:
+    return await svc.svc_upload_file(db, tenant_id=tenant_id, current_user=current_user, module_key=module_key,
+                                     record_id=record_id, field_key=field, upload=file)
+
+
+@router.get("/{module_key}/files/{file_id}", summary="A case file: metadata + short-lived signed download URL")
+async def get_file(module_key: ModuleKey, file_id: RecordId, db: DbDep, current_user: ModuleUser,
+                   tenant_id: TenantId) -> dict:
+    return await svc.svc_get_file(db, tenant_id=tenant_id, current_user=current_user, module_key=module_key,
+                                  file_id=file_id)

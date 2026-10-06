@@ -164,14 +164,17 @@ async def svc_get_release(session: AsyncSession, ref: str, version: int) -> dict
 
 # ── provisioning ──────────────────────────────────────────────────────────────
 
-async def _claim_ref(session: AsyncSession, ref: str, actor_email: str) -> None:
+async def _claim_ref(session: AsyncSession, ref: str, actor_email: str) -> Optional[str]:
     """Claim the configurator id (own transaction). 409 when it is taken or in flight.
 
     A claim stuck in 'provisioning' for more than 10 minutes (the process died between the
-    claim and the approval commit) is treated like 'failed' and may be re-claimed."""
+    claim and the approval commit) is treated like 'failed' and may be re-claimed.
+    F5a: returns the workspace request an earlier attempt already created (or None), so the
+    retry resumes it instead of creating a second request / a second tenant."""
     async with transaction(session):
         existing = (await session.execute(text("""
-            SELECT status, (status = 'provisioning' AND created_at < now() - interval '10 minutes') AS stale
+            SELECT status, workspace_request_id,
+                   (status = 'provisioning' AND created_at < now() - interval '10 minutes') AS stale
               FROM platform_workspaces WHERE workspace_ref = :ref FOR UPDATE
         """), {"ref": ref})).mappings().first()
         if existing and existing["status"] != "failed" and not existing["stale"]:
@@ -192,6 +195,45 @@ async def _claim_ref(session: AsyncSession, ref: str, actor_email: str) -> None:
                SET status = 'provisioning', claimed_by = EXCLUDED.claimed_by,
                    last_error = NULL, created_at = now()
         """), {"ref": ref, "who": actor_email})
+    prior = existing["workspace_request_id"] if existing else None
+    return str(prior) if prior else None
+
+
+async def _resume_point(session: AsyncSession, prior_request_id: Optional[str]) -> tuple[Optional[str], Optional[Any]]:
+    """F5a: (pending request to approve, tenant an earlier attempt already provisioned) for a retry."""
+    if not prior_request_id:
+        return None, None
+    row = (await session.execute(text(
+        "SELECT status, provisioned_tenant_id FROM workspace_requests WHERE id = :rid"
+    ), {"rid": prior_request_id})).mappings().first()
+    await session.rollback()
+    if row and row["status"] == "approved" and row["provisioned_tenant_id"]:
+        return None, row["provisioned_tenant_id"]
+    if row and row["status"] == "pending":
+        return prior_request_id, None
+    return None, None
+
+
+async def _adopt_tenant(session: AsyncSession, tenant_id) -> dict:
+    """F5a: the approval committed but the process died before the link: adopt that tenant (never a
+    second one) and issue a fresh setup code — the first one was returned to a caller that is gone."""
+    async with transaction(session):
+        t = (await session.execute(text(
+            "SELECT id, name, workspace_code, seat_limit FROM tenants WHERE id = :tid"
+        ), {"tid": tenant_id})).mappings().one()
+        try:
+            code = await tenancy_service.reissue_admin_setup_code(session, tenant_id=tenant_id)
+        except HTTPException as exc:
+            if exc.status_code != http_status.HTTP_409_CONFLICT:
+                raise
+            code = None  # the admin already set a password (e.g. through a reset): nothing to hand out
+        ba = (await session.execute(text("""
+            SELECT u.id, u.email FROM business_admins b JOIN users u ON u.id = b.user_id
+             WHERE b.tenant_id = :tid ORDER BY b.promoted_at LIMIT 1
+        """), {"tid": tenant_id})).mappings().first()
+    return {"tenant_id": t["id"], "workspace_code": t["workspace_code"], "seat_limit": t["seat_limit"],
+            "business_admin_id": ba["id"] if ba else None, "admin_email": ba["email"] if ba else None,
+            "admin_setup_token": code["token"] if code else None, "company": t["name"], "recovered": True}
 
 
 async def svc_provision_workspace(
@@ -213,19 +255,31 @@ async def svc_provision_workspace(
     existing tenant_id / workspace_code (never the setup token again). A failed attempt can be
     retried with the same ref.
     """
-    await _claim_ref(session, ref, actor_email)
+    prior_request = await _claim_ref(session, ref, actor_email)
     try:
-        request_id = await tenancy_service.insert_workspace_request(
-            session,
-            company=company,
-            admin_email=admin_email,
-            team_size=team_size,
-            seat_limit=seat_limit if seat_limit is not None else tenancy_service._parse_seat_limit(team_size),
-            source_ip=source_ip,
-        )
-        result = await tenancy_service.approve_workspace_request(
-            session, request_id=str(request_id), admin_name=admin_name, city=city,
-        )
+        # F5a: a retry after a crash resumes the earlier attempt — approve its still-pending request,
+        # or adopt the tenant its committed approval created — instead of provisioning a second one.
+        request_id, adopted = await _resume_point(session, prior_request)
+        if adopted is not None:
+            request_id = prior_request
+            result = await _adopt_tenant(session, adopted)
+        else:
+            if request_id is None:
+                request_id = await tenancy_service.insert_workspace_request(
+                    session,
+                    company=company,
+                    admin_email=admin_email,
+                    team_size=team_size,
+                    seat_limit=seat_limit if seat_limit is not None else tenancy_service._parse_seat_limit(team_size),
+                    source_ip=source_ip,
+                )
+                async with transaction(session):  # remember it BEFORE approving (crash-safe retry)
+                    await session.execute(text(
+                        "UPDATE platform_workspaces SET workspace_request_id = :rid WHERE workspace_ref = :ref"
+                    ), {"rid": request_id, "ref": ref})
+            result = await tenancy_service.approve_workspace_request(
+                session, request_id=str(request_id), admin_name=admin_name, city=city,
+            )
     except Exception as exc:
         await session.rollback()
         async with transaction(session):
@@ -248,7 +302,8 @@ async def svc_provision_workspace(
             entity_id=result["tenant_id"], entity_type="tenant",
             detail=f"configurator workspace {ref}",
             provenance={"policy": "provision", "configurator_ref": ref,
-                        "workspace_request_id": str(request_id), "actor": "platform_admin"},
+                        "workspace_request_id": str(request_id), "actor": "platform_admin",
+                        **({"recovered": True} if result.get("recovered") else {})},
         )
     logger.info("platform: provisioned configurator workspace ref=%s tenant=%s", ref, result["tenant_id"])
     return {
@@ -256,15 +311,57 @@ async def svc_provision_workspace(
         "tenant_id": str(result["tenant_id"]),
         "workspace_code": result["workspace_code"],
         "seat_limit": result["seat_limit"],
-        "business_admin_id": str(result["business_admin_id"]),
+        "business_admin_id": str(result["business_admin_id"]) if result.get("business_admin_id") else None,
         "admin_email": result["admin_email"],
         "admin_setup_token": result["admin_setup_token"],
         "workspace_request_id": str(request_id),
         "live_release": None,
+        "recovered": bool(result.get("recovered")),
         "message": (
-            f"Provisioned {result['company']}. Share the workspace code AND the one-time setup code "
+            (f"Resumed an interrupted provisioning of {result['company']} (no second tenant was created; a new "
+             f"setup code replaces the lost one). " if result.get("recovered") else
+             f"Provisioned {result['company']}. ")
+            + f"Share the workspace code AND the one-time setup code "
             f"with {result['admin_email']} — they set their password on the login page with it. "
             f"The setup code is shown only once. Publish a release to apply the configuration."
+        ),
+    }
+
+
+async def svc_reissue_admin_setup_code(session: AsyncSession, *, ref: str, actor_email: str) -> dict:
+    """F5a / SEC-1: a fresh one-time setup code for the workspace's UNCLAIMED business admin.
+
+    For when the provisioning code was lost (e.g. G1's agent-coffee run never stored it).
+    One transaction: lock the admin's user row, refuse if a password is already set (409),
+    supersede older codes, store only the new code's hash, audit who re-issued it."""
+    async with transaction(session):
+        row = await _get_ws_row(session, ref)
+        if not row or not row["tenant_id"]:
+            raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND,
+                                detail=f"No workspace is linked to configurator id '{ref}'.")
+        if row["status"] != "active":
+            raise HTTPException(status_code=http_status.HTTP_409_CONFLICT,
+                                detail=f"Workspace '{ref}' is {row['status']}, not active.")
+        out = await tenancy_service.reissue_admin_setup_code(session, tenant_id=row["tenant_id"])
+        await write_provenance_audit(
+            session, tenant_id=row["tenant_id"], actor_name=actor_email,
+            action="business_admin_setup_code_reissued",
+            entity_id=out["user_id"], entity_type="user",
+            detail=f"configurator workspace {ref}",
+            provenance={"policy": "setup_code_reissue", "configurator_ref": ref,
+                        "actor": "platform_admin", "expires_at": out["expires_at"]},
+        )
+    logger.info("platform: re-issued BA setup code ref=%s tenant=%s", ref, row["tenant_id"])
+    return {
+        "configurator_ref": ref,
+        "tenant_id": str(row["tenant_id"]),
+        "workspace_code": row["workspace_code"],
+        "admin_email": out["email"],
+        "admin_setup_token": out["token"],
+        "expires_at": _iso(out["expires_at"]),
+        "message": (
+            f"New one-time setup code for {out['email']}. Earlier codes no longer work. "
+            f"Share it privately — it is shown only once."
         ),
     }
 

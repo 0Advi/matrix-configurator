@@ -139,22 +139,41 @@ describe('BrandedLoginPage', () => {
     expect(setupPassword).not.toHaveBeenCalled();
   });
 
-  it('without a setup code keeps the existing first-password path', async () => {
+  // F5a / SEC-1: the code-less first-password path is gone. Without the one-time setup
+  // code nobody — not the owner, not someone who merely knows the email and workspace
+  // code — can set the first password of an approved account.
+  it('without a setup code the account cannot be claimed', async () => {
     getWorkspaceBranding.mockResolvedValue({ name: 'Acme Retail', logo_url: null });
     checkAccountState.mockResolvedValue('needs_password');
-    setupPassword.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    renderLogin('ACMERE-1234');
+    await user.type(await screen.findByLabelText(/work email/i), 'exec@acme.example');
+    await user.click(screen.getByRole('button', { name: /continue/i }));
+    expect(await screen.findByText(/setup code from your platform admin/i)).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/^new password/i), 'Sandbox#pass1');
+    await user.type(screen.getByLabelText(/confirm password/i), 'Sandbox#pass1');
+    await user.click(screen.getByRole('button', { name: /create password/i }));
+    expect(await screen.findByText(/enter the one-time setup code/i)).toBeInTheDocument();
+    expect(setupPassword).not.toHaveBeenCalled();
+    expect(completePasswordReset).not.toHaveBeenCalled();
+    expect(signInWithWorkspaceCode).not.toHaveBeenCalled();
+    // …and it offers the supported way to get one (the platform admin's reset queue).
+    expect(screen.getByRole('button', { name: /no setup code\? request one/i })).toBeInTheDocument();
+  });
+
+  it('a staff member who chose a password at signup signs straight in (custom module page)', async () => {
+    getWorkspaceBranding.mockResolvedValue({ name: 'Acme Retail', logo_url: null });
+    checkAccountState.mockResolvedValue('active');
     const payload = btoa(JSON.stringify({ app_metadata: { role: 'executive', module: 'vendor_onboarding' } }));
     signInWithWorkspaceCode.mockResolvedValue({ access_token: `x.${payload}.y` });
     const user = userEvent.setup();
     renderLogin('ACMERE-1234');
     await user.type(await screen.findByLabelText(/work email/i), 'exec@acme.example');
     await user.click(screen.getByRole('button', { name: /continue/i }));
-    await user.type(await screen.findByLabelText(/^new password/i), 'Sandbox#pass1');
-    await user.type(screen.getByLabelText(/confirm password/i), 'Sandbox#pass1');
-    await user.click(screen.getByRole('button', { name: /create password/i }));
+    await user.type(await screen.findByLabelText(/^password/i), 'Chosen#pw1');
+    await user.click(screen.getByRole('button', { name: /^sign in$/i }));
     // A custom-module claim lands on its generic module page.
     expect(await screen.findByText('CUSTOM MODULE PAGE')).toBeInTheDocument();
-    expect(setupPassword).toHaveBeenCalledWith('exec@acme.example', 'ACMERE-1234', 'Sandbox#pass1');
-    expect(completePasswordReset).not.toHaveBeenCalled();
+    expect(signInWithWorkspaceCode).toHaveBeenCalledWith('exec@acme.example', 'ACMERE-1234', 'Chosen#pw1');
   });
 });

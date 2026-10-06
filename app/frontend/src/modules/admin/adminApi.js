@@ -100,6 +100,9 @@ export const platformApi = {
   migrate: (key, ref, body) => apiFetch(`/platform/workspaces/${enc(ref)}/migrations`, { key, method: 'POST', body }),
   migrations: (key, ref) => apiFetch(`/platform/workspaces/${enc(ref)}/migrations`, { key }),
   migration: (key, ref, id) => apiFetch(`/platform/workspaces/${enc(ref)}/migrations/${enc(id)}`, { key }),
+  // F5a (SEC-1): a fresh one-time setup code for the workspace's UNCLAIMED business admin
+  // (earlier codes stop working; 409 once the admin has a password).
+  reissueSetupCode: (key, ref) => apiFetch(`/platform/workspaces/${enc(ref)}/admin-setup-code`, { key, method: 'POST' }),
 };
 
 // The SPA uses a HashRouter: a workspace's branded login page is /#/login/<CODE>.

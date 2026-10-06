@@ -18,7 +18,7 @@
 //    the case audit trail carries provenance {from, to, actor, reason, before/after stage, pre_state}
 //    with an intact hash chain -> the migrated case finishes on v2.
 //
-// Rate limits: uses 1x password-reset/complete, 3x password-setup, 3x signup — the backend allows 5 per
+// Rate limits: uses 1x password-reset/complete, 0x password-setup (F5a), 3x signup — the backend allows 5 per
 // 300 s per endpoint (in memory), so restart the backend (./stop.sh --apps && ./start.sh) before running it
 // right after smoke-existing + smoke-configurator.
 //
@@ -56,8 +56,8 @@ function record(name, ok, detail) {
   const d = Object.entries(detail).map(([k, v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v) : v}`).join(' ');
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}  ${d}`);
 }
-async function call(method, p, { body, token, admin } = {}) {
-  const h = { Accept: 'application/json' };
+async function call(method, p, { body, token, admin, headers = {} } = {}) {
+  const h = { Accept: 'application/json', ...headers };
   if (body !== undefined) h['Content-Type'] = 'application/json';
   if (token) h.Authorization = `Bearer ${token}`;
   if (admin) h['X-Platform-Admin-Key'] = admin;
@@ -151,25 +151,24 @@ async function main() {
   expect('BA login', r, 200);
   r = await call('POST', `/business-admin/dept-codes/${MOD}/rotate`, { token: baTok });
   const deptCode = r.data?.code;
-  r = await call('POST', '/auth/signup/supervisor', { body: { email: emails.sup, dept_code: deptCode } });
+  r = await call('POST', '/auth/signup/supervisor', { body: { email: emails.sup, dept_code: deptCode, password: secrets.sup.password } });
   const supId = r.data?.user_id;
   r = await call('POST', `/business-admin/pending-supervisors/${supId}/approve`, { token: baTok, body: { module: MOD } });
   expect('supervisor joins the module', r, 204);
-  r = await call('POST', '/auth/password-setup', { body: { email: emails.sup, workspace_code: code, new_password: secrets.sup.password } });
-  expect('supervisor sets a first password (rate limit 5/300 s — restart the backend between smoke runs)', r, 200);
+  // F5a / SEC-1: staff choose their password at signup; approval only activates the account.
   r = await call('POST', '/auth/login', { body: { email: emails.sup, workspace_code: code, password: secrets.sup.password } });
+  expect('supervisor signs in with the password chosen at signup', r, 200);
   const supTok = r.data?.access_token;
   r = await call('POST', `/supervisor-codes/me/${MOD}/rotate`, { token: supTok });
   const invite = r.data?.code;
   const execIds = {};
   const execTok = {};
   for (const k of ['ex1', 'ex2']) {
-    r = await call('POST', '/auth/signup/executive', { body: { email: emails[k], supervisor_code: invite } });
+    r = await call('POST', '/auth/signup/executive', { body: { email: emails[k], supervisor_code: invite, password: secrets[k].password } });
     execIds[k] = r.data?.user_id;
     r = await call('POST', `/supervisor-codes/me/pending-executives/${execIds[k]}/approve?module=${MOD}`, { token: supTok });
-    r = await call('POST', '/auth/password-setup', { body: { email: emails[k], workspace_code: code, new_password: secrets[k].password } });
-    expect(`executive ${k} sets a first password`, r, 200);
     r = await call('POST', '/auth/login', { body: { email: emails[k], workspace_code: code, password: secrets[k].password } });
+    expect(`executive ${k} signs in with the password chosen at signup`, r, 200);
     execTok[k] = r.data?.access_token;
   }
   check('two executives + a supervisor in the module', supTok && execTok.ex1 && execTok.ex2, { ex1: Boolean(execTok.ex1), ex2: Boolean(execTok.ex2) });
@@ -223,6 +222,23 @@ async function main() {
   r = await call('POST', `/m/${MOD}/records/${recB}/actions`, { token: supTok, body: { action: 'approve' } });
   r = await call('POST', `/m/${MOD}/records/${recB}/actions`, { token: supTok, body: { action: 'submit', values: { credit_days: 30 } } });
   expect('case B moves on to stage 3 (sign-off) on v1', r, 200, { stage: r.data?.record?.current_stage }, r.data?.record?.current_stage === 3);
+
+  // F5a: X-Override-Role in the generic runtime — scope + views follow the EFFECTIVE role (G2 E3), acting stays
+  // with the REAL role (core/deps.py): a business admin "simulating" an executive sees an executive's scope.
+  const asExec = { 'X-Override-Role': 'executive', 'X-Override-Module': MOD };
+  r = await call('GET', `/m/${MOD}/records`, { token: baTok });
+  const allCases = r.data?.items || [];
+  r = await call('GET', `/m/${MOD}/records`, { token: baTok, headers: asExec });
+  const simCases = r.data?.items || [];
+  expect('F5a BA simulating an executive: executive scope (only the case it opened), still acts as business_admin', r, 200,
+    { role: r.data?.role, view_role: r.data?.view_role, all: allCases.length, simulated: simCases.length },
+    r.data?.role === 'business_admin' && r.data?.view_role === 'executive' && simCases.length < allCases.length
+      && simCases.some((i) => i.id === recB) && !simCases.some((i) => i.id === recA));
+  r = await call('GET', `/m/${MOD}/views`, { token: baTok, headers: asExec });
+  expect('F5a ...and the executive\'s saved views (no admin sign-off view), while it can still manage them', r, 200,
+    { view_role: r.data?.view_role, views: (r.data?.items || []).map((v) => v.seed_key).join(',') },
+    r.data?.view_role === 'executive' && r.data?.can_manage === true && !(r.data?.items || []).some((v) => v.seed_key === 'admin_signoff')
+      && (r.data?.items || []).every((v) => (v.audience || []).includes('executive')));
 
   // ── #4 role-scoped saved views ───────────────────────────────────────────────
   const views = {};
@@ -319,6 +335,10 @@ async function main() {
   check('#2 ...and the old matrix.allow_repin switch no longer works', !oldSwitch.ok && /only an audited release migration/.test(oldSwitch.err || ''), { db: oldSwitch.err });
   const forgedMig = sql(`BEGIN; SELECT set_config('matrix.release_migration', '${ex.migration_id}', true); UPDATE module_records SET release_id = '${rel2.id}', runtime_state = runtime_state || '{"release":"${rel2.id}"}' WHERE id = '${recB}'; ROLLBACK;`);
   check('#2 ...nor naming a finished migration that has no item for the record', !forgedMig.ok && /only an audited release migration/.test(forgedMig.err || ''), { db: forgedMig.err });
+  // F5a: module_files rows must belong to a case of that tenant + site (DB guard, not only the app)
+  const forgedFile = sql(`BEGIN; INSERT INTO module_files (tenant_id, site_id, record_id, module_key, stage_order, field_key, storage_path, file_name, content_type, size_bytes, sha256)
+    VALUES ('${ws.tenant_id}', '${sites.S2}', '${recA}', '${MOD}', 1, 'doc', 'module-files/forged', 'x.pdf', 'application/pdf', 1, repeat('a', 64)); ROLLBACK;`);
+  check('F5a DB refuses a module file row pointing at another site\'s case', !forgedFile.ok && /is not a .* case of site/.test(forgedFile.err || ''), { db: forgedFile.err });
   const itemsUpd = sql(`BEGIN; UPDATE module_release_migration_items SET plan = '{}' WHERE migration_id = '${ex.migration_id}'; ROLLBACK;`);
   check('#2 migration journal is append-only', !itemsUpd.ok && /append-only/.test(itemsUpd.err || ''), { db: itemsUpd.err });
   r = await call('GET', `/platform/workspaces/${ref}/migrations`, { admin });
@@ -331,9 +351,56 @@ async function main() {
   r = await call('POST', `/platform/workspaces/${ref}/migrations`, { admin, body: { from_release_version: 2, to_release_version: 2, reason: 'noop' } });
   expect('#2 same source and target refused (422)', r, 422);
 
+  // ── F5a: crash recovery, one live migration per workspace, idle-site re-pin ─────
+  const v3 = workspaceManifest(ref, company, true);
+  r = await call('POST', `/platform/workspaces/${ref}/releases`, { admin, body: { manifest: v3, reason: 'F5a v3: same rules, for the idle re-pin check' } });
+  const rel3 = r.data?.release || {};
+  expect('F5a publish v3', r, 201, { version: rel3.version }, rel3.version === 3);
+  // a migration whose process "died" an hour ago (header left 'running', no heartbeat)
+  const crashed = sql(`INSERT INTO module_release_migrations (tenant_id, to_release_id, from_spec, reason, actor, created_at)
+                       VALUES ('${ws.tenant_id}', '${rel2.id}', 'v1', 'F5a smoke: simulated crash', 'smoke', now() - interval '1 hour') RETURNING id;`);
+  const crashedId = crashed.out;
+  r = await call('GET', `/platform/workspaces/${ref}/migrations`, { admin });
+  const crashedRow = (r.data?.items || []).find((m) => m.id === crashedId);
+  expect('F5a a crashed migration shows as running + stale', r, 200, { mig_status: crashedRow?.status, stale: crashedRow?.stale },
+    crashed.ok && crashedRow?.status === 'running' && crashedRow?.stale === true);
+  // a migration that is genuinely still running (fresh heartbeat) blocks a second execute
+  const live = sql(`INSERT INTO module_release_migrations (tenant_id, to_release_id, from_spec, reason, actor)
+                    VALUES ('${ws.tenant_id}', '${rel3.id}', 'v2', 'F5a smoke: still running elsewhere', 'smoke') RETURNING id;`);
+  r = await call('POST', `/platform/workspaces/${ref}/migrations`, { admin, body: { from_release_version: 'all_older', to_release_version: 3, reason: 'F5a: second run', dry_run: false } });
+  expect('F5a a second execute while one is live -> 409 migration_in_progress', r, 409, { code: r.data?.code },
+    live.ok && r.data?.code === 'migration_in_progress' && r.data?.migration_id === live.out);
+  const cleaned = sql(`UPDATE module_release_migrations SET status = 'failed', finished_at = now(), summary = '{"failure":"F5a smoke cleanup"}' WHERE id = '${live.out}';`);
+  r = await call('GET', `/platform/workspaces/${ref}/migrations`, { admin });
+  const recovered = (r.data?.items || []).find((m) => m.id === crashedId);
+  expect('F5a the next execute recovered the crashed one: failed, recovery note, journal counts, never touched a site', r, 200,
+    { mig_status: recovered?.status, recovered: recovered?.summary?.recovered, journal: recovered?.summary?.journal },
+    cleaned.ok && recovered?.status === 'failed' && recovered?.summary?.recovered === true && recovered?.summary?.journal?.sites === 0
+      && recovered?.stale === false);
+  // idle sites: S1's case finished on v2 -> S1 is pinned to v2 with no running case
+  r = await call('POST', `/platform/workspaces/${ref}/migrations`, { admin, body: { from_release_version: 'all_older', to_release_version: 3, include_idle_sites: true } });
+  const idleS1 = (r.data?.idle_sites || []).find((i) => i.site.id === sites.S1);
+  expect('F5a dry run with include_idle_sites lists S1 (no running case) as would_repin; S2 (running case) is not idle', r, 200,
+    { idle: (r.data?.idle_sites || []).map((i) => `${i.site.name}:${i.outcome}`), summary: r.data?.summary?.idle_sites },
+    idleS1?.outcome === 'would_repin' && idleS1?.from_version === 2 && idleS1?.finished_cases === 1
+      && !(r.data?.idle_sites || []).some((i) => i.site.id === sites.S2));
+  r = await call('POST', `/platform/workspaces/${ref}/migrations`, { admin, body: { from_release_version: 'all_older', to_release_version: 3, include_idle_sites: true, reason: 'F5a: move idle sites onto v3', dry_run: false } });
+  const idleEx = r.data || {};
+  expect('F5a execute re-pins the idle site; the blocked running case is still skipped', r, 200,
+    { idle: (idleEx.idle_sites || []).map((i) => i.outcome), by_outcome: idleEx.summary?.by_outcome },
+    (idleEx.idle_sites || []).find((i) => i.site.id === sites.S1)?.outcome === 'repinned'
+      && (idleEx.items || []).find((i) => i.record_id === recB)?.outcome === 'skipped');
+  const after = sql(`SELECT (SELECT r.version FROM sites s JOIN tenant_config_releases r ON r.id = s.config_release_id WHERE s.id = '${sites.S1}') || ',' ||
+                            (SELECT r.version FROM module_records m JOIN tenant_config_releases r ON r.id = m.release_id WHERE m.id = '${recA}');`);
+  check('F5a S1 pin moved to v3 while its finished case A stays on v2', after.ok && after.out === '3,2', { pins: after.out || after.err });
+  r = await call('GET', `/platform/workspaces/${ref}/migrations/${idleEx.migration_id}`, { admin });
+  expect('F5a the idle re-pin is journaled (site item, plan.idle) and the run is done', r, 200, { mig_status: r.data?.status },
+    r.data?.status === 'done' && (r.data?.items || []).some((i) => i.site_id === sites.S1 && i.record_id === null && i.plan?.idle === true));
+
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const evidence = { run, api: API, finished_at: new Date().toISOString(), configurator_ref: ref, company, workspace_code: code,
-    tenant_id: ws.tenant_id, releases: { v1: rel1.id, v2: rel2.id }, sites, records: { A: recA, B: recB }, migration_id: ex.migration_id,
+    tenant_id: ws.tenant_id, releases: { v1: rel1.id, v2: rel2.id, v3: rel3.id }, sites, records: { A: recA, B: recB }, migration_id: ex.migration_id,
+    idle_migration_id: idleEx.migration_id, recovered_migration_id: crashedId,
     users: emails, passed: steps.length - failed, failed, steps };
   fs.writeFileSync(path.join(OUT_DIR, 'g3-last-run.json'), JSON.stringify(evidence, null, 2));
   fs.writeFileSync(path.join(OUT_DIR, 'g3-last-run.secrets.json'), JSON.stringify({ workspace_code: code, ...secrets }, null, 2), { mode: 0o600 });

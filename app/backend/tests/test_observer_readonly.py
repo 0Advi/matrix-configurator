@@ -182,6 +182,8 @@ _NO_SESSION_ALLOWLIST = {
     "/platform/workspaces/{ref}/releases/validate",
     # Phase 2b (G3): "migrate running cases" — same platform-admin authority.
     "/platform/workspaces/{ref}/migrations",
+    # F5a (SEC-1): re-issue an unclaimed business admin's setup code — same authority.
+    "/platform/workspaces/{ref}/admin-setup-code",
 }
 
 _MUTATING = {"POST", "PUT", "PATCH", "DELETE"}

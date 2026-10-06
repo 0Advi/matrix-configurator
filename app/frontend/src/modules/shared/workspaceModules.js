@@ -91,3 +91,20 @@ export function switcherModules(apiModules) {
     });
   return out.length ? out : WORKSPACE_MODULES;
 }
+
+/**
+ * F5a: a FULL page load into an SPA route. The app runs on a HashRouter, so the route belongs in
+ * the hash of the app's base URL (`/#/m/vendor`). Assigning the bare path (`/m/vendor`) — what the
+ * Workspace Access panel and the read-only module switcher used to do — reloaded the SPA at that
+ * path and left `/m/vendor#/m/vendor` in the address bar. A hash-only change does not reload by
+ * itself, so when the path is already the base we reload explicitly: callers need the full load
+ * (SessionContext copies the X-Override store into React state only at mount).
+ */
+export function hardNavigate(route) {
+  const base = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || '/';
+  const r = String(route || '/');
+  const target = `${base}#${r.startsWith('/') ? r : `/${r}`}`;
+  const samePath = typeof window.location.pathname === 'string' && window.location.pathname === base;
+  window.location.href = target;
+  if (samePath && typeof window.location.reload === 'function') window.location.reload();
+}

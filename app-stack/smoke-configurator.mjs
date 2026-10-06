@@ -10,9 +10,10 @@
 // executive -> SUPERVISOR approval, supervisor -> business-admin sign-off, entry gate on the
 // built-in BD outcome "in progress") -> publish checks refuse a broken manifest -> provision the
 // workspace through the app's own approval path -> publish v1 -> workspace-code check (real vs
-// fake) -> BA sets password WITH the setup code -> BA login -> data-driven modules -> BA onboards
-// a supervisor + executive INTO THE CUSTOM MODULE (codes, signup, approval, password, login with
-// the module claim) -> the disabled built-in is refused -> create a site -> the gate refuses ->
+// fake) -> SEC-1 (F5a): the unclaimed BA cannot be claimed without the setup code; the platform
+// admin re-issues the code (the old one stops working) -> BA sets password WITH the new setup code
+// -> BA login -> data-driven modules -> BA onboards a supervisor + executive INTO THE CUSTOM
+// MODULE (codes, signup with their own password, approval, login with the module claim) -> the disabled built-in is refused -> create a site -> the gate refuses ->
 // BD shortlist -> open the case -> executive submits -> supervisor sends back -> resubmit ->
 // supervisor approves -> stage 2 -> business-admin sign-off -> case completes -> publish v2 ->
 // the old case stays on v1 while a new site runs v2 -> business-admin override is flagged ->
@@ -20,8 +21,8 @@
 //
 // Evidence (no tokens / passwords / setup codes): app-stack/run/smoke/configurator-last-run.json;
 // test users' passwords: run/smoke/configurator-last-run.secrets.json (mode 600).
-// Rate limits: uses 2x password-reset/complete, 2x password-setup, 2x signup, ~12 logins — run
-// at most twice per 5 minutes together with smoke-existing.mjs (or ./stop.sh --apps && ./start.sh).
+// Rate limits: uses 3x password-reset/complete, 1x password-setup, 2x signup, ~12 logins — restart
+// the backend between smoke runs (./stop.sh --apps && ./start.sh) to reset the in-memory windows.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -65,6 +66,17 @@ async function call(method, p, { body, token, admin, headers = {} } = {}) {
   if (res.status === 429) console.log(`\n429 rate-limited on ${method} ${p} — restart the backend (./stop.sh --apps && ./start.sh).`);
   return { status: res.status, data };
 }
+// F5a: multipart upload of a file for a custom-module file field.
+async function upload(p, { token, field, name, type, bytes }) {
+  const fd = new FormData();
+  fd.append('field', field);
+  fd.append('file', new Blob([bytes], { type }), name);
+  const res = await fetch(`${API}${p}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+  let data = null;
+  const txt = await res.text();
+  try { data = txt ? JSON.parse(txt) : null; } catch { data = txt; }
+  return { status: res.status, data };
+}
 const expect = (name, r, want, extra = {}, cond = true) =>
   record(name, r.status === want && cond, { status: r.status, want, ...extra, ...(r.status !== want || !cond ? { detail: r.data?.detail ?? r.data, code: r.data?.code } : {}) });
 const internal = { 'X-Matrix-Internal': '1', Origin: ORIGIN };
@@ -77,7 +89,7 @@ function vendorModule({ v2 = false } = {}) {
   const stages = clone(t.stages);
   stages[0].approvers = ['executive', 'supervisor'];          // executive submits, SUPERVISOR approves
   stages[1].approvers = v2 ? ['supervisor'] : ['supervisor', 'business_admin'];
-  stages[1].fields = stages[1].fields.filter((f) => f.kind !== 'file'); // no file store in the smoke
+  // F5a: the template's optional `msme_certificate` file field (pdf · max 10MB) is kept — uploads work now.
   if (v2) stages[1].fields.push({ key: 'payment_terms', label: 'Payment terms', kind: 'choice', required: true, validation: 'advance · net 30 · net 60', affects_outcome: false });
   return {
     key: t.module.key, name: t.module.name, type: 'custom', enabled: true, route: t.module.route, state: 'live',
@@ -91,6 +103,8 @@ function workspaceManifest(ref, company, opts = {}) {
   const m = clone(seeds.workspaces.starbucks.manifest);
   m.workspace = { id: ref, name: company, slug: ref.replace(/_/g, '-').slice(0, 31), live_version: opts.v2 ? 'v1' : 'v0', draft_version: opts.v2 ? 'v2' : 'v1' };
   m.modules.push(vendorModule(opts));
+  // F5a: v2 also switches three built-ins OFF whose routes used to check role only.
+  if (opts.v2) for (const mod of m.modules) if (['finance_ca', 'launch_approval', 'financial_closure'].includes(mod.key)) mod.enabled = false;
   return m;
 }
 
@@ -165,11 +179,23 @@ async function main() {
   r = await call('POST', '/auth/login/check', { body: { email: baEmail, workspace_code: bogus }, headers: internal });
   expect('login/check(fake code) -> unknown', r, 200, { state: r.data?.account_state }, r.data?.account_state === 'unknown');
 
-  // 6. BA claims the account WITH the setup code
+  // 6. SEC-1 (F5a): (email, workspace code) alone no longer claims the unclaimed BA
+  r = await call('POST', '/auth/password-setup', { body: { email: baEmail, workspace_code: code, new_password: `x-${crypto.randomBytes(6).toString('hex')}` } });
+  expect('SEC-1: claim unclaimed BA via password-setup WITHOUT setup code -> 422', r, 422);
+  //    the platform admin re-issues the setup code (e.g. the first one was lost): old code dies
+  r = await call('POST', `/platform/workspaces/${ref}/admin-setup-code`, { admin });
+  expect('platform admin re-issues the BA setup code', r, 200, { admin_email: r.data?.admin_email, expires_at: r.data?.expires_at },
+    Boolean(r.data?.admin_setup_token) && r.data?.admin_setup_token !== ws.admin_setup_token && r.data?.admin_email === baEmail);
+  const setupCode = r.data?.admin_setup_token;
+  r = await call('POST', '/auth/password-reset/complete', { body: { email: baEmail, workspace_code: code, new_password: secrets.ba.password, reset_token: ws.admin_setup_token } });
+  expect('superseded (first) setup code no longer works -> 403', r, 403);
+  //    BA claims the account WITH the (new) setup code
   r = await call('POST', '/auth/password-reset/complete', { body: { email: baEmail, workspace_code: code, new_password: secrets.ba.password, reset_token: 'wrong-setup-code' } });
   expect('BA set password with WRONG setup code -> 403', r, 403);
-  r = await call('POST', '/auth/password-reset/complete', { body: { email: baEmail, workspace_code: code, new_password: secrets.ba.password, reset_token: ws.admin_setup_token } });
+  r = await call('POST', '/auth/password-reset/complete', { body: { email: baEmail, workspace_code: code, new_password: secrets.ba.password, reset_token: setupCode } });
   expect('BA set password with the setup code', r, 200);
+  r = await call('POST', `/platform/workspaces/${ref}/admin-setup-code`, { admin });
+  expect('re-issue refused once the BA has claimed the account (409)', r, 409);
   r = await call('POST', '/auth/login', { body: { email: baEmail, workspace_code: code, password: secrets.ba.password } });
   expect('BA login', r, 200, { role: r.data?.user?.role }, r.data?.user?.role === 'business_admin');
   const baTok = r.data?.access_token;
@@ -194,15 +220,13 @@ async function main() {
   r = await call('POST', `/business-admin/dept-codes/${MOD}/rotate`, { token: baTok });
   expect('BA mints the custom module department code', r, 200, { module: r.data?.module }, r.data?.module === MOD && Boolean(r.data?.code));
   const deptCode = r.data?.code;
-  r = await call('POST', '/auth/signup/supervisor', { body: { email: supEmail, dept_code: deptCode } });
-  expect('supervisor signup (custom module code)', r, 202);
+  r = await call('POST', '/auth/signup/supervisor', { body: { email: supEmail, dept_code: deptCode, password: secrets.supervisor.password } });
+  expect('supervisor signup (custom module code + own password)', r, 202);
   const supId = r.data?.user_id;
   r = await call('GET', '/business-admin/pending-supervisors', { token: baTok });
   expect('BA sees the pending supervisor under the custom module', r, 200, {}, (r.data || []).some((s) => s.id === supId && s.module === MOD));
   r = await call('POST', `/business-admin/pending-supervisors/${supId}/approve`, { token: baTok, body: { module: MOD } });
   expect('BA approves supervisor into the custom module', r, 204);
-  r = await call('POST', '/auth/password-setup', { body: { email: supEmail, workspace_code: code, new_password: secrets.supervisor.password } });
-  expect('supervisor sets first password', r, 200);
   r = await call('POST', '/auth/login', { body: { email: supEmail, workspace_code: code, password: secrets.supervisor.password } });
   expect('supervisor login', r, 200, { role: r.data?.user?.role }, r.data?.user?.role === 'supervisor');
   const supTok = r.data?.access_token;
@@ -211,13 +235,11 @@ async function main() {
   r = await call('POST', `/supervisor-codes/me/${MOD}/rotate`, { token: supTok });
   expect('supervisor mints a custom-module invite code', r, 200, {}, r.data?.module === MOD && Boolean(r.data?.code));
   const invite = r.data?.code;
-  r = await call('POST', '/auth/signup/executive', { body: { email: execEmail, supervisor_code: invite } });
-  expect('executive signup (supervisor code)', r, 202);
+  r = await call('POST', '/auth/signup/executive', { body: { email: execEmail, supervisor_code: invite, password: secrets.executive.password } });
+  expect('executive signup (supervisor code + own password)', r, 202);
   const execId = r.data?.user_id;
   r = await call('POST', `/supervisor-codes/me/pending-executives/${execId}/approve?module=${MOD}`, { token: supTok });
   expect('supervisor approves executive into the custom module', r, 204);
-  r = await call('POST', '/auth/password-setup', { body: { email: execEmail, workspace_code: code, new_password: secrets.executive.password } });
-  expect('executive sets first password', r, 200);
   r = await call('POST', '/auth/login', { body: { email: execEmail, workspace_code: code, password: secrets.executive.password } });
   expect('executive login', r, 200, { role: r.data?.user?.role }, r.data?.user?.role === 'executive');
   const execTok = r.data?.access_token;
@@ -230,6 +252,8 @@ async function main() {
   expect('disabled built-in (design) refused for the business admin (403)', r, 403, { detail: r.data?.detail });
   r = await call('GET', '/design/queue', { token: supTok });
   expect('disabled built-in (design) refused for a supervisor (403)', r, 403);
+  r = await call('GET', '/project-excellence/budget-admin-queue', { token: baTok });
+  expect('F5a: business-admin tier of a disabled built-in (pex budget queue) refused (403)', r, 403, { detail: r.data?.detail });
 
   // 10. a site; the entry gate on the built-in BD outcome
   r = await call('POST', '/bd/drafts', { token: baTok, body: { name: `Cfg Site A ${run}`, city: 'Mumbai', visit_date: '2026-10-04' } });
@@ -281,8 +305,32 @@ async function main() {
   r = await call('POST', `/m/${MOD}/records/${recId}/actions`, { token: supTok, body: { action: 'approve' } });
   expect('supervisor approves stage 1 -> stage 2', r, 200, { stage: r.data?.record?.current_stage, next: r.data?.next_step?.role, kind: r.data?.next_step?.kind },
     r.data?.record?.current_stage === 2 && r.data?.next_step?.role === 'supervisor' && r.data?.next_step?.kind === 'submit');
-  r = await call('POST', `/m/${MOD}/records/${recId}/actions`, { token: supTok, body: { action: 'submit', values: { credit_days: 45 } } });
-  expect('supervisor submits stage 2', r, 200, { next: r.data?.next_step?.role }, r.data?.next_step?.role === 'business_admin');
+  // F5a: the stage-2 file field — validated, stored in the app's storage, referenced by id, tenant/record-bound
+  const filesUrl = `/m/${MOD}/records/${recId}/files`;
+  const pdfBytes = Buffer.from(`%PDF-1.4\n% F5a smoke MSME certificate ${run}\n%%EOF\n`);
+  r = await upload(filesUrl, { token: supTok, field: 'msme_certificate', name: 'msme.png', type: 'image/png',
+    bytes: Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex') });
+  expect('F5a file field refuses a type outside its hint (png for a pdf field -> 415)', r, 415, { code: r.data?.code }, r.data?.code === 'file_type');
+  r = await upload(filesUrl, { token: execTok, field: 'msme_certificate', name: 'msme.pdf', type: 'application/pdf', bytes: pdfBytes });
+  expect('F5a only whoever may submit the step uploads (executive on the supervisor step -> 403)', r, 403, { code: r.data?.code });
+  r = await upload(filesUrl, { token: supTok, field: 'credit_days', name: 'msme.pdf', type: 'application/pdf', bytes: pdfBytes });
+  expect('F5a upload only for a file field of the current step (422)', r, 422, { code: r.data?.code }, r.data?.code === 'unknown_field');
+  r = await upload(filesUrl, { token: supTok, field: 'msme_certificate', name: 'msme.pdf', type: 'application/pdf', bytes: pdfBytes });
+  const upl = r.data || {};
+  expect('F5a supervisor uploads the MSME certificate (pdf) -> file id', r, 201, { size: upl.size, stage: upl.stage },
+    Boolean(upl.id) && upl.stage === 2 && upl.size === pdfBytes.length && upl.sha256 === crypto.createHash('sha256').update(pdfBytes).digest('hex'));
+  r = await call('POST', `/m/${MOD}/records/${recId}/actions`, { token: supTok, body: { action: 'submit', values: { credit_days: 45, msme_certificate: 'see email' } } });
+  expect('F5a a typed reference instead of an uploaded file is refused (422 invalid_form)', r, 422, { errors: r.data?.errors },
+    r.data?.code === 'invalid_form' && (r.data?.errors || []).some((e) => e.startsWith('msme_certificate:')));
+  r = await call('POST', `/m/${MOD}/records/${recId}/actions`, { token: supTok, body: { action: 'submit', values: { credit_days: 45, msme_certificate: upl.id } } });
+  expect('supervisor submits stage 2 (with the uploaded file)', r, 200, { next: r.data?.next_step?.role },
+    r.data?.next_step?.role === 'business_admin' && r.data?.stages?.[1]?.field_values?.msme_certificate === upl.id
+      && r.data?.files?.[upl.id]?.file_name === 'msme.pdf' && (r.data?.audit || []).some((a) => a.action === 'module_file_uploaded'));
+  r = await call('GET', `/m/${MOD}/files/${upl.id}`, { token: execTok });
+  const dl = r.ok !== false && r.data?.url ? await fetch(r.data.url) : null;
+  const dlBytes = dl ? Buffer.from(await dl.arrayBuffer()) : Buffer.alloc(0);
+  expect('F5a the case\'s executive downloads it through a short-lived signed URL (same bytes)', r, 200,
+    { file: r.data?.file_name, download: dl?.status }, dl?.status === 200 && dlBytes.equals(pdfBytes));
   r = await call('POST', `/m/${MOD}/records/${recId}/actions`, { token: baTok, body: { action: 'approve' } });
   const done1 = r.data || {};
   expect('business admin signs off -> case completes', r, 200, { record_status: done1.record?.status, case: done1.record?.case_status, reached: done1.record?.reached },
@@ -294,6 +342,18 @@ async function main() {
   const v2 = workspaceManifest(ref, company, { v2: true });
   r = await call('POST', `/platform/workspaces/${ref}/releases`, { admin, body: { manifest: v2, reason: 'stage 2: supervisor-only sign-off + payment terms' } });
   expect('publish v2', r, 201, { version: r.data?.release?.version }, r.data?.release?.version === 2);
+  // F5a: v2 switched finance_ca, launch_approval and financial_closure OFF — the API refuses them now
+  r = await call('GET', '/launch-approvals/queue', { token: baTok });
+  expect('F5a: disabled launch_approval refused (403)', r, 403, { detail: r.data?.detail });
+  r = await call('GET', '/business-admin/finance-approvals', { token: baTok });
+  expect('F5a: disabled finance_ca admin queue refused (403)', r, 403);
+  r = await call('POST', `/sites/${siteA}/finance/approve`, { token: supTok });
+  expect('F5a: disabled finance_ca tab write refused (403)', r, 403);
+  r = await call('GET', '/financial-closure/admin-queue', { token: baTok });
+  expect('F5a: disabled financial_closure read refused (403)', r, 403);
+  r = await call('GET', '/auth/whoami', { token: baTok });
+  expect('session lists the disabled modules', r, 200, { disabled: r.data?.disabled_modules },
+    ['finance_ca', 'launch_approval', 'financial_closure', 'design'].every((k) => (r.data?.disabled_modules || []).includes(k)));
   r = await call('GET', `/m/${MOD}/records/${recId}`, { token: supTok });
   expect('old case stays on v1 (v1 chain for stage 2) while live is v2', r, 200,
     { release: r.data?.release?.version, live: r.data?.release?.live_version, stage2_chain: r.data?.stages?.[1]?.chain },

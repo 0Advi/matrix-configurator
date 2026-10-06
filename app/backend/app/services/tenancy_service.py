@@ -568,3 +568,60 @@ async def confirm_password_reset_request(db: AsyncSession, request_id: str) -> s
     await db.commit()
     logger.info("password reset approved request_id=%s", request_id)
     return reset_token
+
+
+# ── F5a / SEC-1: re-issue an UNCLAIMED business admin's setup code ───────────
+
+async def reissue_admin_setup_code(db: AsyncSession, *, tenant_id: Any) -> dict:
+    """Issue a fresh one-time setup code for the tenant's business admin (no commit).
+
+    Only while the account is UNCLAIMED (``password_hash IS NULL``): once the
+    admin has a password, the token-bound reset flow (request → platform-admin
+    confirm) is the only way to change it, so this can never be used to take
+    over a claimed account. Reuses the provisioning machinery exactly — a
+    pre-approved ``password_reset_requests`` row holding only the token's
+    sha256, valid 30 days — and supersedes every older approved/pending request
+    of that account (status 'rejected'), so a lost or leaked earlier code stops
+    working. The plaintext is returned once to the caller (the platform admin).
+    The caller owns the transaction (and writes the audit row in it).
+    """
+    ba = (await db.execute(
+        text("""
+            SELECT u.id, u.email, (u.password_hash IS NOT NULL) AS has_password
+              FROM business_admins b JOIN users u ON u.id = b.user_id
+             WHERE b.tenant_id = :tid
+             ORDER BY b.promoted_at
+             LIMIT 1
+             FOR UPDATE OF u
+        """),
+        {"tid": tenant_id},
+    )).mappings().first()
+    if not ba:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="This workspace has no business admin.")
+    if ba["has_password"]:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=("The business admin has already claimed the account (a password is set). "
+                    "Use the password-reset flow instead."),
+        )
+    await db.execute(
+        text("""
+            UPDATE password_reset_requests
+               SET status = 'rejected'
+             WHERE tenant_id = :tid AND user_id = :uid AND status IN ('approved', 'pending')
+        """),
+        {"tid": tenant_id, "uid": ba["id"]},
+    )
+    token = secrets.token_urlsafe(24)
+    expires_at = (await db.execute(
+        text("""
+            INSERT INTO password_reset_requests
+                (tenant_id, user_id, email, status, approved_at, reset_token_hash, token_expires_at)
+            VALUES (:tid, :uid, :email, 'approved', now(), :th, now() + interval '30 days')
+            RETURNING token_expires_at
+        """),
+        {"tid": tenant_id, "uid": ba["id"], "email": ba["email"],
+         "th": hashlib.sha256(token.encode()).hexdigest()},
+    )).scalar_one()
+    return {"user_id": ba["id"], "email": ba["email"], "token": token, "expires_at": expires_at}

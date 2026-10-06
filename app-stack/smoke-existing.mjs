@@ -7,10 +7,14 @@
 //
 // Flow: platform-admin login -> request workspace -> approve (workspace_code +
 // one-time setup code) -> workspace-code authenticity checks (valid vs invalid)
-// -> BA sets password with the setup code -> BA login -> whoami -> BA mints a
-// dept code -> supervisor signs up -> BA approves -> supervisor sets password +
-// logs in -> supervisor mints invite code -> executive signs up -> supervisor
-// approves -> executive sets password + logs in -> org + seat checks.
+// -> SEC-1 probes (claiming the unclaimed BA without / with a wrong setup code
+// fails) -> BA sets password with the setup code (single use) -> BA login ->
+// whoami -> BA mints a dept code -> supervisor signs up WITH A PASSWORD -> BA
+// approves -> supervisor logs in with it -> supervisor mints invite code ->
+// executive signs up with a password -> supervisor approves -> executive logs in
+// -> SEC-1: a password-less (legacy-style) approved account cannot be claimed
+// without a code; recovery = reset request -> platform admin confirms -> code
+// -> org + seat checks.
 //
 // Output: PASS/FAIL per step with HTTP status + roles. Evidence (no tokens,
 // passwords or setup codes) -> app-stack/run/smoke/last-run.json. The test
@@ -18,9 +22,10 @@
 // (mode 600, gitignored) so a browser check can sign in as them.
 //
 // Rate limits (in-memory, per client IP + path, reset on backend restart):
-// request-workspace 3/300s, password-setup 5/300s (2 per run), password-reset/
-// complete 5/300s (2 per run), signup/* 5/300s, login 10/60s, admin/login 10/300s.
-// => at most 2 full runs per 5 minutes. On 429: wait, or `./stop.sh --apps && ./start.sh`.
+// request-workspace 3/300s, password-setup 5/300s (4 per run), password-reset/
+// complete 5/300s (3 per run), signup/supervisor 5/300s (3 per run), login 10/60s,
+// admin/login 10/300s. => ONE full run per 5 minutes; restart the backend between
+// runs (`./stop.sh --apps && ./start.sh`).
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -124,11 +129,23 @@ async function main() {
   r = await call('POST', '/auth/login', { body: { email: baEmail, workspace_code: bogus, password: 'x' } });
   expect('login(invalid code) -> soft 202 pending, no token', r, 202, {}, !r.data?.access_token);
 
-  // 4. BA sets password with the one-time setup code, then logs in
+  // 4. SEC-1 (F5a): the approved-but-unclaimed BA cannot be claimed with (email, workspace code)
+  //    alone — the old /auth/password-setup attack — nor with a guessed code.
+  const attackerPw = pw();
+  r = await call('POST', '/auth/password-setup', { body: { email: baEmail, workspace_code: code, new_password: attackerPw } });
+  expect('SEC-1: claim unclaimed BA via password-setup WITHOUT setup code -> 422', r, 422);
+  r = await call('POST', '/auth/password-setup', { body: { email: baEmail, workspace_code: code, new_password: attackerPw, setup_code: 'guessed-setup-code' } });
+  expect('SEC-1: claim unclaimed BA via password-setup with a GUESSED code -> 403', r, 403);
+  r = await call('POST', '/auth/login', { body: { email: baEmail, workspace_code: code, password: attackerPw } });
+  expect('SEC-1: attacker password does not sign in (account still unclaimed) -> 401', r, 401);
+
+  //    BA sets password with the one-time setup code (single use), then logs in
   r = await call('POST', '/auth/password-reset/complete', { body: { email: baEmail, workspace_code: code, new_password: secrets.ba.password, reset_token: 'wrong-setup-code' } });
   expect('BA set password with WRONG setup code -> 403', r, 403);
   r = await call('POST', '/auth/password-reset/complete', { body: { email: baEmail, workspace_code: code, new_password: secrets.ba.password, reset_token: ws.admin_setup_token } });
   expect('BA set password with setup code', r, 200, { result: r.data?.status });
+  r = await call('POST', '/auth/password-reset/complete', { body: { email: baEmail, workspace_code: code, new_password: attackerPw, reset_token: ws.admin_setup_token } });
+  expect('setup code is single use (replay -> 403)', r, 403);
   r = await call('POST', '/auth/login', { body: { email: baEmail, workspace_code: code, password: secrets.ba.password } });
   expect('BA login (code + email + password)', r, 200, { role: r.data?.user?.role, tenant: r.data?.user?.tenant_name }, r.data?.user?.role === 'business_admin');
   const baTok = r.data?.access_token;
@@ -145,8 +162,8 @@ async function main() {
   const deptCode = r.data?.code;
   r = await call('POST', '/auth/signup/supervisor', { body: { email: supEmail, dept_code: 'NOPE-NOPE' } });
   expect('supervisor signup with bad dept code -> 404', r, 404);
-  r = await call('POST', '/auth/signup/supervisor', { body: { email: supEmail, dept_code: deptCode } });
-  expect('supervisor signup (dept code)', r, 202);
+  r = await call('POST', '/auth/signup/supervisor', { body: { email: supEmail, dept_code: deptCode, password: secrets.supervisor.password } });
+  expect('supervisor signup (dept code + own password)', r, 202);
   const supId = r.data?.user_id;
   r = await call('POST', '/auth/login', { body: { email: supEmail, workspace_code: code, password: 'x' } });
   expect('pending supervisor cannot log in (202)', r, 202);
@@ -155,11 +172,9 @@ async function main() {
   r = await call('POST', `/business-admin/pending-supervisors/${supId}/approve`, { token: baTok, body: { module: 'bd' } });
   expect('BA approves supervisor', r, 204);
   r = await call('POST', '/auth/login/check', { body: { email: supEmail, workspace_code: code }, headers: internal });
-  expect('supervisor login/check -> needs_password', r, 200, { account_state: r.data?.account_state }, r.data?.account_state === 'needs_password');
-  r = await call('POST', '/auth/password-setup', { body: { email: supEmail, workspace_code: code, new_password: secrets.supervisor.password } });
-  expect('supervisor sets first password', r, 200);
+  expect('approved supervisor login/check -> active (password chosen at signup)', r, 200, { account_state: r.data?.account_state }, r.data?.account_state === 'active');
   r = await call('POST', '/auth/login', { body: { email: supEmail, workspace_code: code, password: secrets.supervisor.password } });
-  expect('supervisor login', r, 200, { role: r.data?.user?.role }, r.data?.user?.role === 'supervisor');
+  expect('supervisor login (signup password)', r, 200, { role: r.data?.user?.role }, r.data?.user?.role === 'supervisor');
   const supTok = r.data?.access_token;
   r = await call('GET', '/auth/whoami', { token: supTok });
   expect('supervisor whoami', r, 200, { role: r.data?.role, module: r.data?.module, module_role: r.data?.module_role },
@@ -169,21 +184,46 @@ async function main() {
   r = await call('POST', '/supervisor-codes/me/bd/rotate', { token: supTok });
   expect('supervisor mints BD invite code', r, 200, { module: r.data?.module }, Boolean(r.data?.code));
   const invite = r.data?.code;
-  r = await call('POST', '/auth/signup/executive', { body: { email: execEmail, supervisor_code: invite } });
-  expect('executive signup (supervisor code)', r, 202);
+  r = await call('POST', '/auth/signup/executive', { body: { email: execEmail, supervisor_code: invite, password: secrets.executive.password } });
+  expect('executive signup (supervisor code + own password)', r, 202);
   const execId = r.data?.user_id;
   r = await call('GET', '/supervisor-codes/me/bd/pending-executives', { token: supTok });
   expect('supervisor sees pending executive', r, 200, {}, (r.data || []).some((e) => e.id === execId));
   r = await call('POST', `/supervisor-codes/me/pending-executives/${execId}/approve?module=bd`, { token: supTok });
   expect('supervisor approves executive', r, 204);
-  r = await call('POST', '/auth/password-setup', { body: { email: execEmail, workspace_code: code, new_password: secrets.executive.password } });
-  expect('executive sets first password', r, 200);
   r = await call('POST', '/auth/login', { body: { email: execEmail, workspace_code: code, password: secrets.executive.password } });
-  expect('executive login', r, 200, { role: r.data?.user?.role }, r.data?.user?.role === 'executive');
+  expect('executive login (signup password)', r, 200, { role: r.data?.user?.role }, r.data?.user?.role === 'executive');
   const execTok = r.data?.access_token;
   r = await call('GET', '/auth/whoami', { token: execTok });
   expect('executive whoami', r, 200, { role: r.data?.role, module: r.data?.module, reports_to_supervisor: r.data?.supervisor_id === supId },
     r.data?.role === 'executive' && r.data?.supervisor_id === supId);
+
+  // 6b. SEC-1: an approved account WITHOUT a password (signed up by an old client / before F5a)
+  //     cannot be claimed with (email, workspace code); the supported recovery is the existing
+  //     reset machinery: request -> platform admin confirms -> one-time code -> first password.
+  const legacyEmail = `legacy.${run}@example.com`;
+  secrets.legacy = { email: legacyEmail, password: pw() };
+  r = await call('POST', '/auth/signup/supervisor', { body: { email: legacyEmail, dept_code: deptCode } });
+  expect('legacy-style supervisor signup without a password', r, 202);
+  const legacyId = r.data?.user_id;
+  r = await call('POST', `/business-admin/pending-supervisors/${legacyId}/approve`, { token: baTok, body: { module: 'bd' } });
+  expect('BA approves it', r, 204);
+  r = await call('POST', '/auth/password-setup', { body: { email: legacyEmail, workspace_code: code, new_password: attackerPw } });
+  expect('SEC-1: claim approved password-less staff WITHOUT a code -> 422', r, 422);
+  r = await call('POST', '/auth/password-setup', { body: { email: legacyEmail, workspace_code: code, new_password: attackerPw, setup_code: 'guessed-setup-code' } });
+  expect('SEC-1: ... with no code ever issued -> 403', r, 403);
+  r = await call('POST', '/auth/password-reset/request', { body: { email: legacyEmail, workspace_code: code } });
+  expect('owner asks for a setup code (reset request)', r, 200);
+  r = await call('GET', '/tenancy/password-reset-requests', { admin: adminJwt });
+  const resetReq = (r.data?.items || []).find((x) => x.email === legacyEmail);
+  expect('platform admin sees the request', r, 200, {}, Boolean(resetReq));
+  r = await call('POST', `/tenancy/password-reset-requests/${resetReq?.id}/confirm`, { admin: adminJwt });
+  expect('platform admin confirms -> one-time code', r, 200, {}, Boolean(r.data?.reset_token));
+  const legacyCode = r.data?.reset_token;
+  r = await call('POST', '/auth/password-setup', { body: { email: legacyEmail, workspace_code: code, new_password: secrets.legacy.password, setup_code: legacyCode } });
+  expect('first password with the code', r, 200, { result: r.data?.status });
+  r = await call('POST', '/auth/login', { body: { email: legacyEmail, workspace_code: code, password: secrets.legacy.password } });
+  expect('that supervisor signs in', r, 200, { role: r.data?.user?.role }, r.data?.user?.role === 'supervisor');
 
   // 7. roll-up as the BA
   r = await call('GET', '/business-admin/org', { token: baTok });
@@ -194,13 +234,13 @@ async function main() {
     { bd_supervisors: supsInBd.length, bd_executives: nested.length },
     supsInBd.some((s) => s.id === supId) && nested.some((e) => e.id === execId));
   r = await call('GET', '/tenancy/workspace-info', { token: baTok });
-  expect('seat usage after onboarding', r, 200, { used_seats: r.data?.used_seats, seat_limit: r.data?.seat_limit }, r.data?.used_seats === 3);
+  expect('seat usage after onboarding', r, 200, { used_seats: r.data?.used_seats, seat_limit: r.data?.seat_limit }, r.data?.used_seats === 4);
   r = await call('GET', '/business-admin/dept-codes', { token: execTok });
   expect('executive cannot use BA endpoints (403)', r, 403);
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const evidence = { run, api: API, finished_at: new Date().toISOString(), company, workspace_code: code, tenant_id: ws.tenant_id,
-    users: { business_admin: baEmail, supervisor: supEmail, executive: execEmail }, passed: steps.length - failed, failed, steps };
+    users: { business_admin: baEmail, supervisor: supEmail, executive: execEmail, legacy_supervisor: legacyEmail }, passed: steps.length - failed, failed, steps };
   fs.writeFileSync(path.join(OUT_DIR, 'last-run.json'), JSON.stringify(evidence, null, 2));
   fs.writeFileSync(path.join(OUT_DIR, `run-${run}.json`), JSON.stringify(evidence, null, 2));
   fs.writeFileSync(path.join(OUT_DIR, 'last-run.secrets.json'), JSON.stringify({ workspace_code: code, ...secrets }, null, 2), { mode: 0o600 });

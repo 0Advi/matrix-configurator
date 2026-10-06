@@ -60,6 +60,49 @@ def require_real_role(*roles: Role) -> Callable:
     return guard
 
 
+# Every module key a route guard names (filled at import time by the two module
+# factories below). tests/test_f5a_fixes.py checks each one exists in the
+# module_catalog seed, so a typo or a renamed catalog key cannot silently turn a
+# guard into a no-op.
+GUARDED_MODULE_KEYS: set[str] = set()
+
+
+def _refuse_disabled(current_user: dict, module_name: str) -> None:
+    # Phase 2 (configurator): a module the tenant's published configuration
+    # switched OFF is refused for EVERY role — the READ_ALL_ROLES bypass is about
+    # module membership, not about a module that does not exist in this
+    # workspace. get_current_user supplies the tenant's disabled list
+    # (tenant_modules.enabled = false) from the same per-request read.
+    if module_name in (current_user.get("disabled_modules") or ()):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Module '{module_name}' is disabled in this workspace.",
+        )
+
+
+def require_module_enabled(module_name: str) -> Callable:
+    """Dependency factory (F5a): 403 for every role when *module_name* is switched
+    OFF in the tenant's published configuration — and nothing else.
+
+    For the built-ins whose routes historically check role only (BD and its
+    /sites aliases + staging + LOI, the finance_ca tab and its admin queue,
+    launch approvals, financial closure): disabling them in the configurator
+    used to hide them in the UI while the API kept serving them. This adds the
+    "does the module exist in this workspace" check WITHOUT adding a membership
+    check, so existing tenants (every built-in enabled) behave exactly as before.
+    Whether those routes should also require BD membership is G2's D22 — a
+    separate policy decision, documented, not changed here.
+    """
+    GUARDED_MODULE_KEYS.add(module_name)
+
+    async def guard(current_user: dict = Depends(get_current_user)) -> dict:
+        _refuse_disabled(current_user, module_name)
+        return current_user
+
+    guard.module_enabled_key = module_name  # introspected by tests (route → module map)
+    return guard
+
+
 def require_module(module_name: str) -> Callable:
     """Dependency factory: raises 403 if the caller's JWT module claim does not
     match *module_name*.
@@ -76,19 +119,12 @@ def require_module(module_name: str) -> Callable:
         async def queue(user: LegalUser, _module: LegalModule):
             ...
     """
+    GUARDED_MODULE_KEYS.add(module_name)
+
     async def guard(current_user: dict = Depends(get_current_user)) -> dict:
         user_role = current_user.get("role")
         user_module = current_user.get("module")
-        # Phase 2 (configurator): a module the tenant's published configuration
-        # switched OFF is refused for EVERY role — the READ_ALL_ROLES bypass below
-        # is about module membership, not about a module that does not exist in
-        # this workspace. get_current_user supplies the tenant's disabled list
-        # (tenant_modules.enabled = false) from the same per-request read.
-        if module_name in (current_user.get("disabled_modules") or ()):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Module '{module_name}' is disabled in this workspace.",
-            )
+        _refuse_disabled(current_user, module_name)
         # Same workspace-wide bypass as require_role — neither role holds a
         # module membership, so a module comparison is meaningless for them.
         if user_module != module_name and user_role not in READ_ALL_ROLES:
@@ -98,4 +134,5 @@ def require_module(module_name: str) -> Callable:
             )
         return current_user
 
+    guard.module_enabled_key = module_name  # also refuses a disabled module
     return guard

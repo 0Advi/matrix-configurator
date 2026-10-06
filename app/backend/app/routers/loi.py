@@ -18,7 +18,7 @@ from app.domain.schemas.loi import (
     SendBackLOIRequest,
     SetLOITimelineRequest,
 )
-from app.rbac.guards import require_role
+from app.rbac.guards import require_module_enabled, require_role
 from app.rbac.roles import Role
 from app.services._common import fetch_site_or_404
 from app.services.loi_service import (
@@ -28,7 +28,12 @@ from app.services.loi_service import (
     svc_view_loi,
 )
 
-router = APIRouter(prefix="/loi", tags=["LOI"])
+# F5a: refused (403, every role) when the tenant's published configuration switches
+# the "bd" module OFF — data from tenant_modules, see rbac/guards.require_module_enabled.
+router = APIRouter(
+    prefix="/loi", tags=["LOI"],
+    dependencies=[Depends(require_module_enabled("bd"))],
+)
 
 
 @router.post(

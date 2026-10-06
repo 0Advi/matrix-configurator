@@ -114,13 +114,14 @@ async def svc_list_views(session: AsyncSession, *, tenant_id, current_user: dict
     from app.services import module_runtime_service as mrs
 
     reg = await mrs._custom_module(session, tenant_id, module_key)
-    role = await mrs._actor_role(session, current_user, tenant_id, reg)
+    role = await mrs._actor_role(session, current_user, tenant_id, reg)   # real: may they manage?
+    scope = mrs.view_role(current_user, role)  # F5a/E3: audience + default follow the effective role
     views = await _views(session, tenant_id, module_key)
     if manage and role != "business_admin":
         raise HTTPException(status_code=403, detail="Only a business admin can manage views.")
-    shown = views if manage else [v for v in views if role in v["audience"]]
-    return {"module": {"key": reg["module_key"], "label": reg["label"]}, "role": role,
-            "can_manage": role == "business_admin", "default_view_id": default_view_id(views, role),
+    shown = views if manage else [v for v in views if scope in v["audience"]]
+    return {"module": {"key": reg["module_key"], "label": reg["label"]}, "role": role, "view_role": scope,
+            "can_manage": role == "business_admin", "default_view_id": default_view_id(views, scope),
             "items": shown}
 
 

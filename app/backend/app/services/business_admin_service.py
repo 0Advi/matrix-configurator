@@ -986,6 +986,12 @@ async def delete_site(
             )).scalars().all()
             if deliverable_storage_path(key)
         ]
+        # F5a: files of configurator-built (custom) module cases — module_files rows cascade with
+        # the site; their storage objects are purged with the others below.
+        paths += list((await session.execute(
+            text("SELECT storage_path FROM module_files WHERE site_id = :sid AND tenant_id = :tid"),
+            {"sid": site.id, "tid": tenant_id},
+        )).scalars().all())
 
         await write_audit_event(
             session,

@@ -1,7 +1,7 @@
 // skipcq: JS-0833
 import React, { useState } from 'react';
 import { activateOverride, deactivateOverride, getStoredOverride } from '../../services/api/adminOverride.js';
-import { switcherModules, workspaceModule } from '../shared/workspaceModules.js';
+import { hardNavigate, switcherModules, workspaceModule } from '../shared/workspaceModules.js';
 import { useWorkspaceModules } from '../../state/useWorkspaceModules.js';
 import { T, Icon } from './ui/kit.jsx';
 
@@ -61,7 +61,8 @@ export default function WorkspaceSwitcherPanel({ variant = 'business_admin' }) {
     // writes the module-level store that the axios interceptors read, but
     // SessionContext copies it into React state only at mount — so a soft
     // navigation would reach the workspace with the old role still in context.
-    window.location.href = mod?.route || '/';
+    // F5a: into the hash route of the app's base (no more `/m/x#/m/x` in the address bar).
+    hardNavigate(mod?.route || '/');
   };
 
   const handleExit = () => {

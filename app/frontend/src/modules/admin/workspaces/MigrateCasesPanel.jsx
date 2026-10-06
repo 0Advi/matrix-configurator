@@ -7,6 +7,8 @@
 // dropped, approvals carried, blocking reasons and warnings. Executing needs a reason and a
 // confirmation; the backend re-checks every site under its row locks, moves a site's pin and all
 // its running cases together or skips the site, and writes an audited journal (docs/G3-API.md §1).
+// F5a: optional "also re-pin sites with no running case" (include_idle_sites) with its own list in the
+// dry run / result, and the history shows a migration's status (done / failed / stale "running").
 import React from 'react';
 import { platformApi } from '../adminApi.js';
 import { C, Button, Pill, Eyebrow, Banner, Spinner, fieldStyle, when } from './ui.jsx';
@@ -27,6 +29,7 @@ export default function MigrateCasesPanel({ refId, ws, withAuth }) {
   const [from, setFrom] = React.useState('all_older');
   const [mods, setMods] = React.useState([]);
   const [restart, setRestart] = React.useState(false);
+  const [idle, setIdle] = React.useState(false);
   const [reason, setReason] = React.useState('');
   const [dry, setDry] = React.useState(null);
   const [result, setResult] = React.useState(null);
@@ -54,6 +57,7 @@ export default function MigrateCasesPanel({ refId, ws, withAuth }) {
     to_release_version: Number(to),
     scope: mods.length ? { module_keys: mods } : {},
     restart_stage_on_chain_change: restart,
+    ...(idle ? { include_idle_sites: true } : {}),
     dry_run: dryRun,
     ...(dryRun ? {} : { reason: reason.trim() }),
   });
@@ -68,6 +72,8 @@ export default function MigrateCasesPanel({ refId, ws, withAuth }) {
   };
   const changed = () => { setDry(null); setResult(null); setConfirm(false); };
   const movable = (dry?.items || []).filter((i) => i.outcome === 'would_migrate');
+  const idleMovable = (dry?.idle_sites || []).filter((i) => i.outcome === 'would_repin');
+  const canExecute = movable.length > 0 || idleMovable.length > 0;
   const shown = result || dry;
 
   return (
@@ -105,6 +111,10 @@ export default function MigrateCasesPanel({ refId, ws, withAuth }) {
           <input type="checkbox" checked={restart} onChange={(e) => { setRestart(e.target.checked); changed(); }}/>
           Restart a stage whose approval chain changed mid-way
         </label>
+        <label style={{ fontSize: 12, color: C.muted, display: 'flex', gap: 6, alignItems: 'center' }} title="A site keeps the release it was pinned to; a case opened on it later starts on that release. Tick to move such sites too (their finished cases stay where they finished).">
+          <input type="checkbox" checked={idle} onChange={(e) => { setIdle(e.target.checked); changed(); }}/>
+          Also re-pin sites with no running case
+        </label>
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <Button size="sm" variant="primary" busy={busy === 'dry'} onClick={() => run(true)}>Dry run</Button>
@@ -114,8 +124,9 @@ export default function MigrateCasesPanel({ refId, ws, withAuth }) {
       {busy && <span style={{ fontSize: 12, color: C.muted, display: 'inline-flex', gap: 6, alignItems: 'center' }}><Spinner/> {busy === 'dry' ? 'Checking…' : 'Migrating…'}</span>}
 
       {shown && <MigrationTable data={shown}/>}
+      {shown && Array.isArray(shown.idle_sites) && <IdleSites data={shown}/>}
 
-      {dry && movable.length > 0 && (
+      {dry && canExecute && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 6, borderTop: `1px solid ${C.line}` }}>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11.5, color: C.muted, fontWeight: 600 }}>
             Reason (required — recorded on every moved case)
@@ -123,26 +134,28 @@ export default function MigrateCasesPanel({ refId, ws, withAuth }) {
               style={{ ...fieldStyle, height: 'auto', padding: 8, resize: 'vertical' }} placeholder="e.g. Hot-fix: sign-off stage removed"/>
           </label>
           {!confirm && <span><Button size="sm" variant="success" disabled={reason.trim().length < 3} onClick={() => setConfirm(true)}>
-            Migrate {movable.length} case{movable.length === 1 ? '' : 's'}…</Button></span>}
+            Migrate {movable.length} case{movable.length === 1 ? '' : 's'}{idleMovable.length ? ` + re-pin ${idleMovable.length} idle site${idleMovable.length === 1 ? '' : 's'}` : ''}…</Button></span>}
           {confirm && (
             <span role="alert" style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 12.5 }}>
-              Move {movable.length} running case{movable.length === 1 ? '' : 's'} on {new Set(movable.map((i) => i.site.id)).size} site(s) onto v{dry.to?.version}? Blocked ones are skipped.
+              Move {movable.length} running case{movable.length === 1 ? '' : 's'} on {new Set(movable.map((i) => i.site.id)).size} site(s){idleMovable.length ? ` and re-pin ${idleMovable.length} site(s) with no running case` : ''} onto v{dry.to?.version}? Blocked ones are skipped.
               <Button size="sm" variant="success" busy={busy === 'exec'} onClick={() => run(false)}>Confirm migration</Button>
               <Button size="sm" onClick={() => setConfirm(false)}>Cancel</Button>
             </span>
           )}
         </div>
       )}
-      {dry && movable.length === 0 && (dry.items || []).length > 0 && <Banner tone="warn">Nothing can move: every running case is blocked (see the reasons).</Banner>}
+      {dry && !canExecute && (dry.items || []).length > 0 && <Banner tone="warn">Nothing can move: every running case is blocked (see the reasons).</Banner>}
       {dry && (dry.items || []).length === 0 && <Banner tone="info">No running custom-module case is on the selected release(s).</Banner>}
-      {result && <Banner tone="ok">Migration {String(result.migration_id).slice(0, 8)} done: {result.summary?.by_outcome?.migrated || 0} migrated, {result.summary?.by_outcome?.skipped || 0} skipped{result.summary?.by_outcome?.failed ? `, ${result.summary.by_outcome.failed} failed` : ''}.</Banner>}
+      {result && <Banner tone="ok">Migration {String(result.migration_id).slice(0, 8)} done: {result.summary?.by_outcome?.migrated || 0} migrated, {result.summary?.by_outcome?.skipped || 0} skipped{result.summary?.by_outcome?.failed ? `, ${result.summary.by_outcome.failed} failed` : ''}{result.summary?.idle_sites ? `, ${result.summary.idle_sites.by_outcome?.repinned || 0} idle site(s) re-pinned` : ''}.</Banner>}
 
       {history.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Eyebrow style={{ marginTop: 4 }}>Earlier migrations</Eyebrow>
           {history.slice(0, 5).map((m) => (
-            <div key={m.id} style={{ fontSize: 11.5, color: C.muted }}>
-              {when(m.created_at)} · {m.from} → v{m.to_version} · {m.summary?.by_outcome?.migrated || 0} migrated · {m.actor} · “{m.reason}”
+            <div key={m.id} style={{ fontSize: 11.5, color: C.muted, display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
+              <HistoryStatus m={m}/>
+              <span>{when(m.created_at)} · {m.from} → v{m.to_version} · {m.summary?.by_outcome?.migrated || 0} migrated · {m.actor} · “{m.reason}”</span>
+              {m.summary?.failure && <span style={{ color: C.faint }}>— {m.summary.failure}</span>}
             </div>
           ))}
         </div>
@@ -194,6 +207,37 @@ function MigrationTable({ data }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// F5a: a migration whose process died is shown as such (it is marked failed on the next run / restart).
+function HistoryStatus({ m }) {
+  if (m.status === 'running' && m.stale) return <Pill tone="bad" title="No progress for 10 minutes: the run stopped. It is marked failed on the next migration or app restart.">stalled</Pill>;
+  if (m.status === 'running') return <Pill tone="warn">running</Pill>;
+  if (m.status === 'failed') return <Pill tone="bad">{m.summary?.recovered ? 'failed · recovered' : 'failed'}</Pill>;
+  return <Pill tone="ok">done</Pill>;
+}
+
+// F5a: sites pinned to a source release with NO running case (include_idle_sites).
+function IdleSites({ data }) {
+  const rows = data.idle_sites || [];
+  const tone = { would_repin: 'ok', repinned: 'ok', skipped: 'warn', failed: 'bad' };
+  const label = { would_repin: 'would re-pin', repinned: 're-pinned', skipped: 'skipped', failed: 'failed' };
+  return (
+    <div aria-label="Sites with no running case" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ fontSize: 12, color: C.muted }}>
+        Sites with no running case: {rows.length === 0 ? 'none on the selected release(s).' : `${rows.length} — their pin moves to v${data.to?.version}; finished cases stay on the release they finished on.`}
+      </div>
+      {rows.map((i) => (
+        <div key={i.site.id} style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 12 }}>
+          <Pill tone={tone[i.outcome] || 'muted'}>{label[i.outcome] || i.outcome}</Pill>
+          <span>{i.site.name}</span>
+          <span style={{ fontFamily: C.mono, color: C.faint }}>v{i.from_version} → v{i.to_version}</span>
+          {i.finished_cases ? <span style={{ color: C.faint }}>{i.finished_cases} finished case(s) stay</span> : null}
+          {i.message && <span style={{ color: C.faint }}>{i.message}</span>}
+        </div>
+      ))}
     </div>
   );
 }

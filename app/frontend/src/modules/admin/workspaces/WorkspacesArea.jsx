@@ -12,10 +12,11 @@
 // Every call is made here with the admin token from the page's memory; the iframe never sees
 // it. A 401 (the token lasts 30 minutes) opens a re-auth dialog and retries the call.
 import React from 'react';
-import { platformApi, adminLogin, adminTokenSecondsLeft, workspaceLoginUrl } from '../adminApi.js';
+import { platformApi, adminTokenSecondsLeft, workspaceLoginUrl } from '../adminApi.js';
+import { useAdminReauth } from '../useAdminReauth.jsx';
 import CredentialsDialog from '../CredentialsDialog.jsx';
 import { createConfiguratorHost, splitFindings } from './configuratorHost.js';
-import { ProvisionDialog, ReauthDialog, FindingsList } from './dialogs.jsx';
+import { ProvisionDialog, FindingsList } from './dialogs.jsx';
 import { C, Button, Pill, Eyebrow, Banner, Spinner, CopyButton, when } from './ui.jsx';
 import WorkspacesList from './WorkspacesList.jsx';
 
@@ -29,8 +30,9 @@ function sessionLabel(secs) {
 }
 
 export default function WorkspacesArea({ keyValue, onKeyChange, onLogout, frameSrc = CONFIGURATOR_SRC }) {
-  const keyRef = React.useRef(keyValue);
-  keyRef.current = keyValue;
+  // F5a: the 401 → sign in again → retry-once flow lives in useAdminReauth (shared with the
+  // portal's other tabs); behaviour unchanged.
+  const { withAuth, keyRef, dialog: reauthDialog } = useAdminReauth({ keyValue, onKeyChange, onLogout });
   const [sub, setSub] = React.useState('design'); // design | provisioned
   const frameRef = React.useRef(null);
   const hostRef = React.useRef(null);
@@ -40,8 +42,6 @@ export default function WorkspacesArea({ keyValue, onKeyChange, onLogout, frameS
   const [activity, setActivity] = React.useState(null);
   const [provision, setProvision] = React.useState(null);  // {context, previousError, busy, error, resolve}
   const [cred, setCred] = React.useState(null);             // {result, resolve}
-  const [reauth, setReauth] = React.useState(null);         // {busy, error}
-  const reauthWaiters = React.useRef([]);
   const [listTick, setListTick] = React.useState(0);
   const [secsLeft, setSecsLeft] = React.useState(() => adminTokenSecondsLeft(keyValue));
 
@@ -50,40 +50,7 @@ export default function WorkspacesArea({ keyValue, onKeyChange, onLogout, frameS
     tick();
     const t = setInterval(tick, 15000);
     return () => clearInterval(t);
-  }, [keyValue]);
-
-  // ── auth: run fn(key); on 401 ask to sign in again, then retry once ──────────
-  const askReauth = React.useCallback(() => new Promise((resolve, reject) => {
-    reauthWaiters.current.push({ resolve, reject });
-    setReauth((r) => r || { busy: false, error: null });
-  }), []);
-  const withAuth = React.useCallback(async (fn) => {
-    try {
-      return await fn(keyRef.current);
-    } catch (e) {
-      if (e?.status !== 401) throw e;
-      const k = await askReauth();
-      return fn(k);
-    }
-  }, [askReauth]);
-  const submitReauth = async (email, password) => {
-    setReauth({ busy: true, error: null });
-    try {
-      const token = await adminLogin(email, password);
-      keyRef.current = token;
-      onKeyChange?.(token);
-      setReauth(null);
-      const ws = reauthWaiters.current.splice(0);
-      ws.forEach((w) => w.resolve(token));
-    } catch (e) {
-      setReauth({ busy: false, error: e.message || 'Sign-in failed.' });
-    }
-  };
-  const cancelReauth = () => {
-    setReauth(null);
-    const ws = reauthWaiters.current.splice(0);
-    ws.forEach((w) => w.reject(Object.assign(new Error('Sign-in cancelled — nothing was sent to the app.'), { cancelled: true })));
-  };
+  }, [keyValue, keyRef]);
 
   // ── what the app knows about the workspace open in the canvas ───────────────
   const loadApp = React.useCallback(async (ref) => {
@@ -256,9 +223,8 @@ export default function WorkspacesArea({ keyValue, onKeyChange, onLogout, frameS
 
       {provision && <ProvisionDialog context={provision.context} previousError={provision.previousError} busy={provision.busy} error={provision.error}
         onCancel={cancelProvision} onSubmit={submitProvision}/>}
-      {cred && <CredentialsDialog variant="configurator" result={cred.result} keyValue={keyRef.current} onClose={closeCred}/>}
-      {reauth && <ReauthDialog busy={reauth.busy} error={reauth.error} onSubmit={submitReauth} onCancel={cancelReauth}
-        onSignOut={() => { cancelReauth(); onLogout?.(); }}/>}
+      {cred && <CredentialsDialog variant="configurator" result={cred.result} keyValue={keyRef.current} withAuth={withAuth} onClose={closeCred}/>}
+      {reauthDialog}
     </div>
   );
 }

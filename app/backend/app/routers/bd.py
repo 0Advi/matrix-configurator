@@ -28,7 +28,7 @@ from app.domain.schemas.legal_change_request import (
     ChangeRequestResponse,
     CreateChangeRequestRequest,
 )
-from app.rbac.guards import require_role
+from app.rbac.guards import require_module_enabled, require_role
 from app.rbac.roles import Role
 from app.services.bd_service import (
     svc_approve_shortlist,
@@ -50,7 +50,12 @@ from app.services.change_request_service import (
 )
 from app.services.query_service import list_sites
 
-router = APIRouter(prefix="/bd", tags=["BD"])
+# F5a: refused (403, every role) when the tenant's published configuration switches
+# the "bd" module OFF — data from tenant_modules, see rbac/guards.require_module_enabled.
+router = APIRouter(
+    prefix="/bd", tags=["BD"],
+    dependencies=[Depends(require_module_enabled("bd"))],
+)
 
 
 # ── Drafts ─────────────────────────────────────────────────────────────────

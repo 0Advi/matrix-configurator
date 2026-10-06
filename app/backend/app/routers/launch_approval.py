@@ -28,7 +28,7 @@ from app.domain.schemas.launch import (
     LaunchRentFieldsRequest,
     LaunchReviewRequest,
 )
-from app.rbac.guards import require_role
+from app.rbac.guards import require_module_enabled, require_role
 from app.rbac.roles import Role
 from app.services.launch_service import (
     svc_admin_final_confirm,
@@ -41,7 +41,12 @@ from app.services.launch_service import (
     svc_supervisor_review,
 )
 
-router = APIRouter(prefix="/launch-approvals", tags=["Launch Approvals"])
+# F5a: refused (403, every role) when the tenant's published configuration switches
+# the "launch_approval" module OFF — data from tenant_modules, see rbac/guards.require_module_enabled.
+router = APIRouter(
+    prefix="/launch-approvals", tags=["Launch Approvals"],
+    dependencies=[Depends(require_module_enabled("launch_approval"))],
+)
 
 AdminUser = Annotated[dict, Depends(require_role(Role.BUSINESS_ADMIN))]
 # The first review stage is the SITE CREATOR — who may be an executive OR a

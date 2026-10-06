@@ -3,6 +3,7 @@ import { PRODUCT_NAME } from '../../router/routes.js';
 import { apiFetch, adminLogin } from './adminApi.js';
 import CredentialsDialog from './CredentialsDialog.jsx';
 import WorkspacesArea from './workspaces/WorkspacesArea.jsx';
+import { useAdminReauth } from './useAdminReauth.jsx';
 
 // F4b: the platform-admin token lives ONLY in this page's memory (module scope, so moving
 // between portal tabs/routes keeps it; a reload or a new tab asks to sign in again — it is a
@@ -93,7 +94,7 @@ function ApproveDialog({ request, busy, onCancel, onConfirm }) {
   );
 }
 
-function ResetQueue({ keyValue, onAuthError }) {
+function ResetQueue({ withAuth }) {
   const [items, setItems] = React.useState(null);
   const [error, setError] = React.useState(null);
   const [confirmingId, setConfirmingId] = React.useState(null);
@@ -102,20 +103,20 @@ function ResetQueue({ keyValue, onAuthError }) {
   const load = React.useCallback(async () => {
     setError(null);
     try {
-      const data = await apiFetch('/tenancy/password-reset-requests', { key: keyValue });
+      // F5a: a 401 asks to sign in again and retries (it used to log the admin out).
+      const data = await withAuth((k) => apiFetch('/tenancy/password-reset-requests', { key: k }));
       setItems(data?.items || []);
     } catch (err) {
       setError(err.message || 'Failed to load');
-      if (err.status === 401) onAuthError();
     }
-  }, [keyValue, onAuthError]);
+  }, [withAuth]);
 
   React.useEffect(() => { setItems(null); load(); }, [load]);
 
   async function confirm(id, email) {
     setConfirmingId(id); setError(null);
     try {
-      const res = await apiFetch(`/tenancy/password-reset-requests/${id}/confirm`, { key: keyValue, method: 'POST' });
+      const res = await withAuth((k) => apiFetch(`/tenancy/password-reset-requests/${id}/confirm`, { key: k, method: 'POST' }));
       // The reset code is shown ONCE — the user must present it to complete
       // the reset (#85). Relay it to them out-of-band.
       if (res?.reset_token) setIssued({ email, token: res.reset_token });
@@ -187,6 +188,10 @@ function statusPill(s) {
 
 function PortalScreen({ keyValue, onLogout, onKeyChange }) {
   const [view, setView] = React.useState('requests'); // requests | resets | workspaces
+  // F5a: every tab re-authenticates on a 401 (sign in again → the call is retried) instead of
+  // logging out; the Workspaces area uses the same hook.
+  const logout = React.useCallback(() => { writeKey(''); onLogout(); }, [onLogout]);
+  const { withAuth, dialog: reauthDialog } = useAdminReauth({ keyValue, onKeyChange, onLogout: logout });
   // The configurator iframe is mounted on first visit and then kept (hidden) while other
   // tabs are open, so in-memory canvas state (v5 keeps demo-workspace edits in memory only)
   // and a publish in flight survive a look at the request queue.
@@ -203,16 +208,12 @@ function PortalScreen({ keyValue, onLogout, onKeyChange }) {
   const load = React.useCallback(async () => {
     setError(null);
     try {
-      const data = await apiFetch(`/tenancy/requests?status_filter=${encodeURIComponent(statusFilter)}&limit=200`, { key: keyValue });
+      const data = await withAuth((k) => apiFetch(`/tenancy/requests?status_filter=${encodeURIComponent(statusFilter)}&limit=200`, { key: k }));
       setItems(data?.items || []);
     } catch (err) {
       setError(err.message || 'Failed to load');
-      if (err.status === 401) {
-        writeKey('');
-        onLogout();
-      }
     }
-  }, [keyValue, statusFilter, onLogout]);
+  }, [withAuth, statusFilter]);
 
   React.useEffect(() => { setItems(null); load(); }, [load]);
 
@@ -220,9 +221,9 @@ function PortalScreen({ keyValue, onLogout, onKeyChange }) {
     if (!approving) return;
     setApproveBusy(true);
     try {
-      const result = await apiFetch(`/tenancy/requests/${approving.id}/approve`, {
-        key: keyValue, method: 'POST', body: { city, admin_name },
-      });
+      const result = await withAuth((k) => apiFetch(`/tenancy/requests/${approving.id}/approve`, {
+        key: k, method: 'POST', body: { city, admin_name },
+      }));
       setApproving(null);
       setCredResult({ ...result, company: approving.company });
       load();
@@ -241,7 +242,7 @@ function PortalScreen({ keyValue, onLogout, onKeyChange }) {
     setRejectingId(r.id);
     setError(null);
     try {
-      await apiFetch(`/tenancy/requests/${r.id}/reject`, { key: keyValue, method: 'POST' });
+      await withAuth((k) => apiFetch(`/tenancy/requests/${r.id}/reject`, { key: k, method: 'POST' }));
       load();
     } catch (err) {
       setError(err.message || 'Reject failed');
@@ -277,19 +278,19 @@ function PortalScreen({ keyValue, onLogout, onKeyChange }) {
         {view !== 'workspaces' && (
           <button onClick={load} style={{ height: 32, padding: '0 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', background: 'transparent', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Refresh</button>
         )}
-        <button onClick={() => { writeKey(''); onLogout(); }} style={{ height: 32, padding: '0 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', background: 'transparent', color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Sign out</button>
+        <button onClick={logout} style={{ height: 32, padding: '0 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', background: 'transparent', color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Sign out</button>
       </header>
 
       {workspacesMounted && (
         <div style={{ flex: 1, minHeight: 0, display: view === 'workspaces' ? 'flex' : 'none' }}>
-          <WorkspacesArea keyValue={keyValue} onKeyChange={onKeyChange} onLogout={() => { writeKey(''); onLogout(); }}/>
+          <WorkspacesArea keyValue={keyValue} onKeyChange={onKeyChange} onLogout={logout}/>
         </div>
       )}
 
       {view !== 'workspaces' && (
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 40px 32px' }}>
       {view === 'resets' && (
-        <ResetQueue keyValue={keyValue} onAuthError={() => { writeKey(''); onLogout(); }}/>
+        <ResetQueue withAuth={withAuth}/>
       )}
 
       {view === 'requests' && (<>
@@ -337,7 +338,8 @@ function PortalScreen({ keyValue, onLogout, onKeyChange }) {
       )}
 
       {approving && <ApproveDialog request={approving} busy={approveBusy} onCancel={() => setApproving(null)} onConfirm={onApprove}/>}
-      {credResult && <CredentialsDialog result={credResult} keyValue={keyValue} onClose={() => setCredResult(null)}/>}
+      {credResult && <CredentialsDialog result={credResult} keyValue={keyValue} withAuth={withAuth} onClose={() => setCredResult(null)}/>}
+      {reauthDialog}
     </div>
   );
 }

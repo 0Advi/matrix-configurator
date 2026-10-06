@@ -14,7 +14,7 @@ from app.domain.schemas.nso import (
     NsoStageTwoRequest,
     NsoStateResponse,
 )
-from app.rbac.guards import require_module, require_role
+from app.rbac.guards import require_module, require_module_enabled, require_role
 from app.rbac.roles import Role
 from app.services.nso_service import (
     svc_final_approval,
@@ -26,7 +26,13 @@ from app.services.nso_service import (
     svc_save_stage_two,
 )
 
-router = APIRouter(prefix="/nso", tags=["NSO"])
+# F5a: every route — including the business-admin tier that has no require_module
+# guard — is refused (403) when the tenant's published configuration switches the
+# "nso" module OFF (rbac/guards.require_module_enabled; data from tenant_modules).
+router = APIRouter(
+    prefix="/nso", tags=["NSO"],
+    dependencies=[Depends(require_module_enabled("nso"))],
+)
 
 # NSO is a supervisor-only module — executives are not part of the NSO flow.
 NsoMember = Annotated[dict, Depends(require_role(Role.SUPERVISOR))]

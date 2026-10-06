@@ -22,7 +22,7 @@ from app.domain.schemas.project import (
     QAReportsResponse,
     ReviewRequest,
 )
-from app.rbac.guards import require_module, require_role
+from app.rbac.guards import require_module, require_module_enabled, require_role
 from app.rbac.roles import Role
 from app.services.delegation_service import svc_assigned_sites, svc_is_delegated
 from app.services.project_service import (
@@ -50,7 +50,13 @@ from app.services.project_service import (
     svc_quality_audit_admin_queue,
 )
 
-router = APIRouter(prefix="/project", tags=["Project"])
+# F5a: every route — including the business-admin tier that has no require_module
+# guard — is refused (403) when the tenant's published configuration switches the
+# "project" module OFF (rbac/guards.require_module_enabled; data from tenant_modules).
+router = APIRouter(
+    prefix="/project", tags=["Project"],
+    dependencies=[Depends(require_module_enabled("project"))],
+)
 
 ProjectMember = Annotated[dict, Depends(require_role(Role.SUPERVISOR, Role.EXECUTIVE))]
 ProjectSupervisor = Annotated[dict, Depends(require_role(Role.SUPERVISOR))]

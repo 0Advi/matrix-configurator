@@ -23,7 +23,7 @@
 import React from 'react';
 import { useSession } from '../../../state/SessionContext.jsx';
 import { activateOverride } from '../../../services/api/adminOverride.js';
-import { switcherModules, workspaceModuleLabel, workspaceModuleRoute } from '../workspaceModules.js';
+import { hardNavigate, switcherModules, workspaceModuleLabel, workspaceModuleRoute } from '../workspaceModules.js';
 import { useWorkspaceModules } from '../../../state/useWorkspaceModules.js';
 import Icon from '../primitives/Icon.jsx';
 
@@ -51,7 +51,7 @@ export default function ReadOnlyBanner({ onLeave }) {
   const switchModule = (next) => {
     if (!next || next === effectiveModule) return;
     activateOverride({ role: role === 'executive' ? 'executive' : 'supervisor', module: next });
-    window.location.href = workspaceModuleRoute(next, modules);
+    hardNavigate(workspaceModuleRoute(next, modules)); // F5a: hash route, full load
   };
 
   return (

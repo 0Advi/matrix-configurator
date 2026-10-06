@@ -4,7 +4,6 @@ import { PRODUCT_NAME } from '../../router/routes.js';
 import {
   signInWithWorkspaceCode,
   checkAccountState,
-  setupPassword,
   requestPasswordReset,
   completePasswordReset,
   getWorkspaceBranding,
@@ -84,9 +83,11 @@ function LoginPanel({ code, onAuthed }) {
       } else if (state === 'pending') {
         say('Your request is still pending admin approval. You can sign in once an admin approves you.', 'info');
       } else if (state === 'needs_password') {
-        // Approved but no password yet → set one directly (no admin code).
+        // Approved but no password yet. F5a / SEC-1: claiming it needs the one-time
+        // setup code from the platform admin — (email, workspace code) alone no longer
+        // sets a first password. Staff who joined with a password never land here.
         setStep('setup');
-        say('Welcome! Create a password to finish setting up your account.', 'info');
+        say('Welcome! Enter the one-time setup code from your platform admin and choose a password.', 'info');
       } else {
         setStep('enter');
       }
@@ -111,16 +112,16 @@ function LoginPanel({ code, onAuthed }) {
 
   const doSetup = async (e) => {
     e.preventDefault();
+    if (tok.trim().length < 8) { say('Enter the one-time setup code your platform admin gave you.'); return; }
     if (pw.length < 6) { say('Choose a password of at least 6 characters.'); return; }
     if (pw !== pw2) { say('Passwords do not match.'); return; }
     setBusy(true); setMsg(null);
     try {
       // F4b: a business admin provisioned by the platform admin (approval queue or the
-      // configurator's first publish) holds a one-time SETUP CODE. When it is entered, claim
-      // the account with it (POST /auth/password-reset/complete — the code is verified and
-      // consumed) instead of the code-less first-password path.
-      if (tok.trim()) await completePasswordReset(em(), code, pw, tok.trim());
-      else await setupPassword(em(), code, pw);
+      // configurator's first publish) holds a one-time SETUP CODE; it claims the account via
+      // POST /auth/password-reset/complete (the code is verified and consumed). F5a / SEC-1:
+      // the code-less first-password path is gone — the code is required.
+      await completePasswordReset(em(), code, pw, tok.trim());
       const data = await signInWithWorkspaceCode(em(), code, pw);
       onAuthed(data?.access_token);
     } catch (err) {
@@ -130,12 +131,19 @@ function LoginPanel({ code, onAuthed }) {
   };
 
   const askReset = async () => {
+    const fromSetup = step === 'setup';
     setBusy(true); setMsg(null);
     try {
       await requestPasswordReset(em(), code);
       resetFields();
-      setStep('reset');
-      say('Reset request sent to your platform admin. Once they approve it, enter the reset code they share with you and set a new password below.', 'info');
+      if (fromSetup) {
+        // Same machinery as a reset: once the platform admin approves, the code they share
+        // goes in the setup-code field below.
+        say('Request sent to your platform admin. Once they approve it, enter the code they share with you below.', 'info');
+      } else {
+        setStep('reset');
+        say('Reset request sent to your platform admin. Once they approve it, enter the reset code they share with you and set a new password below.', 'info');
+      }
     } catch {
       say('Could not send the request. Please try again.');
     } finally { setBusy(false); }
@@ -189,11 +197,11 @@ function LoginPanel({ code, onAuthed }) {
       {isSetup && (
         <>
           <label className="bl-label" htmlFor="bl-setup">
-            Setup code <span style={{ fontWeight: 400, opacity: 0.7 }}>(if your platform admin gave you one)</span>
+            Setup code <span style={{ fontWeight: 400, opacity: 0.7 }}>(from your platform admin)</span>
           </label>
           <input id="bl-setup" className="bl-input" type="text" value={tok}
             onChange={(e) => { setTok(e.target.value); if (msg) setMsg(null); }}
-            placeholder="One-time setup code" autoComplete="one-time-code" spellCheck={false} />
+            placeholder="One-time setup code" autoComplete="one-time-code" spellCheck={false} autoFocus />
         </>
       )}
 
@@ -210,7 +218,7 @@ function LoginPanel({ code, onAuthed }) {
       <input id="bl-pw" className="bl-input" type="password" value={pw}
         onChange={(e) => { setPw(e.target.value); if (msg) setMsg(null); }}
         placeholder={isNewPw ? 'Create a password' : 'Enter your password'}
-        autoComplete={isNewPw ? 'new-password' : 'current-password'} autoFocus={isSetup || !isNewPw} />
+        autoComplete={isNewPw ? 'new-password' : 'current-password'} autoFocus={!isNewPw} />
 
       {isNewPw && (
         <>
@@ -235,6 +243,11 @@ function LoginPanel({ code, onAuthed }) {
           Forgot your password? Request a reset
         </button>
       )}
+      {isSetup && (
+        <button type="button" className="bl-link bl-link--center" onClick={askReset} disabled={busy}>
+          No setup code? Request one from your platform admin
+        </button>
+      )}
     </form>
   );
 }
@@ -245,8 +258,11 @@ function JoinPanel() {
   const cfg = joinModeConfig(joinMode);
   const [email, setEmail] = React.useState('');
   const [jcode, setJcode] = React.useState('');
+  const [jpw, setJpw] = React.useState('');
+  const [jpw2, setJpw2] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState(null);
+  const edit = (setter) => (e) => { setter(e.target.value); if (msg) setMsg(null); };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -254,11 +270,14 @@ function JoinPanel() {
     const c = jcode.trim().toUpperCase();
     if (!EMAIL_RE.test(em)) { setMsg({ tone: 'error', text: 'Enter a valid work email.' }); return; }
     if (!CODE_RE.test(c)) { setMsg({ tone: 'error', text: 'Enter the code your team gave you.' }); return; }
+    // F5a / SEC-1: the password is chosen here, at signup — approval only activates it.
+    if (jpw.length < 6) { setMsg({ tone: 'error', text: 'Choose a password of at least 6 characters.' }); return; }
+    if (jpw !== jpw2) { setMsg({ tone: 'error', text: 'Passwords do not match.' }); return; }
     setBusy(true); setMsg(null);
     try {
-      await cfg.signup(em, c);
+      await cfg.signup(em, c, jpw);
       setMsg({ tone: 'success', text: cfg.submitted });
-      setEmail(''); setJcode('');
+      setEmail(''); setJcode(''); setJpw(''); setJpw2('');
     } catch (err) {
       if (err?.isPending) setMsg({ tone: 'info', text: err.message });
       else setMsg({ tone: 'error', text: err?.message || 'Could not submit your request.' });
@@ -285,9 +304,16 @@ function JoinPanel() {
         placeholder={cfg.hint}
         autoComplete="off" spellCheck={false} />
 
+      <label className="bl-label" htmlFor="bl-jpw">Choose a password</label>
+      <input id="bl-jpw" className="bl-input" type="password" value={jpw} onChange={edit(setJpw)}
+        placeholder="At least 6 characters" autoComplete="new-password" />
+      <label className="bl-label" htmlFor="bl-jpw2">Confirm password</label>
+      <input id="bl-jpw2" className="bl-input" type="password" value={jpw2} onChange={edit(setJpw2)}
+        placeholder="Re-enter password" autoComplete="new-password" />
+
       <Banner msg={msg} />
       <button type="submit" className="bl-btn" disabled={busy}>{busy ? 'Submitting…' : 'Request access'}</button>
-      <p className="bl-hint">You&#39;ll set a password the first time you sign in after approval.</p>
+      <p className="bl-hint">Once your request is approved, sign in with this email and password.</p>
     </form>
   );
 }

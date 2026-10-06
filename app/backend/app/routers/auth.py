@@ -100,13 +100,18 @@ class ResetCompleteIn(_WorkspaceCred):
 
 
 class PasswordSetupIn(_WorkspaceCred):
-    # First-time, self-service password for an already-approved account that
-    # has none yet. No token: an approved user sets their own password directly
-    # after admin approval, removing the deadstate where a freshly approved
-    # supervisor/executive could never log in. Only ever fires once per account
-    # (the setup handler's UPDATE is guarded on `password_hash IS NULL`); an
-    # account that already has a password must use the token-bound reset flow.
+    # First password for an already-approved account that has none yet.
+    # F5a / SEC-1: the one-time SETUP CODE is mandatory. The old token-less
+    # variant let anyone who knew (email, workspace_code) — both shared,
+    # non-secret values — claim any approved-but-unclaimed account (a freshly
+    # provisioned business admin, or staff approved before they signed in).
+    # The code is the token of an approved password_reset_requests row: the
+    # business admin's provisioning code, a platform-admin re-issue, or an
+    # approved reset request. Staff normally never need this route any more:
+    # they choose their password at signup (see _SignupPassword). Only ever
+    # fires once per account (UPDATE guarded on `password_hash IS NULL`).
     new_password: str = Field(min_length=6, max_length=256)
+    setup_code:   str = Field(min_length=8, max_length=128)
 
 
 class LoginOut(BaseModel):
@@ -121,17 +126,28 @@ class PendingOut(BaseModel):
     message: str
 
 
-class SupervisorSignupIn(BaseModel):
+class _SignupPassword(BaseModel):
+    # F5a / SEC-1: the applicant chooses their password AT SIGNUP. It is stored
+    # (hashed) on the inactive pending row and approval only flips is_active,
+    # so an approved account is never claimable by whoever reaches the first-
+    # password step first, and no credential ever passes through the approver.
+    # Optional for backward compatibility: a signup without one becomes an
+    # account that, once approved, can only be claimed with a one-time setup
+    # code (platform admin) — never by (email, workspace_code) alone.
+    password: Optional[str] = Field(default=None, min_length=6, max_length=256)
+
+
+class SupervisorSignupIn(_SignupPassword):
     email:     EmailStr
     dept_code: str
 
 
-class ObserverSignupIn(BaseModel):
+class ObserverSignupIn(_SignupPassword):
     email: EmailStr
     code: str
 
 
-class ExecutiveSignupIn(BaseModel):
+class ExecutiveSignupIn(_SignupPassword):
     email:           EmailStr
     supervisor_code: str
 
@@ -210,9 +226,10 @@ async def login(payload: LoginIn, db: DbDep):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=(
-                "This account does not have a password yet. Use 'Request a reset' "
-                "on the login page — once the platform admin approves it you'll "
-                "receive a reset code to set your password."
+                "This account does not have a password yet. Enter the one-time setup "
+                "code from your platform admin on the login page, or use 'Request a "
+                "setup code' — once the platform admin approves it you'll receive a "
+                "code to set your password."
             ),
         )
 
@@ -356,6 +373,38 @@ async def password_reset_request(payload: ResetRequestIn, db: DbDep) -> dict:
     return soft
 
 
+async def _verified_reset_request(db, tenant_id, user_id, token: str, *, setup: bool = False):
+    """The approved, unexpired reset/setup request whose single-use token matches.
+
+    Bind completion to the requester (#85): the caller must present the token
+    the platform admin relayed out-of-band. (email, workspace_code) alone is a
+    shared, non-secret pair and must never set a password. Shared by
+    /password-reset/complete and (F5a / SEC-1) /password-setup.
+    """
+    req = await auth_repo.get_approved_reset_request(db, tenant_id=tenant_id, user_id=user_id)
+    if not req:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "No valid setup code exists for this account. Ask your platform admin for one, "
+                "or use 'Request a setup code'." if setup else
+                "No approved reset request found. Ask the platform admin to approve your reset first."
+            ),
+        )
+    provided_hash = hashlib.sha256(token.strip().encode()).hexdigest()
+    stored_hash = req["reset_token_hash"] or ""
+    if not stored_hash or not secrets.compare_digest(provided_hash, stored_hash):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Invalid or expired setup code. Check the code your platform admin shared with you."
+                if setup else
+                "Invalid or expired reset code. Ask the platform admin for the code issued with the approval."
+            ),
+        )
+    return req
+
+
 @router.post(
     "/password-reset/complete",
     summary="Public: set a new password using the reset code issued at admin approval",
@@ -368,22 +417,7 @@ async def password_reset_complete(payload: ResetCompleteIn, db: DbDep) -> dict:
     user = await get_user_by_tenant_email(db, tenant["id"], payload.email)
     if not user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reset request.")
-    req = await auth_repo.get_approved_reset_request(db, tenant_id=tenant["id"], user_id=user["id"])
-    if not req:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No approved reset request found. Ask the platform admin to approve your reset first.",
-        )
-    # Bind completion to the requester (#85): the caller must present the
-    # single-use token the admin relayed out-of-band. (email, workspace_code)
-    # alone is a shared, non-secret pair and must never finalize a reset.
-    provided_hash = hashlib.sha256(payload.reset_token.strip().encode()).hexdigest()
-    stored_hash = req["reset_token_hash"] or ""
-    if not stored_hash or not secrets.compare_digest(provided_hash, stored_hash):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid or expired reset code. Ask the platform admin for the code issued with the approval.",
-        )
+    req = await _verified_reset_request(db, tenant["id"], user["id"], payload.reset_token)
     await auth_repo.update_user_password(
         db, user_id=user["id"], password_hash=await hash_password_async(payload.new_password),
     )
@@ -395,24 +429,25 @@ async def password_reset_complete(payload: ResetCompleteIn, db: DbDep) -> dict:
 
 @router.post(
     "/password-setup",
-    summary="Public: set a first password for an approved account that has none yet",
+    summary="Public: set a first password for an approved account that has none yet (setup code required)",
     dependencies=[Depends(rate_limit(times=5, seconds=300))],
     responses={
         200: {"description": "Password created — user can now sign in"},
-        403: {"description": "Account not approved yet"},
+        403: {"description": "Account not approved yet, or missing/invalid/expired setup code"},
         404: {"description": "Email is not a member of this workspace"},
         409: {"description": "Account already has a password — use the reset flow"},
     },
 )
 async def password_setup(payload: PasswordSetupIn, db: DbDep) -> dict:
-    """Self-service first password (fixes the post-approval deadstate).
+    """First password for an approved account that has none, bound to a setup code.
 
-    An admin approval flips the user to ``is_active=true`` but leaves
-    ``password_hash=NULL``; this lets that user set their own password directly
-    instead of waiting on the platform-admin-relayed reset token. It is the only
-    writer of a first password and can fire exactly once: the UPDATE is guarded
-    on ``password_hash IS NULL``, so a double-submit (or anyone racing for the
-    account) finds the row already set and gets a 409, never an overwrite.
+    F5a / SEC-1: this route used to accept (email, workspace_code, new_password)
+    alone, so anyone who knew the two shared values could claim an approved but
+    unclaimed account. It now requires the one-time setup code (the token of an
+    approved password_reset_requests row — the business admin's provisioning
+    code, a platform-admin re-issue, or an approved reset), which it consumes.
+    It still fires at most once per account: the UPDATE is guarded on
+    ``password_hash IS NULL``, so a double-submit gets a 409, never an overwrite.
     """
     tenant = await get_tenant_by_workspace_code(db, payload.workspace_code)
     if not tenant:
@@ -440,6 +475,7 @@ async def password_setup(payload: PasswordSetupIn, db: DbDep) -> dict:
             status_code=status.HTTP_409_CONFLICT,
             detail="This account already has a password. Use 'Forgot your password?' to reset it.",
         )
+    req = await _verified_reset_request(db, tenant["id"], user["id"], payload.setup_code, setup=True)
     result = await auth_repo.set_first_password_if_null(
         db, user_id=user["id"], password_hash=await hash_password_async(payload.new_password),
     )
@@ -451,6 +487,7 @@ async def password_setup(payload: PasswordSetupIn, db: DbDep) -> dict:
             status_code=status.HTTP_409_CONFLICT,
             detail="This account already has a password. Use 'Forgot your password?' to reset it.",
         )
+    await auth_repo.mark_reset_completed(db, req["id"])  # single use
     await db.commit()
     logger.info("password setup completed tenant_id=%s user_id=%s", tenant["id"], user["id"])
     return {"status": "set", "message": "Password created. You can now sign in."}
@@ -482,6 +519,7 @@ async def signup_supervisor(
         email=payload.email,
         role="supervisor",
         notes=f"pending_module:{code_row['module']}",
+        password=payload.password,
     )
 
 
@@ -517,6 +555,7 @@ async def signup_observer(
         email=payload.email,
         role="observer",
         notes="pending_observer",
+        password=payload.password,
     )
 
 
@@ -549,6 +588,7 @@ async def signup_executive(
             f"pending_supervisor:{code_row['supervisor_id']}"
             f"|module:{code_row['module']}"
         ),
+        password=payload.password,
     )
 
 
@@ -559,11 +599,17 @@ async def _enqueue_signup(
     email: str,
     role: str,
     notes: str,
+    password: Optional[str] = None,
 ) -> SignupAcceptedOut:
-    """Shared dedupe + insert path for the two signup endpoints.
+    """Shared dedupe + insert path for the signup endpoints.
 
     Returns 202 if a pending row already exists or a new one is created.
     Raises 409 if the email is already active in the tenant.
+
+    F5a / SEC-1: ``password`` (chosen by the applicant) is stored hashed on the
+    new pending row. An EXISTING pending row is never updated — first signup
+    wins — so a second signup for the same email cannot plant or replace the
+    password of someone else's pending request.
     """
     existing = await get_user_by_tenant_email(
         db, tenant_id, email, columns="id, is_active"
@@ -583,6 +629,7 @@ async def _enqueue_signup(
     await auth_repo.insert_pending_signup(
         db, user_id=new_id, tenant_id=tenant_id, role=role,
         email=email, name=email.split("@")[0], notes=notes,
+        password_hash=(await hash_password_async(password)) if password else None,
     )
     await db.commit()
     logger.info(

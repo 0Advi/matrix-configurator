@@ -20,10 +20,10 @@ import { useSession } from '../../state/SessionContext.jsx';
 import { useWorkspaceModules } from '../../state/useWorkspaceModules.js';
 import { customModuleRoute } from '../shared/workspaceModules.js';
 import {
-  getRecord, actOnRecord, assignRecord, listMembers, problemOf, toExtraErrors,
+  getRecord, actOnRecord, assignRecord, listMembers, problemOf, toExtraErrors, uploadRecordFile, getRecordFile,
 } from '../../services/api/moduleRuntimeApi.js';
 import { Card, SectionTitle, CaseStatus, StageState, Button, Notice, when, tierLabel } from './kit.jsx';
-import { MembersContext, WIDGETS } from './widgets.jsx';
+import { MembersContext, RecordContext, WIDGETS, formatBytes } from './widgets.jsx';
 import GateLocked from './GateLocked.jsx';
 import './generic-module.css';
 
@@ -124,6 +124,24 @@ export default function GenericRecordPage() {
     finally { setBusy(null); }
   };
 
+  // F5a: file fields upload to the case (POST …/records/{id}/files) and open through a short-lived
+  // signed URL (GET …/files/{id}); the window is opened first so the click is not popup-blocked.
+  const openFile = React.useCallback(async (mk, fileId) => {
+    const w = window.open('about:blank', '_blank');
+    try {
+      const f = await getRecordFile(mk, fileId);
+      if (w) { w.opener = null; w.location.href = f.url; }
+    } catch (e) {
+      if (w) w.close();
+      setProblem(problemOf(e));
+    }
+  }, []);
+  const files = detail?.files;
+  const recordCtx = React.useMemo(
+    () => ({ moduleKey, recordId, files: files || {}, upload: uploadRecordFile, open: openFile }),
+    [moduleKey, recordId, files, openFile],
+  );
+
   const moduleLabel = detail?.module?.label || ws.get(moduleKey)?.label || moduleKey;
   const back = () => navigate(customModuleRoute(moduleKey));
 
@@ -148,10 +166,12 @@ export default function GenericRecordPage() {
   const canAssign = !isReadOnly && !!mod?.tiers?.delegation && (me?.role === 'supervisor' || me?.role === 'business_admin')
     && !['completed', 'rejected'].includes(record.case_status);
   const outdated = release?.live_version != null && release.live_version !== release.version;
+
   const sourceLabels = Object.fromEntries((ws.modules || []).map((m) => [m.key, m.label]));
 
   return (
     <MembersContext.Provider value={members}>
+    <RecordContext.Provider value={recordCtx}>
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
         <PageHeader
           onBack={back}
@@ -223,7 +243,8 @@ export default function GenericRecordPage() {
             <Card>
               <SectionTitle>Stages · release v{release?.version}</SectionTitle>
               <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {stages.map((s) => <StageRow key={s.order} s={s} current={next?.stage === s.order} memberName={memberName}/>)}
+                {stages.map((s) => <StageRow key={s.order} s={s} current={next?.stage === s.order} memberName={memberName}
+                  files={detail.files || {}} onOpenFile={(id) => openFile(moduleKey, id)}/>)}
               </ol>
             </Card>
 
@@ -280,6 +301,11 @@ export default function GenericRecordPage() {
                         <span style={{ color: 'var(--zm-fg-3)' }}> · {a.actor_name || (ev.actor === 'system' ? 'system' : '—')}{ev.actor_role && ev.actor_role !== 'system' ? ` (${tierLabel(ev.actor_role)})` : ''}</span>
                         {(pv.override || ev.override) && <span style={{ marginLeft: 6, color: 'var(--zm-copper)', fontWeight: 700 }}>{pv.creator_override ? 'override · not the site’s creator' : 'override'}</span>}
                         {pv.rule === 'site_creator' && pv.site_creator && <span style={{ marginLeft: 6, color: 'var(--zm-info)', fontWeight: 700 }}>site creator</span>}
+                        {pv.policy === 'files' && pv.file_name && (
+                          <div data-testid="file-entry" style={{ fontSize: 12, color: 'var(--zm-fg-2)', marginTop: 2 }}>
+                            Stage {pv.stage} · {pv.field}: {pv.file_name} ({formatBytes(pv.size)})
+                          </div>
+                        )}
                         {pv.policy === 'release_migration' && (
                           <div data-testid="migration-entry" style={{ fontSize: 12, color: 'var(--zm-fg-2)', marginTop: 2 }}>
                             Moved v{pv.from_release?.version ?? '?'} → v{pv.to_release?.version ?? '?'}
@@ -300,6 +326,7 @@ export default function GenericRecordPage() {
           </div>
         </div>
       </div>
+    </RecordContext.Provider>
     </MembersContext.Provider>
   );
 }
@@ -325,6 +352,7 @@ function humanAction(action, type) {
     auto_approved: 'Auto-approved', rejected: 'Rejected', rejected_forward: 'Rejected (forward)', sent_back: 'Sent back',
     stage_completed: 'Stage completed', module_completed: 'Case completed', parked: 'Parked', assigned: 'Assigned',
     record_assigned: 'Assigned to an executive', release_migrated: 'Moved to another release',
+    file_uploaded: 'File uploaded',
   })[t] || String(t).replace(/_/g, ' ');
 }
 
@@ -391,11 +419,18 @@ function NextStep({ next, record, me, allowed, isReadOnly, mod, approvals = [], 
   );
 }
 
-function StageRow({ s, current, memberName }) {
+function StageRow({ s, current, memberName, files = {}, onOpenFile }) {
   const values = s.field_values || {};
   const fields = Array.isArray(s.fields) ? s.fields : [];
   const shown = fields.filter((f) => values[f.key] !== undefined && values[f.key] !== null && values[f.key] !== '');
-  const fmt = (f, v) => (typeof v === 'boolean' ? (v ? 'Yes' : 'No') : f.kind === 'person' ? (memberName(v) || v) : String(v));
+  // F5a: a file field holds a file id → its name, opening through a signed URL.
+  const fileLink = (v) => (files[v] ? (
+    <button type="button" onClick={() => onOpenFile?.(v)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--zm-accent)', cursor: 'pointer', fontSize: 12.5, textDecoration: 'underline' }}>
+      📎 {files[v].file_name} <span style={{ color: 'var(--zm-fg-3)', textDecoration: 'none' }}>({formatBytes(files[v].size)})</span>
+    </button>
+  ) : String(v));
+  const fmt = (f, v) => (typeof v === 'boolean' ? (v ? 'Yes' : 'No') : f.kind === 'person' ? (memberName(v) || v)
+    : f.kind === 'file' ? fileLink(v) : String(v));
   return (
     <li style={{ display: 'grid', gridTemplateColumns: '30px 1fr', gap: 10, padding: '10px 12px', borderRadius: 10,
       border: `1px solid ${current ? 'var(--zm-accent-line)' : 'var(--zm-line)'}`, background: current ? 'var(--zm-accent-soft)' : 'transparent' }}>

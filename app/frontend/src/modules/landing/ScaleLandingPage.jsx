@@ -747,12 +747,17 @@ function AuthModal({ mode, onMode, onClose, prefillEmail, lockRegister = false }
     const form = event.currentTarget;
     const email = form.elements.email.value.trim();
     const code = form.elements.code.value.trim().toUpperCase();
+    const password = form.elements.password?.value || '';
+    const confirm = form.elements.password_confirm?.value || '';
     if (!email || !code) { showStatus('Enter your work email and the code from your team.', 'error'); return; }
     if (!EMAIL_RE.test(email)) { showStatus('Email looks invalid. Use the format you@company.com.', 'error'); return; }
     if (!CODE_RE.test(code)) { showStatus('Code looks invalid. Ask your team for the exact value.', 'error'); return; }
+    // F5a / SEC-1: the password is chosen at signup; approval only activates the account.
+    if (password.length < 6) { showStatus('Choose a password of at least 6 characters.', 'error'); return; }
+    if (password !== confirm) { showStatus('Passwords do not match.', 'error'); return; }
     setBusy(true);
     try {
-      await joinConfig.signup(email, code);
+      await joinConfig.signup(email, code, password);
       showStatus(joinConfig.submitted);
       form.reset();
     } catch (error) {
@@ -848,6 +853,21 @@ function AuthModal({ mode, onMode, onClose, prefillEmail, lockRegister = false }
           </label>
         )}
 
+        {isJoin && (
+          <>
+            <label>
+              Choose a password
+              <input name="password" type="password" placeholder="At least 6 characters"
+                autoComplete="new-password" minLength={6} required />
+            </label>
+            <label>
+              Confirm password
+              <input name="password_confirm" type="password" placeholder="Re-enter password"
+                autoComplete="new-password" minLength={6} required />
+            </label>
+          </>
+        )}
+
         <button type="submit" className="scale-primary-btn" disabled={busy}>
           {busy ? 'Working...' : isRegister ? 'Request workspace' : isJoin ? `Request ${joinMode} access` : 'Continue to dashboard'}
         </button>
@@ -855,7 +875,7 @@ function AuthModal({ mode, onMode, onClose, prefillEmail, lockRegister = false }
           {isRegister
             ? 'Workspace requests are sent to platform admins for approval. Once approved, the workspace code is emailed to the admin work email.'
             : isJoin
-              ? 'Supervisor requests route to the business admin. Executive requests route to the supervisor code owner.'
+              ? 'Supervisor requests route to the business admin. Executive requests route to the supervisor code owner. Once approved, sign in with this email and password.'
               : "First time signing in? You'll land in the right queue until your role and module access are approved."}
         </div>
         {status && <div className={`scale-auth-status is-${statusTone}`}>{status.message}</div>}

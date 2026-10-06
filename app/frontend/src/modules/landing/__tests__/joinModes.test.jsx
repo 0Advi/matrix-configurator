@@ -92,9 +92,10 @@ describe('BrandedLoginPage — the Join panel', () => {
 
     await user.type(screen.getByLabelText(/work email/i), 'asha@example.com');
     await user.type(screen.getByLabelText(/observer code/i), 'ABC123XY');
+    await typePasswords(user);
     await user.click(screen.getByRole('button', { name: /request access/i }));
 
-    expect(calls).toEqual([['observer', 'asha@example.com', 'ABC123XY']]);
+    expect(calls).toEqual([['observer', 'asha@example.com', 'ABC123XY', 'Chosen#pw1']]);
   });
 
   it('accepts a code containing an underscore', async () => {
@@ -107,8 +108,35 @@ describe('BrandedLoginPage — the Join panel', () => {
     await user.click(screen.getByRole('button', { name: 'Observer' }));
     await user.type(screen.getByLabelText(/work email/i), 'asha@example.com');
     await user.type(screen.getByLabelText(/observer code/i), 'B2JN7IGG_DG');
+    await typePasswords(user);
     await user.click(screen.getByRole('button', { name: /request access/i }));
 
-    expect(calls).toEqual([['observer', 'asha@example.com', 'B2JN7IGG_DG']]);
+    expect(calls).toEqual([['observer', 'asha@example.com', 'B2JN7IGG_DG', 'Chosen#pw1']]);
+  });
+
+  // F5a / SEC-1: the applicant chooses the password at signup (approval only activates
+  // the account), so the join form refuses to submit without one — and never sends a
+  // mismatched pair.
+  it('requires a password (and a matching confirmation) before submitting', async () => {
+    const user = userEvent.setup();
+    await renderJoin();
+    await user.type(screen.getByLabelText(/work email/i), 'ravi@example.com');
+    await user.type(screen.getByLabelText(/department code/i), 'DEPT-AB12');
+    await user.click(screen.getByRole('button', { name: /request access/i }));
+    expect(await screen.findByText(/at least 6 characters/i)).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/choose a password/i), 'Chosen#pw1');
+    await user.type(screen.getByLabelText(/confirm password/i), 'Different1');
+    await user.click(screen.getByRole('button', { name: /request access/i }));
+    expect(await screen.findByText(/do not match/i)).toBeInTheDocument();
+    expect(calls).toEqual([]);
+    await user.clear(screen.getByLabelText(/confirm password/i));
+    await user.type(screen.getByLabelText(/confirm password/i), 'Chosen#pw1');
+    await user.click(screen.getByRole('button', { name: /request access/i }));
+    expect(calls).toEqual([['supervisor', 'ravi@example.com', 'DEPT-AB12', 'Chosen#pw1']]);
   });
 });
+
+async function typePasswords(user) {
+  await user.type(screen.getByLabelText(/choose a password/i), 'Chosen#pw1');
+  await user.type(screen.getByLabelText(/confirm password/i), 'Chosen#pw1');
+}

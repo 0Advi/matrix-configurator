@@ -114,7 +114,7 @@ const detail = (over = {}) => ({
 });
 
 describe('GenericRecordPage', () => {
-  it('renders the pinned release, stages, the rjsf form and the file-field notice', async () => {
+  it('renders the pinned release, stages, the rjsf form and the file-field upload control', async () => {
     api.getRecord.mockResolvedValue(detail());
     renderAt(`/m/${MOD}/records/r1`);
     expect(await screen.findByRole('heading', { name: 'Andheri West' })).toBeInTheDocument();
@@ -122,7 +122,9 @@ describe('GenericRecordPage', () => {
     expect(screen.getByText(/live is v2/i)).toBeInTheDocument();
     expect(screen.getByText(/Executive → Supervisor/)).toBeInTheDocument();
     expect(screen.getByLabelText(/vendor name/i)).toBeInTheDocument();
-    expect(screen.getByTestId('file-unsupported')).toHaveTextContent(/isn’t available/);
+    // F5a: the file field uploads (it used to show an "upload isn't available yet" notice).
+    expect(screen.getByTestId('file-widget')).toHaveTextContent(/upload a file \(\.pdf\)/i);
+    expect(screen.queryByTestId('file-unsupported')).toBeNull();
     expect(screen.getByText('✓ chain verified')).toBeInTheDocument();
     expect(screen.getByText(/release v1 · runtime · #1/)).toBeInTheDocument();
   });

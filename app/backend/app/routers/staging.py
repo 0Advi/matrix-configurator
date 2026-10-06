@@ -13,12 +13,17 @@ from fastapi import APIRouter, Depends, status
 from app.core.deps import DbDep, TenantId
 from app.domain.schemas.common import OkResponse
 from app.domain.schemas.site import SiteListResponse
-from app.rbac.guards import require_role
+from app.rbac.guards import require_module_enabled, require_role
 from app.rbac.roles import Role
 from app.services.bd_service import svc_push_to_payments
 from app.services.query_service import list_sites
 
-router = APIRouter(prefix="/staging", tags=["Staging"])
+# F5a: refused (403, every role) when the tenant's published configuration switches
+# the "bd" module OFF — data from tenant_modules, see rbac/guards.require_module_enabled.
+router = APIRouter(
+    prefix="/staging", tags=["Staging"],
+    dependencies=[Depends(require_module_enabled("bd"))],
+)
 
 
 @router.get("/exec", response_model=SiteListResponse, summary="List exec staging sites")

@@ -60,7 +60,7 @@ describe('the read-only module switcher', () => {
     render(<ReadOnlyBanner />);
     await user.selectOptions(sel(), 'legal');
     expect(activateOverride).toHaveBeenCalledWith({ role: 'supervisor', module: 'legal' });
-    expect(href).toBe('/legal');
+    expect(href).toBe('/#/legal'); // F5a: the hash route (was '/legal' → '/legal#/legal')
   });
 
   it('hard-navigates rather than soft-navigating', async () => {
@@ -71,7 +71,7 @@ describe('the read-only module switcher', () => {
     const user = userEvent.setup();
     render(<ReadOnlyBanner />);
     await user.selectOptions(sel(), 'nso');
-    expect(href).toBe('/nso');
+    expect(href).toBe('/#/nso');
   });
 
   it('carries the current role over instead of resetting to supervisor', async () => {

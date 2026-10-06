@@ -471,6 +471,20 @@ async def _verify_schema():
     log.info("Schema verification passed: sites columns present, model=text, rent_type includes staggered.")
 
 
+async def _recover_stale_release_migrations() -> None:
+    from app.db.session import SessionLocal
+    from app.services.release_migration_service import recover_stale_migrations
+
+    try:
+        async with SessionLocal() as session:
+            recovered = await recover_stale_migrations(session)
+        if recovered:
+            log.warning("startup: marked %d stale release migration(s) failed: %s",
+                        len(recovered), [r["id"] for r in recovered])
+    except Exception:  # noqa: BLE001 — never block startup on housekeeping
+        log.exception("startup: stale release-migration recovery failed")
+
+
 # ── Application lifespan ──────────────────────────────────────────────────────
 
 @asynccontextmanager
@@ -492,6 +506,11 @@ async def lifespan(app: FastAPI):
 
     # ── Verify required schema matches expectations
     await _verify_schema()
+
+    # ── F5a: a "migrate running cases" run left 'running' by a process that died mid-run is
+    #    marked failed (only after STALE_AFTER_SECONDS without a heartbeat, so a migration still
+    #    running in another instance is never touched; committed sites are never touched either).
+    await _recover_stale_release_migrations()
 
     # Warn (don't fail) if the deployment scales out past the single-process
     # invariant the in-memory rate limiter relies on (#225, 3.2).

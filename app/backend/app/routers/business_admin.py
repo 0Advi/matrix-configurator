@@ -29,7 +29,7 @@ from app.domain.schemas.business_admin import (
     SiteDocumentsResponse,
     ExecutiveRequestOut,
 )
-from app.rbac.guards import require_real_role, require_role
+from app.rbac.guards import require_module_enabled, require_real_role, require_role
 from app.rbac.roles import Role
 from app.services import business_admin_documents_service as docs_svc
 from app.services import business_admin_service as svc
@@ -280,7 +280,11 @@ async def delete_site(
     return await svc.delete_site(db, tenant_id, site_id, current_user)
 
 
-@router.get("/finance-approvals", response_model=list[FinanceApprovalOut])
+# F5a: the finance_ca admin queue is refused (403) when finance_ca is switched OFF.
+_FINANCE_ON = [Depends(require_module_enabled("finance_ca"))]
+
+
+@router.get("/finance-approvals", response_model=list[FinanceApprovalOut], dependencies=_FINANCE_ON)
 async def list_finance_approvals(
     db: DbDep,
     _auth: Annotated[dict, Depends(require_role(Role.BUSINESS_ADMIN))],
@@ -292,6 +296,7 @@ async def list_finance_approvals(
 @router.post(
     "/finance-approvals/{site_id}/approve",
     response_model=dict,
+    dependencies=_FINANCE_ON,
 )
 async def approve_finance(
     site_id: str,
@@ -309,6 +314,7 @@ class _FinanceRejectBody(BaseModel):
 @router.post(
     "/finance-approvals/{site_id}/reject",
     response_model=dict,
+    dependencies=_FINANCE_ON,
     summary="Admin sends a finance request back for correction",
     description="awaiting_admin → pending. Unlocks KYC / CA code / amount so the executive can fix and re-request approval.",
 )

@@ -1,6 +1,8 @@
 // Provisioned workspaces (GET /platform/workspaces) with a per-workspace detail
 // (GET /platform/workspaces/{ref}: release history, module registry, business-admin claim).
 // G3: the detail also carries "Migrate running cases" (MigrateCasesPanel.jsx).
+// F5a (SEC-1): an unclaimed business admin gets "Issue a new setup code" (the provisioning
+// code is shown only once; this supersedes it).
 import React from 'react';
 import MigrateCasesPanel from './MigrateCasesPanel.jsx';
 import { platformApi, workspaceLoginUrl } from '../adminApi.js';
@@ -106,6 +108,7 @@ function WorkspaceDetail({ refId, withAuth }) {
         {ws.business_admin
           ? <div style={{ fontSize: 12.5 }}>{ws.business_admin.name ? `${ws.business_admin.name} · ` : ''}{ws.business_admin.email} {ws.business_admin.has_password ? <Pill tone="ok">claimed</Pill> : <Pill tone="warn">not claimed yet</Pill>}</div>
           : <span style={{ fontSize: 12.5, color: C.faint }}>—</span>}
+        {ws.business_admin && !ws.business_admin.has_password && <SetupCodeReissue refId={refId} withAuth={withAuth}/>}
         {ws.workspace_code && <a href={workspaceLoginUrl(ws.workspace_code)} target="_blank" rel="noreferrer" style={{ color: C.info, fontSize: 12 }}>Open the workspace login page ↗</a>}
         <Eyebrow style={{ marginTop: 8 }}>Modules (live registry)</Eyebrow>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -127,6 +130,41 @@ function WorkspaceDetail({ refId, withAuth }) {
     <div style={{ padding: '0 16px 18px' }}>
       <MigrateCasesPanel refId={refId} ws={ws} withAuth={withAuth}/>
     </div>
+    </div>
+  );
+}
+
+// F5a (SEC-1): the business admin claims the account only with a one-time setup code. The
+// provisioning code is shown once; when it was lost (or never relayed), the platform admin
+// issues a new one here — earlier codes stop working, and the backend refuses once the
+// account has a password.
+export function SetupCodeReissue({ refId, withAuth }) {
+  const [st, setSt] = React.useState({ status: 'idle' });
+  const issue = async () => {
+    setSt({ status: 'busy' });
+    try {
+      const r = await withAuth((k) => platformApi.reissueSetupCode(k, refId));
+      setSt({ status: 'done', code: r.admin_setup_token, expires: r.expires_at, email: r.admin_email });
+    } catch (e) {
+      setSt({ status: 'error', error: e.message });
+    }
+  };
+  if (st.status === 'done') {
+    return (
+      <div role="note" aria-label="New setup code" style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 12px', borderRadius: 8, background: C.warnBg, color: C.warn, fontSize: 12, lineHeight: 1.5 }}>
+        <span><b>Share privately — shown only once.</b> New setup code for {st.email}; earlier codes no longer work{st.expires ? ` · expires ${when(st.expires)}` : ''}.</span>
+        <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+          <code data-testid="reissued-setup-code" style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: C.text, overflowWrap: 'anywhere' }}>{st.code}</code>
+          <CopyButton value={st.code}/>
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span style={{ fontSize: 11.5, color: C.faint, lineHeight: 1.5 }}>The account can only be claimed with its one-time setup code. Lost it?</span>
+      <span><Button size="sm" onClick={issue} busy={st.status === 'busy'}>Issue a new setup code</Button></span>
+      {st.status === 'error' && <Banner>{st.error}</Banner>}
     </div>
   );
 }

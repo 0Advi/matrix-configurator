@@ -10,6 +10,7 @@
 //   GET  /m/{key}/views[?manage=true]          → saved views for my role (+ default_view_id, can_manage)
 //   POST|PATCH|DELETE /m/{key}/views[/{id}]    → business admin manages views; POST /views/reset → defaults
 //   GET  /m/{key}/records?view=<id>            → the view is applied server-side, on top of my scope
+//   F5a: POST /m/{key}/records/{id}/files (multipart) → upload for a file field; GET /m/{key}/files/{id} → signed url
 //
 // Refusals keep `detail` as a string and carry machine-readable extras (`code`, `gate`,
 // `errors`, `record_id`, …). The shared axios client wraps errors in ApiError; problemOf()
@@ -90,6 +91,23 @@ export async function actOnRecord(moduleKey, recordId, body) {
 
 export async function assignRecord(moduleKey, recordId, executiveId) {
   return (await client.post(`${base(moduleKey)}/records/${enc(recordId)}/assign`, { executive_id: executiveId })).data;
+}
+
+// ── F5a: files for `kind: file` fields ───────────────────────────────────────
+// POST /m/{key}/records/{id}/files (multipart: field, file) → {id, file_name, content_type, size, …};
+// the form then submits that id. GET /m/{key}/files/{id} → metadata + a short-lived signed `url`.
+const UPLOAD_TIMEOUT_MS = 120000; // the backend relays the bytes to storage before answering
+
+export async function uploadRecordFile(moduleKey, recordId, field, file) {
+  const form = new FormData();
+  form.append('field', field);
+  form.append('file', file);
+  // axios sets the multipart Content-Type (with boundary) automatically for FormData.
+  return (await client.post(`${base(moduleKey)}/records/${enc(recordId)}/files`, form, { timeout: UPLOAD_TIMEOUT_MS })).data;
+}
+
+export async function getRecordFile(moduleKey, fileId) {
+  return (await client.get(`${base(moduleKey)}/files/${enc(fileId)}`)).data;
 }
 
 // Sites a supervisor / business admin can open a case on (the existing sites list).

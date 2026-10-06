@@ -42,7 +42,7 @@ from app.domain.schemas.design import (
     ReviewDeliverableRequest,
     SubmitDeliverableRequest,
 )
-from app.rbac.guards import require_module, require_role
+from app.rbac.guards import require_module, require_module_enabled, require_role
 from app.rbac.roles import Role
 from app.services.delegation_service import svc_assigned_sites, svc_is_delegated
 from app.services.design_service import (
@@ -62,7 +62,13 @@ from app.services.design_service import (
 )
 from app.services.storage_service import upload_bytes as storage_upload
 
-router = APIRouter(prefix="/design", tags=["Design"])
+# F5a: every route — including the business-admin tier that has no require_module
+# guard — is refused (403) when the tenant's published configuration switches the
+# "design" module OFF (rbac/guards.require_module_enabled; data from tenant_modules).
+router = APIRouter(
+    prefix="/design", tags=["Design"],
+    dependencies=[Depends(require_module_enabled("design"))],
+)
 
 # Supervisor + executive in the design module reach the workflow routes.
 # Allocation + deliverable review are supervisor-only. GFC is business_admin-only

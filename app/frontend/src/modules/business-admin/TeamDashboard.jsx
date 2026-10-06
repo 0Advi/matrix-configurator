@@ -30,31 +30,34 @@ import { mergePending } from './departments/pendingQueue.js';
 import SitesTab, { classifyCounts } from './sites/SitesTab.jsx';
 import LaunchApprovalTab, { LAUNCH_ACTIONABLE_STATUSES } from './launch/LaunchApprovalTab.jsx';
 import { getLaunchQueue } from '../../services/api/launchApprovalApi.js';
+import { useWorkspaceModules, whenModuleEnabled } from '../../state/useWorkspaceModules.js';
 import FinancialClosureTab from './closure/FinancialClosureTab.jsx';
 import WorkspaceSwitcherPanel from './WorkspaceSwitcherPanel.jsx';
 
 // Real API wiring. Injectable so the dev preview (and tests) can drive the whole
 // portal with mock data — see ./_preview/ApprovalCenterPreview.jsx.
+// F5a: the queue of a module the workspace's published configuration switched OFF is not
+// requested at all (the API now refuses it with 403); it simply counts as empty.
 export const REAL_FETCHERS = {
   // Observer — workspace-wide read-only role
   getObserverCode, rotateObserverCode,
   listPendingObservers, approveObserver, rejectObserver,
   listActiveObservers: listObservers, revokeObserver,
-  listDeliverables:  getDesignAdminQueue,
+  listDeliverables:  whenModuleEnabled('design', getDesignAdminQueue),
   reviewDeliverable: adminReviewDeliverable,
-  listGfc:           getDesignGfcQueue,
+  listGfc:           whenModuleEnabled('design', getDesignGfcQueue),
   reviewGfcPackage:  getDesignGfcReview,
   decideGfc,
-  listFinance:       getFinanceQueue,
+  listFinance:       whenModuleEnabled('finance_ca', getFinanceQueue, () => []),
   approveFinance,
   rejectFinance,
-  listBudget:        getBudgetQueue,
+  listBudget:        whenModuleEnabled('project_excellence', getBudgetQueue),
   reviewBudget,
   fetchBudgetDetail,
   fetchBudgetDocuments,
-  listQualityAudit:  getQualityAuditQueue,
+  listQualityAudit:  whenModuleEnabled('project', getQualityAuditQueue),
   confirmQualityAudit,
-  listClosure:       getClosureAdminQueue,
+  listClosure:       whenModuleEnabled('financial_closure', getClosureAdminQueue),
   finalizeClosure,
   fetchClosureDetail,
   fetchClosureQAReports,
@@ -70,7 +73,7 @@ export const REAL_FETCHERS = {
   // A COUNT, not a page of rows: the badge asks for the actionable statuses with
   // limit 1 and reads `total`, which the backend counts before paging. Counting
   // loaded rows undercounted every queue longer than the endpoint's 500 default.
-  listLaunchQueue:   () => getLaunchQueue({ statusFilter: LAUNCH_ACTIONABLE_STATUSES.join(','), limit: 1 }),
+  listLaunchQueue:   whenModuleEnabled('launch_approval', () => getLaunchQueue({ statusFilter: LAUNCH_ACTIONABLE_STATUSES.join(','), limit: 1 })),
   listSites:         getAllSites,
   fetchSiteHistory:  getSiteHistory,
 };
@@ -91,6 +94,10 @@ export default function TeamDashboard({ onLogout, fetchers = REAL_FETCHERS, work
   })();
 
   const [tab, setTab] = React.useState('approvals');
+  // F5a: modules switched off by the tenant's published configuration (absent from
+  // GET /workspace/modules once it answered; a never-published tenant lists all built-ins).
+  const workspaceModules = useWorkspaceModules();
+  const moduleOff = (key) => workspaceModules.status === 'ready' && !workspaceModules.get(key);
   // Which Sites sub-tab to show; lets the KPI tiles deep-link (e.g. the
   // "Completed sites" tile jumps straight to the Completed filter).
   const [sitesFilter, setSitesFilter] = React.useState('active');
@@ -319,7 +326,9 @@ export default function TeamDashboard({ onLogout, fetchers = REAL_FETCHERS, work
     { ...TABS[3], count: pendingAccessCount + executiveRequests.items.length },
     { ...TABS[4] },
     { ...TABS[5] }, // Workspace Access tab
-  ];
+  // F5a: no Launch / Financial Closure tab when the published configuration switched it off.
+  ].filter((t) => !(t.key === 'launch' && moduleOff('launch_approval'))
+    && !(t.key === 'closure' && moduleOff('financial_closure')));
 
   return (
     <div className="ac-root" data-theme={theme}
@@ -388,10 +397,10 @@ export default function TeamDashboard({ onLogout, fetchers = REAL_FETCHERS, work
             {tab === 'approvals' && (
               <ApprovalCenter data={approvalData} handlers={handlers} onRetry={() => reloadApprovals(false)} />
             )}
-            {tab === 'launch' && (
+            {tab === 'launch' && !moduleOff('launch_approval') && (
               <LaunchApprovalTab />
             )}
-            {tab === 'closure' && <FinancialClosureTab />}
+            {tab === 'closure' && !moduleOff('financial_closure') && <FinancialClosureTab />}
             {tab === 'departments' && (
               <DepartmentsTab org={org} pendingSupervisors={supervisors} executiveRequests={executiveRequests}
               observers={{ code: observerCode, pending: observerPending, roster: observerRoster,

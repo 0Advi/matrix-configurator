@@ -32,7 +32,7 @@ from app.domain.schemas.site import (
 from app.domain.schemas.site_stage_status import SiteStageStatusResponse
 from app.domain.schemas.site_tracker import SiteTrackerResponse
 from app.domain.state_machine import SiteStatus
-from app.rbac.guards import require_role
+from app.rbac.guards import require_module_enabled, require_role
 from app.rbac.roles import Role
 from app.services.bd_service import (
     svc_approve_shortlist,
@@ -62,6 +62,13 @@ from app.services.reversible_service import (
 )
 
 router = APIRouter(prefix="/sites", tags=["Sites"])
+
+# F5a: the /sites write aliases of the BD flow (create / status dispatcher / details /
+# archive / revive / reject / assign / photos / LOI) and the finance_ca tab are refused
+# (403, every role) when the tenant's published configuration switches that module OFF.
+# Reads (/sites, /sites/{id}, activity, documents …) stay shared by every module.
+_BD_ON = [Depends(require_module_enabled("bd"))]
+_FINANCE_ON = [Depends(require_module_enabled("finance_ca"))]
 
 # Undo is business-admin only. require_role admits business_admin regardless;
 # the service re-checks and scopes rows to the acting admin.
@@ -181,6 +188,7 @@ async def get_site_stage_status(
     response_model=SiteResponse,
     status_code=http_status.HTTP_201_CREATED,
     summary="Create a draft site (alias for POST /api/bd/drafts)",
+    dependencies=_BD_ON,
 )
 async def create_site(
     body: CreateDraftRequest,
@@ -215,6 +223,7 @@ async def create_site(
 @router.patch(
     "/{site_id}/status",
     summary="Universal status-transition dispatcher (alias)",
+    dependencies=_BD_ON,
 )
 # skipcq: PY-R1000, PYL-R0912
 async def patch_site_status(
@@ -307,6 +316,7 @@ async def patch_site_status(
     "/{site_id}/details",
     response_model=OkResponse,
     summary="Save partial details without transitioning",
+    dependencies=_BD_ON,
 )
 async def patch_site_details(
     site_id: str,
@@ -327,6 +337,7 @@ async def patch_site_details(
     "/{site_id}/viewed",
     response_model=OkResponse,
     summary="Acknowledge supervisor edits (clears the yellow flag)",
+    dependencies=_BD_ON,
 )
 async def mark_site_viewed(
     site_id: str,
@@ -341,7 +352,7 @@ async def mark_site_viewed(
     )
 
 
-@router.post("/{site_id}/archive", response_model=OkResponse, summary="Archive a site (alias)")
+@router.post("/{site_id}/archive", response_model=OkResponse, summary="Archive a site (alias)", dependencies=_BD_ON)
 async def archive_site(
     site_id: str,
     body: ArchiveSiteRequest,
@@ -362,6 +373,7 @@ class _ReviveSiteBody(BaseModel):
     "/{site_id}/revive",
     response_model=OkResponse,
     summary="Revive an archived site (supervisor only)",
+    dependencies=_BD_ON,
 )
 async def revive_site(
     site_id: str,
@@ -380,7 +392,7 @@ class _RejectSiteBody(BaseModel):
     comment: Optional[str] = None
 
 
-@router.post("/{site_id}/reject", response_model=OkResponse, summary="Reject a site (alias)")
+@router.post("/{site_id}/reject", response_model=OkResponse, summary="Reject a site (alias)", dependencies=_BD_ON)
 async def reject_site(
     site_id: str,
     body: _RejectSiteBody,
@@ -394,7 +406,7 @@ async def reject_site(
     )
 
 
-@router.post("/{site_id}/assign", response_model=OkResponse, summary="Reassign site to exec (alias)")
+@router.post("/{site_id}/assign", response_model=OkResponse, summary="Reassign site to exec (alias)", dependencies=_BD_ON)
 async def assign_site(
     site_id: str,
     body: AssignSiteRequest,
@@ -407,7 +419,7 @@ async def assign_site(
     )
 
 
-@router.post("/{site_id}/photos", summary="Upload a site photo")
+@router.post("/{site_id}/photos", summary="Upload a site photo", dependencies=_BD_ON)
 async def upload_site_photo(
     site_id: str,
     db: DbDep,
@@ -452,6 +464,7 @@ class _FinanceDraftBody(BaseModel):
         "Idempotent save — fields are only written when the finance sub-workflow is "
         "in 'pending'. Available to executives and supervisors."
     ),
+    dependencies=_FINANCE_ON,
 )
 async def save_finance_draft(
     site_id: str,
@@ -477,6 +490,7 @@ async def save_finance_draft(
         "Validates KYC verified + CA code set + amount entered, then transitions "
         "finance_status: pending → awaiting_supervisor and notifies supervisors."
     ),
+    dependencies=_FINANCE_ON,
 )
 async def finance_request_approval(
     site_id: str,
@@ -503,6 +517,7 @@ async def finance_request_approval(
         "Role-aware approval step. Supervisor: awaiting_supervisor → awaiting_admin. "
         "Business admin: awaiting_admin → approved."
     ),
+    dependencies=_FINANCE_ON,
 )
 async def finance_approve(
     site_id: str,
@@ -528,6 +543,7 @@ class _FinanceRejectBody(BaseModel):
         "Resets finance_status back to 'pending' so the executive can fix "
         "KYC / CA code / amount and re-request approval."
     ),
+    dependencies=_FINANCE_ON,
 )
 async def finance_reject(
     site_id: str,
@@ -544,7 +560,7 @@ async def finance_reject(
     )
 
 
-@router.post("/{site_id}/loi", response_model=LOIUploadResponse, summary="Upload LOI (alias, multipart)")
+@router.post("/{site_id}/loi", response_model=LOIUploadResponse, summary="Upload LOI (alias, multipart)", dependencies=_BD_ON)
 async def upload_loi_alias(
     site_id: str,
     db: DbDep,

@@ -637,35 +637,48 @@ def test_login_check_trusts_same_regex_origins_as_cors(monkeypatch):
     }))
 
 
+# F5a / SEC-1: /auth/password-setup now REQUIRES the one-time setup code. The
+# five tests below were written for the token-less variant (which let anyone
+# holding the shared (email, workspace_code) pair claim an approved, unclaimed
+# account); they keep asserting the same guards, now with a valid code queued.
+SETUP_CODE = "one-time-setup-code-123"
+SETUP_REQ = {"id": uuid.uuid4(), "reset_token_hash": hashlib.sha256(SETUP_CODE.encode()).hexdigest()}
+
+
+def _setup_in(**kw):
+    from app.routers.auth import PasswordSetupIn
+    base = dict(email="a@b.co", workspace_code="ACME-CODE1", new_password="hunter22",
+                setup_code=SETUP_CODE)
+    base.update(kw)
+    return PasswordSetupIn(**base)
+
+
 async def test_password_setup_sets_first_password(make_session, fake_result):
-    from app.routers.auth import PasswordSetupIn, password_setup
+    from app.routers.auth import password_setup
 
     sess = make_session(
         fake_result(mappings_rows=[TENANT_ROW]),
         fake_result(mappings_rows=[{"id": USER_ID, "is_active": True, "password_hash": None}]),
+        fake_result(mappings_rows=[SETUP_REQ]),  # the approved, unexpired setup request
         fake_result(rowcount=1),  # guarded UPDATE changed the row
     )
-    out = await password_setup(
-        PasswordSetupIn(email="a@b.co", workspace_code="ACME-CODE1", new_password="hunter22"),
-        sess,
-    )
+    out = await password_setup(_setup_in(), sess)
     assert out["status"] == "set"
     assert any("UPDATE users" in s for s in sess.executed)
+    # single use: the setup request is consumed in the same transaction
+    assert any("status = 'completed'" in s for s in sess.executed)
     assert sess.commit_count == 1
 
 
 async def test_password_setup_conflicts_when_password_exists(make_session, fake_result):
-    from app.routers.auth import PasswordSetupIn, password_setup
+    from app.routers.auth import password_setup
 
     sess = make_session(
         fake_result(mappings_rows=[TENANT_ROW]),
         fake_result(mappings_rows=[{"id": USER_ID, "is_active": True, "password_hash": "already"}]),
     )
     with pytest.raises(HTTPException) as exc:
-        await password_setup(
-            PasswordSetupIn(email="a@b.co", workspace_code="ACME-CODE1", new_password="hunter22"),
-            sess,
-        )
+        await password_setup(_setup_in(), sess)
     assert exc.value.status_code == 409
     assert not any("UPDATE users" in s for s in sess.executed)
 
@@ -674,49 +687,177 @@ async def test_password_setup_race_lost_does_not_overwrite(make_session, fake_re
     """SELECT saw NULL, but a concurrent setup set the password first — the
     guarded UPDATE affects 0 rows, so we 409 and roll back rather than overwrite
     (the #83 claim race stays closed)."""
-    from app.routers.auth import PasswordSetupIn, password_setup
+    from app.routers.auth import password_setup
 
     sess = make_session(
         fake_result(mappings_rows=[TENANT_ROW]),
         fake_result(mappings_rows=[{"id": USER_ID, "is_active": True, "password_hash": None}]),
+        fake_result(mappings_rows=[SETUP_REQ]),
         fake_result(rowcount=0),  # lost the race
     )
     with pytest.raises(HTTPException) as exc:
-        await password_setup(
-            PasswordSetupIn(email="a@b.co", workspace_code="ACME-CODE1", new_password="hunter22"),
-            sess,
-        )
+        await password_setup(_setup_in(), sess)
     assert exc.value.status_code == 409
     assert sess.rollback_count == 1
     assert sess.commit_count == 0
 
 
 async def test_password_setup_rejects_pending_account(make_session, fake_result):
-    from app.routers.auth import PasswordSetupIn, password_setup
+    from app.routers.auth import password_setup
 
     sess = make_session(
         fake_result(mappings_rows=[TENANT_ROW]),
         fake_result(mappings_rows=[{"id": USER_ID, "is_active": False, "password_hash": None}]),
     )
     with pytest.raises(HTTPException) as exc:
-        await password_setup(
-            PasswordSetupIn(email="a@b.co", workspace_code="ACME-CODE1", new_password="hunter22"),
-            sess,
-        )
+        await password_setup(_setup_in(), sess)
     assert exc.value.status_code == 403
     assert not any("UPDATE users" in s for s in sess.executed)
 
 
 async def test_password_setup_unknown_email_is_404(make_session, fake_result):
-    from app.routers.auth import PasswordSetupIn, password_setup
+    from app.routers.auth import password_setup
 
     sess = make_session(
         fake_result(mappings_rows=[TENANT_ROW]),
         fake_result(mappings_rows=[]),
     )
     with pytest.raises(HTTPException) as exc:
-        await password_setup(
-            PasswordSetupIn(email="a@b.co", workspace_code="ACME-CODE1", new_password="hunter22"),
-            sess,
-        )
+        await password_setup(_setup_in(), sess)
     assert exc.value.status_code == 404
+
+
+# ── F5a / SEC-1 — the first-password account takeover is closed ───────────────
+
+def test_sec1_password_setup_without_setup_code_is_refused():
+    """The SEC-1 attack: (email, workspace_code, new_password) — two shared values —
+    used to claim an approved account that had no password yet. The body now
+    fails validation before any lookup."""
+    from app.routers.auth import PasswordSetupIn
+
+    with pytest.raises(ValidationError):
+        PasswordSetupIn(email="victim@acme.co", workspace_code="ACME-CODE1", new_password="attacker1")
+    with pytest.raises(ValidationError):  # too short to be a real token
+        PasswordSetupIn(email="victim@acme.co", workspace_code="ACME-CODE1",
+                        new_password="attacker1", setup_code="guess")
+
+
+async def test_sec1_password_setup_wrong_code_writes_nothing(make_session, fake_result):
+    from app.routers.auth import password_setup
+
+    sess = make_session(
+        fake_result(mappings_rows=[TENANT_ROW]),
+        fake_result(mappings_rows=[{"id": USER_ID, "is_active": True, "password_hash": None}]),
+        fake_result(mappings_rows=[SETUP_REQ]),
+    )
+    with pytest.raises(HTTPException) as exc:
+        await password_setup(_setup_in(setup_code="not-the-issued-code"), sess)
+    assert exc.value.status_code == 403
+    assert "setup code" in exc.value.detail
+    assert not any("UPDATE users" in s for s in sess.executed)
+    assert sess.commit_count == 0
+
+
+async def test_sec1_password_setup_without_issued_code_writes_nothing(make_session, fake_result):
+    """An approved staff account with no password and no issued code (e.g. approved
+    before F5a) cannot be claimed by anyone until the platform admin issues a code."""
+    from app.routers.auth import password_setup
+
+    sess = make_session(
+        fake_result(mappings_rows=[TENANT_ROW]),
+        fake_result(mappings_rows=[{"id": USER_ID, "is_active": True, "password_hash": None}]),
+        fake_result(mappings_rows=[]),  # no approved setup/reset request
+    )
+    with pytest.raises(HTTPException) as exc:
+        await password_setup(_setup_in(), sess)
+    assert exc.value.status_code == 403
+    assert not any("UPDATE users" in s for s in sess.executed)
+
+
+@pytest.mark.parametrize("route,payload_cls,code_field", [
+    ("signup_supervisor", "SupervisorSignupIn", "dept_code"),
+    ("signup_executive", "ExecutiveSignupIn", "supervisor_code"),
+    ("signup_observer", "ObserverSignupIn", "code"),
+])
+async def test_sec1_signup_stores_the_applicants_password_hashed(
+    make_session, fake_result, route, payload_cls, code_field,
+):
+    """Staff choose their password at signup; approval only activates the row, so
+    no first-password step (and no window for anyone else) exists for them."""
+    from app.routers import auth as auth_router
+
+    code_row = {"tenant_id": TENANT_ROW["id"], "module": "bd", "supervisor_id": uuid.uuid4()}
+    sess = make_session(
+        fake_result(mappings_rows=[code_row]),
+        fake_result(mappings_rows=[]),  # no existing user with that email
+    )
+    payload = getattr(auth_router, payload_cls)(
+        **{"email": "new@acme.co", code_field: "CODE-1234", "password": "Chosen#pw1"})
+    await getattr(auth_router, route)(payload, sess)
+    insert = [p for s, p in zip(sess.executed, sess.execute_params) if "INSERT INTO users" in s]
+    assert len(insert) == 1
+    stored = insert[0]["pwd"]
+    assert stored and stored != "Chosen#pw1"
+    from app.core.passwords import verify_password_async
+    assert await verify_password_async("Chosen#pw1", stored)
+    assert sess.commit_count == 1
+
+
+async def test_sec1_signup_never_rewrites_an_existing_pending_row(make_session, fake_result):
+    """First signup wins: a second signup for the same email cannot plant or replace
+    the password of someone else's pending request."""
+    from app.routers.auth import SupervisorSignupIn, signup_supervisor
+
+    sess = make_session(
+        fake_result(mappings_rows=[{"tenant_id": TENANT_ROW["id"], "module": "bd"}]),
+        fake_result(mappings_rows=[{"id": USER_ID, "is_active": False}]),
+    )
+    out = await signup_supervisor(
+        SupervisorSignupIn(email="victim@acme.co", dept_code="CODE-1234", password="attacker1"), sess)
+    assert out.user_id == str(USER_ID)
+    assert not any("INSERT INTO users" in s or "UPDATE users" in s for s in sess.executed)
+    assert sess.commit_count == 0
+
+
+def test_sec1_signup_password_is_optional_but_never_short():
+    from app.routers.auth import SupervisorSignupIn
+
+    assert SupervisorSignupIn(email="a@b.co", dept_code="X-1").password is None
+    with pytest.raises(ValidationError):
+        SupervisorSignupIn(email="a@b.co", dept_code="X-1", password="123")
+
+
+async def test_sec1_reissue_setup_code_refuses_a_claimed_admin(make_session, fake_result):
+    from app.services.tenancy_service import reissue_admin_setup_code
+
+    sess = make_session(fake_result(mappings_rows=[{"id": USER_ID, "email": "ba@acme.co", "has_password": True}]))
+    with pytest.raises(HTTPException) as exc:
+        await reissue_admin_setup_code(sess, tenant_id=TENANT_ROW["id"])
+    assert exc.value.status_code == 409
+    assert not any("password_reset_requests" in s for s in sess.executed)
+
+
+async def test_sec1_reissue_setup_code_supersedes_and_stores_only_the_hash(make_session, fake_result):
+    from app.services.tenancy_service import reissue_admin_setup_code
+
+    sess = make_session(
+        fake_result(mappings_rows=[{"id": USER_ID, "email": "ba@acme.co", "has_password": False}]),
+        fake_result(),                       # supersede older codes
+        fake_result(scalar="2026-11-05"),    # INSERT … RETURNING token_expires_at
+    )
+    out = await reissue_admin_setup_code(sess, tenant_id=TENANT_ROW["id"])
+    assert "FOR UPDATE OF u" in sess.executed[0]
+    assert "SET status = 'rejected'" in sess.executed[1]
+    ins = sess.execute_params[2]
+    assert ins["th"] == hashlib.sha256(out["token"].encode()).hexdigest()
+    assert out["token"] not in str(ins.values())
+    assert out["email"] == "ba@acme.co" and out["user_id"] == USER_ID
+    assert sess.commit_count == 0  # caller owns the transaction (audit row in the same one)
+
+
+def test_sec1_reissue_route_is_mounted_and_platform_guarded():
+    from app.routers.platform import router
+
+    route = next(r for r in router.routes if r.path == "/platform/workspaces/{ref}/admin-setup-code")
+    assert "POST" in route.methods
+    assert "platform_admin" in {d.call.__name__ for d in route.dependant.dependencies}

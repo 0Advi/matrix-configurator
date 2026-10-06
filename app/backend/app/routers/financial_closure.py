@@ -19,7 +19,7 @@ from app.domain.schemas.financial_closure import (
     FCStateResponse,
     SaveFCBudgetRequest,
 )
-from app.rbac.guards import require_module, require_role
+from app.rbac.guards import require_module, require_module_enabled, require_role
 from app.rbac.roles import Role
 from app.services.delegation_service import svc_assigned_sites, svc_is_delegated
 from app.services.financial_closure_service import (
@@ -38,7 +38,12 @@ from app.services.financial_closure_service import (
 )
 from app.services.project_service import svc_qa_reports_for_site
 
-router = APIRouter(prefix="/financial-closure", tags=["Financial Closure"])
+# F5a: refused (403, every role) when the tenant's published configuration switches
+# the "financial_closure" module OFF — data from tenant_modules, see rbac/guards.require_module_enabled.
+router = APIRouter(
+    prefix="/financial-closure", tags=["Financial Closure"],
+    dependencies=[Depends(require_module_enabled("financial_closure"))],
+)
 
 FCMember = Annotated[dict, Depends(require_role(Role.SUPERVISOR, Role.EXECUTIVE))]
 # The queue is also the business admin's whole-tenant view of closure. Reading it

@@ -103,18 +103,24 @@ async function postSignup(path, body) {
   return res.data;
 }
 
-export function signupAsSupervisor(email, deptCode) {
-  return postSignup('/auth/signup/supervisor', { email, dept_code: deptCode });
+// F5a / SEC-1: the applicant chooses their password AT SIGNUP. The backend stores
+// it hashed on the pending row and approval only activates the account, so once
+// approved the person signs in with it — there is no first-password step that
+// anyone else holding (email, workspace code) could reach first.
+const withPassword = (body, password) => (password ? { ...body, password } : body);
+
+export function signupAsSupervisor(email, deptCode, password) {
+  return postSignup('/auth/signup/supervisor', withPassword({ email, dept_code: deptCode }, password));
 }
 
 // Read-only observer. One workspace-level code rather than a department one,
 // and the business admin approves — same 202-means-pending contract as above.
-export function signupAsObserver(email, code) {
-  return postSignup('/auth/signup/observer', { email, code });
+export function signupAsObserver(email, code, password) {
+  return postSignup('/auth/signup/observer', withPassword({ email, code }, password));
 }
 
-export function signupAsExecutive(email, supervisorCode) {
-  return postSignup('/auth/signup/executive', { email, supervisor_code: supervisorCode });
+export function signupAsExecutive(email, supervisorCode, password) {
+  return postSignup('/auth/signup/executive', withPassword({ email, supervisor_code: supervisorCode }, password));
 }
 
 // ── Branded login helpers ───────────────────────────────────────────────────
@@ -131,7 +137,7 @@ export async function checkPasswordSet(email, workspaceCode) {
 // Account state for (email, workspace_code), used to route the email step:
 //   'unknown'        → not a member of this workspace (show an error)
 //   'pending'        → approved-by-admin not granted yet
-//   'needs_password' → approved but no password → self-service setup
+//   'needs_password' → approved but no password → claim it with the one-time setup code
 //   'active'         → has a password → ask for it
 // Falls back to deriving from `password_set` for older backends.
 export async function checkAccountState(email, workspaceCode) {
@@ -147,15 +153,15 @@ export async function checkAccountState(email, workspaceCode) {
     || (res.data?.password_set ? 'active' : 'needs_password');
 }
 
-// First-time, self-service password for an approved account that has none yet
-// (post-approval onboarding). No reset code — the account was already approved
-// by an admin. Surfaces the server's `detail` on error (e.g. "already has a
-// password", "pending approval", "not registered in this workspace").
-export async function setupPassword(email, workspaceCode, newPassword) {
+// First password for an approved account that has none yet. F5a / SEC-1: the
+// one-time SETUP CODE (from the platform admin) is required — (email, workspace
+// code) alone can no longer claim an account. Surfaces the server's `detail` on
+// error (e.g. "already has a password", "invalid or expired setup code").
+export async function setupPassword(email, workspaceCode, newPassword, setupCode) {
   let res;
   try {
     res = await axios.post(`${API_BASE}/auth/password-setup`, {
-      email, workspace_code: workspaceCode, new_password: newPassword,
+      email, workspace_code: workspaceCode, new_password: newPassword, setup_code: setupCode,
     });
   } catch (err) {
     throw new Error(_detailMessage(err, 'Could not set your password'));

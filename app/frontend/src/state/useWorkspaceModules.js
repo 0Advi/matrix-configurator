@@ -57,6 +57,26 @@ export function loadWorkspaceModules(token, { force = false } = {}) {
   return p;
 }
 
+/**
+ * F5a: is `key` switched ON in the signed-in tenant's published configuration?
+ * Awaits the shared store (one fetch per token). Errs on the side of "enabled" when it cannot
+ * tell (signed out, the call failed, an older backend) — the API is the gate (it refuses a
+ * disabled module with 403); this only spares the UI from calling — and showing errors for —
+ * a module the workspace does not have.
+ */
+export async function isModuleEnabled(key) {
+  const token = readToken();
+  if (!token) return true;
+  const d = await loadWorkspaceModules(token);
+  if (!d || !Array.isArray(d.modules)) return true;
+  return d.modules.some((m) => m.key === key);
+}
+
+/** F5a: wrap a list fetcher so a disabled module answers an empty list without a request. */
+export function whenModuleEnabled(key, fetcher, empty = () => ({ items: [], total: 0 })) {
+  return async (...args) => ((await isModuleEnabled(key)) ? fetcher(...args) : empty());
+}
+
 /** Test helper: forget everything. */
 export function __resetWorkspaceModules() {
   Object.assign(store, { token: null, status: 'idle', data: null, error: null, promise: null });

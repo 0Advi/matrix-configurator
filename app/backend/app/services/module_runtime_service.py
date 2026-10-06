@@ -32,26 +32,40 @@ Phase 2b (G3):
     override, provenance ``creator_override``); an executive also SEES the cases of a module with
     a creator-scoped stage on sites it owns (lists + detail);
   * ``GET /m/{key}/records?view=<id>`` applies a saved view (module_views_service) AFTER the scope.
+
+Phase 2c (F5a):
+  * scope + saved views follow the EFFECTIVE role after X-Override-Role (``view_role``); acting keeps
+    the REAL role (``_actor_role``) — core/deps.py semantics, G2's E3;
+  * files for ``kind: file`` fields: ``svc_upload_file`` (current form step only, by whoever may
+    submit it; size/type from the field's validation hint capped by MAX_UPLOAD_BYTES and the app's
+    MIME allowlist + magic bytes; bytes in the app's storage bucket, metadata in ``module_files``,
+    migration 20261006_1), ``svc_get_file`` (short-lived signed URL, same visibility as the case);
+    a submitted file-field value must be the id of a file uploaded for THIS record, stage and field.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
+import re
 import threading
 import uuid
 from collections import OrderedDict
 from typing import Any, Optional
 from uuid import UUID
 
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.problems import ApiProblem
+from app.core.uploads import read_upload_capped
 from app.db.session import transaction
 from app.services import module_registry_service as registry
 from app.services.audit_service import write_provenance_audit
 from app.services import module_views_service as views_svc
 from app.services.module_runtime import forms, runtime
+from app.services import storage_service
 
 logger = logging.getLogger("matrix.module_runtime")
 
@@ -130,18 +144,50 @@ async def _custom_module(session: AsyncSession, tenant_id, module_key: str) -> d
     return reg
 
 
+_SIMULATABLE = ("supervisor", "executive")
+
+
 async def _actor_role(session: AsyncSession, current_user: dict, tenant_id, reg: dict) -> str:
-    """business_admin | observer (workspace-wide, by REAL role) or the caller's role in the module."""
+    """The AUTHORIZATION role in this module: who may act, and as which tier.
+
+    business_admin | observer come from the REAL role (``real_role``), never from X-Override-Role —
+    exactly core/deps.py: a business admin "simulating" an executive still acts as the business
+    admin (override-flagged and recorded as such), an observer stays read-only. A member acts in
+    their tier of the module; F5a: a dual-role supervisor (approved executive access in THIS
+    module) who dropped to executive with X-Override-Role acts as an executive — deps.py's third
+    override case (not an escalation: executive is below supervisor). Scope and saved views
+    follow the EFFECTIVE role instead — see ``view_role``.
+    """
     real_role = current_user.get("real_role") or current_user.get("role")
     if real_role in ("business_admin", "observer"):
         return real_role
-    roles = (await session.execute(text("""
-        SELECT DISTINCT role_in_module FROM user_module_memberships
+    rows = (await session.execute(text("""
+        SELECT role_in_module, COALESCE(has_executive_access, false) AS exec_access
+          FROM user_module_memberships
          WHERE tenant_id = :tid AND user_id = :uid AND module = :m
-    """), {"tid": tenant_id, "uid": current_user["sub"], "m": reg["module_key"]})).scalars().all()
-    if not roles:
+    """), {"tid": tenant_id, "uid": current_user["sub"], "m": reg["module_key"]})).mappings().all()
+    if not rows:
         raise HTTPException(status_code=403, detail=f"You are not a member of {reg['label']}.")
-    return "supervisor" if "supervisor" in roles else "executive"
+    if any(r["role_in_module"] == "supervisor" for r in rows):
+        dropped = (current_user.get("role") or "").lower() == "executive"
+        if dropped and any(r["role_in_module"] == "supervisor" and r["exec_access"] for r in rows):
+            return "executive"
+        return "supervisor"
+    return "executive"
+
+
+def view_role(current_user: dict, actor_role: str) -> str:
+    """The SCOPE / VIEWS role (G2 E3, F5a): the EFFECTIVE role after X-Override-Role.
+
+    A business admin or observer presenting as supervisor/executive (Workspace Access) sees the
+    module in that role's shape — an executive's scope (cases they opened / are assigned /
+    delegated / own), that role's saved views and default view — while ``_actor_role`` keeps the
+    real role for anything security-relevant (acting, managing views, observer write denial).
+    """
+    eff = (current_user.get("role") or "").lower()
+    if actor_role in ("business_admin", "observer") and eff in _SIMULATABLE:
+        return eff
+    return actor_role
 
 
 async def _delegated_sites(session: AsyncSession, tenant_id, module_key: str, user_id) -> tuple[str, ...]:
@@ -167,8 +213,9 @@ async def _owned_sites(session: AsyncSession, tenant_id, module_key: str, user_i
 
 async def _actor(session, current_user, tenant_id, reg) -> runtime.Actor:
     role = await _actor_role(session, current_user, tenant_id, reg)
+    scope = view_role(current_user, role)
     sites = await _delegated_sites(session, tenant_id, reg["module_key"], current_user["sub"]) \
-        if role == "executive" else ()
+        if "executive" in (role, scope) else ()
     owned = await _owned_sites(session, tenant_id, reg["module_key"], current_user["sub"]) \
         if role != "observer" else ()
     return runtime.Actor(id=str(current_user["sub"]), role=role, delegated_sites=sites, owned_sites=owned)
@@ -424,6 +471,9 @@ async def svc_act(session: AsyncSession, *, tenant_id, current_user: dict, modul
         if not mdef:  # cannot happen: the DB guard checked it on insert, releases are immutable
             raise ApiProblem(409, "Module missing from the pinned release.", code="release_mismatch")
         rt = runtime_for(release, mdef)
+        if action == "submit" and values:
+            await _check_file_values(session, tenant_id=tenant_id, record_id=rec["id"], rt=rt, state=state,
+                                     values=values)
         facts = await build_facts(session, tenant_id, rec["site_id"])
         payload: dict[str, Any] = {"values": values or {}}
         if reason is not None:
@@ -533,13 +583,14 @@ async def svc_list_records(session: AsyncSession, *, tenant_id, current_user: di
     top: a view can only narrow what the scope allows."""
     reg = await _custom_module(session, tenant_id, module_key)
     actor = await _actor(session, current_user, tenant_id, reg)
-    view = await views_svc.get_view_for(session, tenant_id, module_key, view_id, actor.role) if view_id else None
+    scope = view_role(current_user, actor.role)  # F5a/E3: scope + views follow the effective role
+    view = await views_svc.get_view_for(session, tenant_id, module_key, view_id, scope) if view_id else None
     params: dict[str, Any] = {"tid": tenant_id, "m": module_key}
     where = "r.tenant_id = :tid AND r.module_key = :m"
     if site_id:
         where += " AND r.site_id = CAST(:sid AS uuid)"
         params["sid"] = site_id
-    if actor.role == "executive":
+    if scope == "executive":
         # an executive sees the cases of sites delegated/assigned to them, and the ones they opened;
         # G3: also sites they own — kept below only where the module has a creator-scoped stage
         where += (" AND (r.opened_by = :uid OR r.assigned_to = :uid OR r.site_id::text = ANY(:sites)"
@@ -560,17 +611,17 @@ async def svc_list_records(session: AsyncSession, *, tenant_id, current_user: di
     for r in rows:
         release = await load_release(session, tenant_id, r["release_id"])
         mdef = module_def(release, module_key)
-        if actor.role == "executive" and not _executive_sees(actor, r, mdef):
+        if scope == "executive" and not _executive_sees(actor, r, mdef):
             continue
         items.append(_list_item(r, release, mdef, actor))
     if view:
-        items = [i for i in items if views_svc.matches(i, view["filter"], me=actor.id, role=actor.role,
+        items = [i for i in items if views_svc.matches(i, view["filter"], me=actor.id, role=scope,
                                                        delegated=actor.delegated_sites)]
     for i in items:
         for k in [k for k in i if k.startswith("_")]:
             del i[k]
     out: dict[str, Any] = {"module": {"key": reg["module_key"], "label": reg["label"]},
-                           "role": actor.role, "items": items, "total": len(items)}
+                           "role": actor.role, "view_role": scope, "items": items, "total": len(items)}
     if view:
         out["view"] = {k: view[k] for k in ("id", "name", "filter", "columns", "seed_key")}
     if site_id:
@@ -650,7 +701,8 @@ async def svc_get_record(session: AsyncSession, *, tenant_id, current_user: dict
         raise HTTPException(status_code=404, detail="Record not found.")
     release = await load_release(session, tenant_id, rec["release_id"])
     mdef = module_def(release, module_key)
-    if actor.role == "executive" and not _executive_sees(actor, rec, mdef):
+    scope = view_role(current_user, actor.role)  # F5a/E3: scope follows the effective role
+    if scope == "executive" and not _executive_sees(actor, rec, mdef):
         raise HTTPException(status_code=404, detail="Record not found.")
     rt = runtime_for(release, mdef)
     st = rec["runtime_state"]
@@ -674,6 +726,7 @@ async def svc_get_record(session: AsyncSession, *, tenant_id, current_user: dict
     """), {"tid": tenant_id, "rid": rec["id"]})).mappings().all()
     chain_events = [a["provenance"]["event"] for a in audit if (a["provenance"] or {}).get("event")]
     chain_events.sort(key=lambda e: e["seq"])
+    files = await _record_files(session, tenant_id, rec["id"])
     return {
         "record": {
             "id": str(rec["id"]), "module_key": module_key, "status": rec["status"],
@@ -709,7 +762,8 @@ async def svc_get_record(session: AsyncSession, *, tenant_id, current_user: dict
                                                   "uiSchema": nxt["form"]["uiSchema"],
                                                   "unparsed": nxt["form"]["unparsed"]},
         },
-        "me": {"id": actor.id, "role": actor.role, "owns_site": str(rec["site_id"]) in actor.owned_sites},
+        "me": {"id": actor.id, "role": actor.role, "view_role": scope,
+               "owns_site": str(rec["site_id"]) in actor.owned_sites},
         "allowed_actions": rt.actions(st, actor),
         "gate": _gate_out(rt, facts),
         "approvals": [{**{k: (str(v) if isinstance(v, UUID) else v) for k, v in a.items()},
@@ -720,6 +774,7 @@ async def svc_get_record(session: AsyncSession, *, tenant_id, current_user: dict
                    "module_key": a["module_key"], "provenance": a["provenance"], "at": _iso(a["created_at"])}
                   for a in audit],
         "audit_chain_valid": runtime.verify_chain(chain_events) if chain_events else None,
+        "files": files,  # F5a: {file_id: {file_name, content_type, size, stage, field, uploaded_at}}
     }
 
 
@@ -736,3 +791,183 @@ async def svc_list_members(session: AsyncSession, *, tenant_id, current_user: di
     return {"module": {"key": reg["module_key"], "label": reg["label"]},
             "items": [{"id": str(r["id"]), "name": r["name"], "email": r["email"],
                        "role_in_module": r["role_in_module"]} for r in rows]}
+
+
+# ── F5a: files for `kind: file` fields ──────────────────────────────────────────
+
+_UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+_SIZE_RE = re.compile(r"^(\d+(?:\.\d+)?)\s*(KB|MB|GB)$", re.IGNORECASE)
+_SIZE_UNIT = {"KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 3}
+# Field hint extensions (forms.py normalises jpg -> jpeg) -> the MIME types that may carry them.
+_EXT_MIME = {
+    "pdf": {"application/pdf"}, "jpeg": {"image/jpeg", "image/jpg"}, "png": {"image/png"},
+    "webp": {"image/webp"}, "gif": {"image/gif"}, "heic": {"image/heic", "image/heif"},
+    "heif": {"image/heic", "image/heif"}, "doc": {"application/msword"},
+    "docx": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+    "xls": {"application/vnd.ms-excel"},
+    "xlsx": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}, "csv": {"text/csv"},
+}
+
+
+def _file_field(rt: runtime.ModuleRuntime, state: dict, field_key: str) -> tuple[dict, dict]:
+    """(next step, the field's ui:options) — the field must be a `file` field of the CURRENT form step."""
+    nxt = rt.next_step(state)
+    if not nxt or nxt["kind"] != "submit" or not nxt.get("form"):
+        raise ApiProblem(409, "This case is not waiting for a form submission.", code="wrong_action")
+    stage = next((s for s in rt.stages if s["order"] == nxt["stage"]), {})
+    field = next((f for f in stage.get("fields") or [] if f.get("key") == field_key), None)
+    if not field or field.get("kind") != "file":
+        raise ApiProblem(422, f"Stage {nxt['stage']} has no file field '{field_key}'.", code="unknown_field")
+    opts = ((nxt["form"].get("uiSchema") or {}).get(field_key) or {}).get("ui:options") or {}
+    return nxt, opts
+
+
+def file_limit_bytes(opts: dict) -> int:
+    """The field's own size limit (its validation hint, e.g. "PDF, max 5MB"), never above MAX_UPLOAD_BYTES."""
+    cap = settings.max_upload_bytes
+    m = _SIZE_RE.match(str(opts.get("maxSize") or "").strip())
+    if m:
+        cap = min(cap, int(float(m.group(1)) * _SIZE_UNIT[m.group(2).upper()]))
+    return cap
+
+
+def check_file_type(opts: dict, file_name: str, content_type: str) -> None:
+    """The field's accepted types (hint, e.g. ".pdf,.jpeg"): both extension and declared type must match.
+    (The app-wide MIME allowlist + magic-byte check already ran in read_upload_capped.)"""
+    accept = [a.strip().lstrip(".").lower() for a in str(opts.get("accept") or "").split(",") if a.strip()]
+    if not accept:
+        return
+    ext = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else ""
+    ext = "jpeg" if ext == "jpg" else ext
+    mimes = set().union(*(_EXT_MIME.get(a, set()) for a in accept))
+    if ext not in accept or (mimes and content_type not in mimes):
+        raise ApiProblem(415, f"This field accepts {', '.join('.' + a for a in accept)} files only.",
+                         code="file_type")
+
+
+async def svc_upload_file(session: AsyncSession, *, tenant_id, current_user: dict, module_key: str,
+                          record_id: str, field_key: str, upload: UploadFile) -> dict:
+    """Store a file for a `kind: file` field of the case's current form step (F5a).
+
+    Only someone the runtime lets SUBMIT that step may upload (same tier/creator/delegation rules,
+    business-admin override included). Validated before any byte is stored: the field's own size
+    and type hint, the app's MIME allowlist and magic bytes (read_upload_capped). The bytes go to
+    the app's storage bucket under module-files/<tenant>/<module>/<record>/<file id>/ — the read
+    transaction is released first (no DB connection held across storage I/O) — then ONE
+    transaction inserts the module_files row + a ``module_file_uploaded`` audit row on the case.
+    If that insert fails the stored object is deleted again. Returns the file id the form submits.
+    """
+    reg = await _custom_module(session, tenant_id, module_key)
+    actor = await _actor(session, current_user, tenant_id, reg)
+    rec = (await session.execute(text("""
+        SELECT id, site_id, release_id, runtime_state FROM module_records
+         WHERE id = CAST(:rid AS uuid) AND tenant_id = :tid AND module_key = :m
+    """), {"rid": record_id, "tid": tenant_id, "m": module_key})).mappings().first()
+    if not rec:
+        raise HTTPException(status_code=404, detail="Record not found.")
+    release = await load_release(session, tenant_id, rec["release_id"])
+    rt = runtime_for(release, module_def(release, module_key))
+    nxt, opts = _file_field(rt, rec["runtime_state"], field_key)
+    if "submit" not in rt.actions(rec["runtime_state"], actor):
+        raise ApiProblem(403, "Only whoever may submit this step can upload its files.", code="wrong_tier")
+    await session.rollback()  # release the read transaction before the (slow) storage I/O (#235)
+
+    body = await read_upload_capped(upload, max_bytes=file_limit_bytes(opts))
+    if not body:
+        raise ApiProblem(422, "The file is empty.", code="empty_file")
+    name = (upload.filename or "file").strip()[:255] or "file"
+    ctype = upload.content_type or "application/octet-stream"
+    check_file_type(opts, name, ctype)
+    file_id = uuid.uuid4()
+    path = (f"module-files/{tenant_id}/{module_key}/{rec['id']}/{file_id}/"
+            f"{storage_service.safe_object_name(name)}")
+    sha = hashlib.sha256(body).hexdigest()
+    await storage_service.upload_bytes(path=path, body=body, content_type=ctype)
+    try:
+        async with transaction(session):
+            await session.execute(text("""
+                INSERT INTO module_files (id, tenant_id, site_id, record_id, module_key, stage_order, field_key,
+                                          storage_path, file_name, content_type, size_bytes, sha256, uploaded_by)
+                VALUES (:id, :tid, :sid, :rid, :m, :stage, :field, :path, :name, :ctype, :size, :sha, :uid)
+            """), {"id": file_id, "tid": tenant_id, "sid": rec["site_id"], "rid": rec["id"], "m": module_key,
+                   "stage": nxt["stage"], "field": field_key, "path": path, "name": name, "ctype": ctype,
+                   "size": len(body), "sha": sha, "uid": current_user["sub"]})
+            await write_provenance_audit(
+                session, tenant_id=tenant_id, site_id=rec["site_id"], actor_id=current_user["sub"],
+                actor_name=current_user.get("name"), action="module_file_uploaded", entity_id=rec["id"],
+                entity_type="module_record", detail=f"stage {nxt['stage']} · {field_key}: {name}",
+                config_release_id=rec["release_id"], module_key=module_key,
+                provenance={"policy": "files", "release_version": release["version"], "stage": nxt["stage"],
+                            "field": field_key, "file_id": str(file_id), "file_name": name, "sha256": sha,
+                            "size": len(body), "content_type": ctype, "actor_role": actor.role},
+            )
+    except Exception:
+        await storage_service.delete_object(path=path)  # never leave an unreferenced object behind
+        raise
+    return {"id": str(file_id), "file_name": name, "content_type": ctype, "size": len(body), "sha256": sha,
+            "stage": nxt["stage"], "field": field_key}
+
+
+async def svc_get_file(session: AsyncSession, *, tenant_id, current_user: dict, module_key: str,
+                       file_id: str) -> dict:
+    """A file of a case, with a short-lived signed download URL — visible exactly when its case is."""
+    reg = await _custom_module(session, tenant_id, module_key)
+    actor = await _actor(session, current_user, tenant_id, reg)
+    row = (await session.execute(text("""
+        SELECT f.id, f.file_name, f.content_type, f.size_bytes, f.sha256, f.storage_path, f.stage_order,
+               f.field_key, f.created_at, r.id AS record_id, r.site_id, r.opened_by, r.assigned_to, r.release_id
+          FROM module_files f JOIN module_records r ON r.id = f.record_id
+         WHERE f.id = CAST(:fid AS uuid) AND f.tenant_id = :tid AND f.module_key = :m
+    """), {"fid": file_id, "tid": tenant_id, "m": module_key})).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="File not found.")
+    if view_role(current_user, actor.role) == "executive":
+        release = await load_release(session, tenant_id, row["release_id"])
+        if not _executive_sees(actor, row, module_def(release, module_key)):
+            raise HTTPException(status_code=404, detail="File not found.")
+    await session.rollback()
+    url = await storage_service.signed_url(row["storage_path"], expires_in=300)
+    if not url:
+        raise HTTPException(status_code=503, detail="File storage is not reachable right now.")
+    return {"id": str(row["id"]), "record_id": str(row["record_id"]), "file_name": row["file_name"],
+            "content_type": row["content_type"], "size": row["size_bytes"], "sha256": row["sha256"],
+            "stage": row["stage_order"], "field": row["field_key"], "uploaded_at": _iso(row["created_at"]),
+            "url": url, "expires_in": 300}
+
+
+async def _record_files(session: AsyncSession, tenant_id, record_id) -> dict[str, dict]:
+    rows = (await session.execute(text("""
+        SELECT id, file_name, content_type, size_bytes, stage_order, field_key, created_at
+          FROM module_files WHERE tenant_id = :tid AND record_id = :rid ORDER BY created_at
+    """), {"tid": tenant_id, "rid": record_id})).mappings().all()
+    return {str(r["id"]): {"file_name": r["file_name"], "content_type": r["content_type"], "size": r["size_bytes"],
+                           "stage": r["stage_order"], "field": r["field_key"], "uploaded_at": _iso(r["created_at"])}
+            for r in rows}
+
+
+async def _check_file_values(session: AsyncSession, *, tenant_id, record_id, rt: runtime.ModuleRuntime,
+                             state: dict, values: dict) -> None:
+    """A submitted file-field value must be the id of a file uploaded for THIS record, stage and field —
+    never a typed reference, another case's file or another tenant's."""
+    nxt = rt.next_step(state)
+    if not nxt or nxt["kind"] != "submit":
+        return
+    stage = next((s for s in rt.stages if s["order"] == nxt["stage"]), {})
+    keys = [f["key"] for f in stage.get("fields") or []
+            if f.get("kind") == "file" and values.get(f["key"]) not in (None, "")]
+    errors = []
+    for k in keys:
+        v = values[k]
+        if not isinstance(v, str) or not _UUID_RE.match(v):
+            errors.append(f"{k}: upload the file — a typed reference is not accepted")
+            continue
+        found = (await session.execute(text("""
+            SELECT 1 FROM module_files
+             WHERE id = CAST(:fid AS uuid) AND tenant_id = :tid AND record_id = :rid
+               AND stage_order = :stage AND field_key = :field
+        """), {"fid": v, "tid": tenant_id, "rid": record_id, "stage": nxt["stage"], "field": k})).first()
+        if not found:
+            errors.append(f"{k}: unknown file — upload it again")
+    if errors:
+        raise ApiProblem(422, "Some files of this step are not uploaded for this case.", code="invalid_form",
+                         errors=errors)
