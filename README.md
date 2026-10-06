@@ -1,5 +1,7 @@
 # Matrix Configurator — local working model
 
+> **Status, what's pushed, and the remaining task list: [`docs/STATUS.md`](docs/STATUS.md).**
+
 > **Comparing with the original Matrix app?** The first commit of this repo (tag
 > `original-matrix-bd-3d4f277`) is the **unmodified** Matrix-bd `origin/main` @ `3d4f277` under `app/`.
 > Everything after it is our work. So:

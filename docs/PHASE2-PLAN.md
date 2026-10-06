@@ -91,7 +91,9 @@ writes its outputs to disk and its report to `docs/reports/`.
 | G2 | **done** — lead re-verified: 16/16 completeness test; patches NOT applied (targets untouched). D01–D33; our flow = closest to real app. REPORT.md blocked by harness (content in handback) — **user decision pending**: save REPORT.md? apply patches 01/02/03? | `docs/reports/G2.md`, `docs/catalogue-crosscheck/` |
 | G3 | **done** — lead re-verified: pytest 683/1 (+29), vitest 695/697 (2 env-only), build OK, smoke-existing 41/41, smoke-configurator 67/67, smoke-g3 59/59, ledger 73 (migrations 20261005_1..3) | `docs/reports/G3.md`, `docs/G3-API.md` |
 | N1 | **done** — lead re-verified: provisioners idempotent; NocoBase menu Matrix Configurator → 7 read-only pages; workflow on cfg_releases → cfg_activity; role configurator_viewer (view OK, writes 403) | `docs/reports/N1.md`, `nocobase/README.md` |
-| F5 | pending (after G3) | — |
+| W1 | in progress — wire agent-configurator `migrate_running` to G3's migrations API | `docs/reports/W1-progress.md` |
+| F5a | in progress — caveat fixes: SEC-1 (first-password takeover), session/UI caveats, disabled built-ins guard, migration recovery, custom-module file fields | `docs/reports/F5a-progress.md` |
+| F5b | pending (after F5a) — re-runnable Playwright E2E with REAL input + traced proof + ADOPTION-AUDIT click-path verification | — |
 | Final verification + handover | pending | — |
 
 ## Phase 2b — additions from the user's own repo `Adityashandilya555/operaton-plat` (requested 2026-10-05)
