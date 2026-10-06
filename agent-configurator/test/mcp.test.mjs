@@ -29,9 +29,12 @@ test('MCP round trip: list tools, design, validate, publish, status', async () =
   try {
     assert.match(client.getInstructions(), /SAME draft store as the visual Workspace Configurator/);
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 27);
+    assert.equal(tools.length, 28);
     const pub = tools.find(t => t.name === 'publish');
     assert.equal(pub.annotations.destructiveHint, true);
+    assert.equal(tools.find(t => t.name === 'migrate_running').annotations.destructiveHint, true);
+    assert.equal(tools.find(t => t.name === 'migrate_running').annotations.readOnlyHint, false);
+    assert.equal(tools.find(t => t.name === 'migration_status').annotations.readOnlyHint, true);
     assert.equal(tools.find(t => t.name === 'show_workspace').annotations.readOnlyHint, true);
     assert.ok(pub.inputSchema.properties.provision.properties.admin_email);
 
@@ -53,8 +56,14 @@ test('MCP round trip: list tools, design, validate, publish, status', async () =
     assert.ok(done.provisioned.setup_code);
     const st = parse(await call('release_status', { workspace: 'mcp-cafe' }));
     assert.equal(st.in_sync, true);
-    const mig = parse(await call('migrate_running', {}));
-    assert.equal(mig.phase, 'G3');
+    const mig = parse(await call('migrate_running', { workspace: 'mcp-cafe' }));
+    assert.equal(mig.dry_run, true, 'migrate_running is a dry run by default');
+    assert.equal(mig.workspace.id, 'ws_mcp_cafe');
+    assert.equal(app.st.migrations.length, 0);
+    const noReason = await call('migrate_running', { workspace: 'mcp-cafe', confirm: true });
+    assert.equal(noReason.isError, true);
+    assert.equal(parse(noReason).error.code, 'invalid_input');
+    assert.equal(parse(await call('migration_status', { workspace: 'mcp-cafe' })).count, 0);
   } finally {
     await client.close();
   }

@@ -6,6 +6,8 @@
 //   POST /platform/workspaces/{ref}/releases       publish (422 manifest_invalid + findings)
 //   POST /platform/workspaces/{ref}/releases/validate   dry run
 //   GET  /platform/workspaces/{ref}/releases/{v}   one release incl. manifest
+//   POST /platform/workspaces/{ref}/migrations     G3: dry-run / execute "migrate running cases" (docs/G3-API.md §1)
+//   GET  /platform/workspaces/{ref}/migrations[/{id}]   G3: executed migrations / one incl. its journal
 //
 // Secrets: the credentials are read lazily from config and used for the login call only; the
 // token lives in this process's memory (never on disk, never in a result, never logged). Sign-in
@@ -17,6 +19,9 @@ const TIMEOUT_MS = 30000;
 const DEFAULT_TTL_MS = 30 * 60 * 1000;
 const MARGIN_MS = 60 * 1000;
 const RETRY_BUDGET_MS = 16000;
+// A migration execute runs one locked transaction per site; give it longer than a normal call. It is
+// never re-sent after a timeout (the app may still be working on it).
+const MIGRATION_EXECUTE_TIMEOUT_MS = 120000;
 
 function jwtExpiryMs(token) {
   try {
@@ -53,7 +58,7 @@ export function createAppClient({ apiUrl, credentials, fetchImpl = fetch, now = 
    *    the app may have seen it: a second provision would lose the one-time setup code and a
    *    second publish would create a duplicate release — release_status tells what happened.
    */
-  async function raw(method, path, { body, headers = {}, idempotent = method === 'GET' } = {}) {
+  async function raw(method, path, { body, headers = {}, idempotent = method === 'GET', timeoutMs = TIMEOUT_MS, unsentHint } = {}) {
     const started = now();
     for (let attempt = 0; ; attempt++) {
       let res = null, err = null;
@@ -62,7 +67,7 @@ export function createAppClient({ apiUrl, credentials, fetchImpl = fetch, now = 
           method,
           headers: { Accept: 'application/json', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...headers },
           body: body !== undefined ? JSON.stringify(body) : undefined,
-          signal: AbortSignal.timeout(TIMEOUT_MS),
+          signal: AbortSignal.timeout(timeoutMs),
         });
       } catch (e) { err = e; }
       const refused = err && /ECONNREFUSED/.test(String((err.cause && (err.cause.code || err.cause.message)) || err.message));
@@ -70,7 +75,7 @@ export function createAppClient({ apiUrl, credentials, fetchImpl = fetch, now = 
       const wait = Math.min(4000, 500 * 2 ** attempt);
       if (transient && now() - started + wait <= retryBudgetMs) { retries += 1; await sleep(wait); continue; }
       if (err) {
-        throw new OpError('unavailable', `The Matrix app backend at ${base} is not reachable (${err.name === 'TimeoutError' ? 'timeout' : (refused ? 'connection refused' : err.message)})${attempt ? ` after ${attempt} retr${attempt === 1 ? 'y' : 'ies'}` : ''}. It may be restarting — retry shortly; the agent does not start services (check app-stack/status.sh).${idempotent ? '' : ' If this was a publish, run release_status before retrying.'}`);
+        throw new OpError('unavailable', `The Matrix app backend at ${base} is not reachable (${err.name === 'TimeoutError' ? 'timeout' : (refused ? 'connection refused' : err.message)})${attempt ? ` after ${attempt} retr${attempt === 1 ? 'y' : 'ies'}` : ''}. It may be restarting — retry shortly; the agent does not start services (check app-stack/status.sh).${idempotent ? '' : (' ' + (unsentHint || 'If this was a publish, run release_status before retrying.'))}`);
       }
       return finish(res);
     }
@@ -159,6 +164,27 @@ export function createAppClient({ apiUrl, credentials, fetchImpl = fetch, now = 
     /** POST …/releases → raw {status, data} (201 | 404 | 409 | 422 manifest_invalid). */
     async publish(ref, body) {
       return authed('POST', `/platform/workspaces/${enc(ref)}/releases`, { body });
+    },
+    /**
+     * POST …/migrations → raw {status, data} (200 | 404 unknown ref / unknown_release | 409 workspace_not_active /
+     * no_release | 422 reason_required / same_release / body). A dry run writes nothing, so it is retried like a
+     * read; an execute (`dry_run: false`) is sent at most once — only "connection refused" (nothing reached the
+     * app) is retried — because the app may already be moving cases: check migration history instead.
+     */
+    async migrate(ref, body) {
+      const execute = body.dry_run === false;
+      return authed('POST', `/platform/workspaces/${enc(ref)}/migrations`, {
+        body, idempotent: !execute,
+        ...(execute ? { timeoutMs: MIGRATION_EXECUTE_TIMEOUT_MS, unsentHint: 'If this was a migration execute it may have run: check migration_status before retrying.' } : {}),
+      });
+    },
+    /** GET …/migrations → raw {status, data:{items}} (executed migrations, newest first; dry runs are never stored). */
+    async listMigrations(ref) {
+      return authed('GET', `/platform/workspaces/${enc(ref)}/migrations`);
+    },
+    /** GET …/migrations/{id} → raw {status, data} (header + journal items). */
+    async getMigration(ref, id) {
+      return authed('GET', `/platform/workspaces/${enc(ref)}/migrations/${enc(id)}`);
     },
     detailText,
   };

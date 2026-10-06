@@ -44,7 +44,7 @@ public low-code SaaS built on it — legal review needed before any customer-fac
 | **Gateways + conditions** | Module entry gates with all/any conditions, evaluated by json-logic identically in Python and JS | `app/vendor/json_logic/`, `module_runtime/gates.py` | open a case whose gate is closed → the locked screen lists each condition |
 | **History service** | Hash-chained, append-only audit with provenance (release, module, actor role, override flag) | migration `20261004_6`, runtime | a case page → audit trail |
 | **Deployment validation** | Publish refuses invalid manifests and returns findings | `platform_workspace_service.py` | `/#/admin` → Workspaces → **Check draft** |
-| **Process modelling by API** (operaton-plat `op_*` + `mcp_server.py`) | AI-agent configurator: 27 ops as CLI + MCP server, same drafts as the visual configurator | `agent-configurator/` | not a web page: `node agent-configurator/bin/cfg.mjs list_workspaces --json '{}'`; or add the MCP server to Claude Code (see `agent-configurator/README.md`) |
+| **Process modelling by API** (operaton-plat `op_*` + `mcp_server.py`) | AI-agent configurator: 28 ops as CLI + MCP server, same drafts as the visual configurator + migrate_running live (G3 migrations API: dry run by default, confirm + reason to execute; `migration_status` for history) | `agent-configurator/` | not a web page: `node agent-configurator/bin/cfg.mjs list_workspaces --json '{}'`; or add the MCP server to Claude Code (see `agent-configurator/README.md`) |
 | **Catalogue of predefined nodes** (operaton-plat `catalogue.json`) | Cross-checked against the real code; corrections applied | `docs/catalogue-crosscheck/` | `docs/catalogue-crosscheck/REPORT.md` |
 
 **Not adopted, on purpose (and where the gap stands):**

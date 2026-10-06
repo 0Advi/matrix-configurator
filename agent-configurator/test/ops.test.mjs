@@ -37,7 +37,7 @@ describe('read-only ops', () => {
   });
   test('ops registry: every op has a description and an object input schema', () => {
     const ops = listOps();
-    assert.ok(ops.length >= 27);
+    assert.ok(ops.length >= 28);
     for (const o of ops) { assert.ok(o.description.length > 60, o.name); assert.equal(o.inputSchema.type, 'object'); assert.equal(o.inputSchema.additionalProperties, false); }
   });
   test('unknown op and bad arguments are refused with invalid_input', async () => {
@@ -267,9 +267,7 @@ describe('other templates and the empty start', () => {
     assert.ok(s.modules.reduce((a, m) => a + m.stages.length, 0) > 30);
     await assertClean(store, 'prod-copy');
   });
-  test('migrate_running is a G3 stub that changes nothing', async () => {
-    const r = await ok(ctxWith(createMemoryStore()), 'migrate_running', {});
-    assert.equal(r.available, false);
-    assert.equal(r.phase, 'G3');
+  test('migrate_running needs a workspace (full coverage in migrate.test.mjs)', async () => {
+    await fails(ctxWith(createMemoryStore()), 'migrate_running', {}, 'invalid_input');
   });
 });

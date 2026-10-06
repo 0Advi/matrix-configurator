@@ -8,7 +8,7 @@
 //
 // Every op: { name, title, description, input (JSON Schema), readOnly, destructive, run(ctx, args) }.
 import { readFileSync } from 'node:fs';
-import { OpError, invalid, refused } from './errors.mjs';
+import { OpError, invalid, refused, notFound } from './errors.mjs';
 import { ConflictError, createHttpStore } from './store.mjs';
 import { createAppClient } from './app-api.mjs';
 import { loadConfig } from './config.mjs';
@@ -1193,16 +1193,186 @@ op({
   },
 });
 
+// ---------------------------------------------------------------- running cases (G3, docs/G3-API.md §1)
+//
+// Cases finish on the release their site is pinned to. migrate_running is the audited way to move in-flight
+// custom-module cases (and their sites' pins) onto a newer release — the user's operaton-plat op_migrate_running,
+// plus G3's dry run, compatibility report, stage mapping, per-site atomicity and audit trail.
+
+const APP_REF_RE = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
+
+/**
+ * The app-side configurator ref for `workspace`: a draft-store workspace (id, slug or exact name) → its id;
+ * otherwise a ref the app knows but the draft store does not (provisioned elsewhere, e.g. a smoke workspace —
+ * list_workspaces include_app:true shows them as app_only) is used as-is. A draft store that is down does
+ * not block this app-only op.
+ */
+async function appRefOf(ctx, ref) {
+  const r = typeof ref === 'string' ? ref.trim() : '';
+  if (!r) throw invalid('`workspace` is required: the workspace id (ws_…), slug or exact name.');
+  let list = null;
+  try { list = (await ctx.store.read()).blob.customWs || []; } catch { list = null; }
+  const cw = list && (list.find(w => w.id === r) || list.find(w => w.slug === r) || list.find(w => String(w.name).toLowerCase() === r.toLowerCase()));
+  if (cw) return { ref: cw.id, workspace: wsRef(cw) };
+  if (APP_REF_RE.test(r)) return { ref: r, workspace: { id: r, in_draft_store: list ? false : 'unknown (draft store unreachable)' } };
+  throw notFound(`No workspace "${r}" in the draft store, and it is not a valid app workspace ref.`);
+}
+
+function appMigrationError(ctx, r, ref, what) {
+  const code = r.data && r.data.code;
+  const detail = ctx.app.detailText(r.data) || `HTTP ${r.status}`;
+  const d = { status: r.status, ...(code ? { code } : {}) };
+  if (r.status === 404 && code === 'unknown_release') return invalid(`${detail} (release_status lists the app's releases).`, d);
+  if (r.status === 404) return notFound(`The Matrix app has no ${what} for "${ref}": ${detail} Only provisioned workspaces have running cases (list_workspaces include_app:true).`, d);
+  if (r.status === 409) return refused(`The app refused: ${detail}`, d);
+  if (r.status === 422) return invalid(`The app refused the request: ${detail}`, d);
+  return new OpError('app_error', `The app answered ${r.status}: ${detail}`, d);
+}
+
+const quoted = s => (s && s.name ? `${s.order} “${s.name}”` : (s && s.order !== undefined ? String(s.order) : '?'));
+
+/** One line per case, written for an agent to read out to a human. */
+function migrationCaseLine(i) {
+  const site = i.site ? `${i.site.name || i.site.id}${i.site.code ? ` [${i.site.code}]` : ''}` : (i.record_id || '?');
+  const ver = i.in_flight === false || i.outcome === 'not_in_flight' ? `v${i.from_version}` : `v${i.from_version}→v${i.to_version}`;
+  const head = `${site} · ${i.module_key} · ${ver} · ${i.case_status || '?'}${i.co_migrated ? ' · co-migrated' : ''}`;
+  if (i.outcome === 'not_in_flight') return `${head} · finished — stays on v${i.from_version}`;
+  const st = i.stage || {};
+  const stage = st.before ? ` · stage ${quoted(st.before)}${st.before.role ? ` (at ${st.before.role})` : ''} → ${st.after ? quoted(st.after) : 'none'}` : '';
+  const verdict = {
+    would_migrate: 'WOULD MIGRATE', migrated: 'MIGRATED', blocked: 'BLOCKED', skipped: 'SKIPPED', failed: 'FAILED',
+  }[i.outcome] || String(i.outcome || '?').toUpperCase();
+  const why = (i.blocking || []).map(b => `${b.code}: ${b.message}`).join('; ') || i.message || '';
+  const f = i.fields || {};
+  const fieldBits = [['dropped', f.dropped], ['kind changed', f.kind_changed], ['newly required', f.new_required]]
+    .filter(([, l]) => Array.isArray(l) && l.length).map(([k, l]) => `${l.length} ${k}`);
+  const extras = [];
+  if (['would_migrate', 'migrated'].includes(i.outcome)) extras.push(`${i.approvals_carried || 0} approval(s) carried`);
+  if (fieldBits.length) extras.push('fields: ' + fieldBits.join(', '));
+  if ((i.warnings || []).length) extras.push('warnings: ' + i.warnings.map(w => w.code).join(', '));
+  return `${head}${stage} · ${verdict}${why ? ` — ${why}` : ''}${extras.length ? ` · ${extras.join(' · ')}` : ''}`;
+}
+
+function migrationView(data, { dryRun }) {
+  const s = data.summary || {};
+  const by = s.by_outcome || {};
+  const items = data.items || [];
+  const n = k => by[k] || 0;
+  const counts = {
+    cases: s.records || 0, sites: s.sites || 0, compatible: s.compatible || 0, blocked: s.blocked || 0,
+    ...(dryRun ? { would_migrate: n('would_migrate') } : { migrated: n('migrated'), skipped: n('skipped'), failed: n('failed') }),
+    not_in_flight: n('not_in_flight'),
+  };
+  const fromTxt = data.from ? (data.from.spec === 'all_older' ? `every older release (${(data.from.versions || []).map(v => 'v' + v).join(', ') || 'none'})` : data.from.spec) : '?';
+  const to = data.to ? 'v' + data.to.version : '?';
+  const runningItems = items.filter(i => i.outcome !== 'not_in_flight');
+  const running = runningItems.length;
+  const runningSites = new Set(runningItems.map(i => (i.site && i.site.id) || i.record_id)).size;
+  let headline;
+  if (!running) headline = `Nothing to migrate: no running custom-module cases on ${fromTxt} in scope (target ${to}).${counts.not_in_flight ? ` ${counts.not_in_flight} finished case(s) stay where they finished.` : ''}`;
+  else if (dryRun) headline = `Dry run ${fromTxt} → ${to}: ${counts.would_migrate} running case(s) would migrate, ${counts.blocked} blocked, on ${runningSites} site(s)${counts.not_in_flight ? `; ${counts.not_in_flight} finished case(s) stay` : ''}. Nothing was moved.`;
+  else headline = `Migration ${data.migration_id}: ${counts.migrated} case(s) migrated, ${counts.skipped} skipped, ${counts.failed} failed (${fromTxt} → ${to}, ${runningSites} site(s)).`;
+  const next = [];
+  if (dryRun && counts.would_migrate) next.push('Show this to the human. To move the compatible cases, repeat with confirm:true and a reason (recorded on every moved case). A site with any blocked case is skipped whole; the app re-checks every case under a lock at execution time.');
+  if (counts.blocked) next.push('Blocked cases: read the reasons; an explicit stage_map {module_key: {"<from stage order>": <to stage order>|null}}, restart_stage_on_chain_change:true (for chain_changed_mid_stage) or a narrower scope may help — then dry-run again.');
+  if (!dryRun) next.push(`Audit: every moved case shows "Moved to another release" in its audit trail. History: migration_status {workspace, migration_id: "${data.migration_id}"}.`);
+  return {
+    headline, counts,
+    from: data.from, to: data.to ? { version: data.to.version } : null,
+    cases: items.map(migrationCaseLine),
+    ...(next.length ? { next } : {}),
+  };
+}
+
 op({
-  name: 'migrate_running', title: 'Migrate running cases (phase G3)', readOnly: true,
-  description: 'Move running cases (sites) onto the latest release. NOT AVAILABLE YET: in the Matrix app every site is pinned to the release it started on, and cases keep their pinned stage rules (F4-API §3.3). An audited "migrate running cases" admin action is planned for phase G3; until then this op only explains the situation and changes nothing.',
-  input: obj({ workspace: WS }),
+  name: 'migrate_running', title: 'Migrate running cases', destructive: true,
+  description: 'Move IN-FLIGHT custom-module cases (with their sites\' release pins) from an older release onto a newer one in the Matrix app — the audited hot-fix path (G3). Normally every case finishes on the release its site is pinned to. Default is a DRY RUN that writes nothing and reports, per case: compatible or blocked (+ reasons), stage before → after and how it was mapped, fields kept/dropped/changed/newly required, approvals carried; finished cases stay. To execute, pass confirm:true AND a reason (≥3 chars, recorded on every moved case) — only after the human has seen the dry run. Execution is one locked transaction per site; a site with any incompatible case is skipped whole (never half-migrated). An execute is never re-sent automatically: if the call fails, check migration_status before retrying. workspace = a draft-store workspace or an app-only configurator ref (list_workspaces include_app:true).',
+  input: obj({
+    workspace: str('Workspace id (ws_…), slug or exact name — or a configurator ref that exists only in the app (list_workspaces include_app:true → app_only).'),
+    from_release_version: { anyOf: [{ type: 'integer', minimum: 1 }, { type: 'string', enum: ['all_older'] }], description: 'Release the cases are on now: a version number, or "all_older" (default) = every release older than the target.' },
+    to_release_version: { type: 'integer', minimum: 1, description: 'Release to move them onto. Default: the live release.' },
+    scope: obj({
+      module_keys: { type: 'array', items: str('Custom module key.'), minItems: 1, maxItems: 50, description: 'Only cases of these custom modules.' },
+      site_ids: { type: 'array', items: str('Site uuid.'), minItems: 1, maxItems: 500, description: 'Only cases on these sites.' },
+      record_ids: { type: 'array', items: str('Case (record) uuid.'), minItems: 1, maxItems: 500, description: 'Only these cases.' },
+    }, [], 'Narrow the migration (all optional, combined with AND). Note: a running case of another module on a moving site moves too (co_migrated).'),
+    reason: str('Why — required with confirm:true (3–500 chars); recorded on every moved case and in the audit trail.'),
+    stage_map: {
+      type: 'object', description: 'Explicit stage mapping per module: {"<module_key>": {"<from stage order>": <to stage order> | null}}. Otherwise stages map by same order+name, then same name, then same order.',
+      additionalProperties: { type: 'object', additionalProperties: { type: ['integer', 'null'], minimum: 1 } },
+    },
+    restart_stage_on_chain_change: bool('If someone already acted in a case\'s current stage and that stage\'s approver chain changed, restart the stage at its first step (values kept) instead of blocking the case. Default false.'),
+    confirm: bool('Required (true), together with a reason, to actually move the cases. Without it this is a dry run that moves nothing.'),
+  }, ['workspace']),
   async run(ctx, args) {
+    const { ref, workspace } = await appRefOf(ctx, args.workspace);
+    const execute = args.confirm === true;
+    const reason = String(args.reason || '').trim();
+    if (reason.length > 500) throw invalid('reason must be ≤ 500 characters.');
+    if (execute) {
+      assertWritable(ctx, ref);
+      if (reason.length < 3) throw invalid('A reason (at least 3 characters) is required to migrate running cases — it is recorded on every moved case. Nothing was sent.');
+    }
+    const body = {
+      ...(args.from_release_version !== undefined ? { from_release_version: args.from_release_version } : {}),
+      ...(args.to_release_version !== undefined ? { to_release_version: args.to_release_version } : {}),
+      ...(args.scope ? { scope: args.scope } : {}),
+      ...(reason ? { reason } : {}),
+      dry_run: !execute,
+      ...(args.stage_map ? { stage_map: args.stage_map } : {}),
+      ...(args.restart_stage_on_chain_change !== undefined ? { restart_stage_on_chain_change: args.restart_stage_on_chain_change } : {}),
+    };
+    let r;
+    try {
+      r = await ctx.app.migrate(ref, body);
+    } catch (e) {
+      if (!execute || !(e instanceof OpError) || !['app_error', 'unavailable'].includes(e.code)) throw e;
+      throw new OpError(e.code, `${e.message} The execute was NOT re-sent: the app may have moved some cases — run migration_status {workspace: "${ref}"} (and a fresh dry run) before trying again.`, e.details);
+    }
+    if (r.status !== 200) throw appMigrationError(ctx, r, ref, 'workspace or release');
+    const view = migrationView(r.data, { dryRun: !execute });
     return {
-      available: false,
-      phase: 'G3',
-      explanation: 'Running cases stay on the release their site is pinned to (version pinning); new sites use the live release. Phase G3 adds an audited admin action in the app to move running cases (alongside pinning). Nothing was changed.',
-      workspace: args.workspace || null,
+      ...(execute ? { executed: true, migration_id: r.data.migration_id } : { dry_run: true, note: 'Dry run — nothing was moved. Show this to the human; repeat with confirm:true and a reason to execute.' }),
+      workspace,
+      ...view,
+      raw: r.data,
+    };
+  },
+});
+
+op({
+  name: 'migration_status', title: 'Migration history', readOnly: true,
+  description: 'Executed "migrate running cases" runs of a workspace in the Matrix app (newest first; dry runs are never stored): id, status (running | done | failed), from → to, reason, who, counts. With migration_id: that run with its journal — one item per moved site pin and case (module, from version, stage before → after). Use it after migrate_running, or when an execute call failed, to see what actually happened.',
+  input: obj({
+    workspace: str('Workspace id (ws_…), slug or exact name — or an app-only configurator ref.'),
+    migration_id: str('A migration id (uuid) from migrate_running or this list.', { pattern: '^[0-9a-fA-F-]{36}$' }),
+    include_pre_state: bool('Include each journal item\'s FULL pre-migration case state (large). Default false.'),
+  }, ['workspace']),
+  async run(ctx, args) {
+    const { ref, workspace } = await appRefOf(ctx, args.workspace);
+    const countsTxt = s => s && s.by_outcome ? Object.entries(s.by_outcome).map(([k, v]) => `${k} ${v}`).join(', ') : 'no summary yet';
+    if (!args.migration_id) {
+      const r = await ctx.app.listMigrations(ref);
+      if (r.status !== 200) throw appMigrationError(ctx, r, ref, 'workspace');
+      const items = (r.data && r.data.items) || [];
+      return {
+        workspace, count: items.length,
+        migrations: items.map(m => `${m.id} · ${m.status} · ${m.from} → v${m.to_version} · ${m.created_at} · by ${m.actor} · “${m.reason}” · ${countsTxt(m.summary)}`),
+        ...(items.length ? {} : { note: 'No migration has been executed for this workspace (dry runs are never stored).' }),
+        raw: r.data,
+      };
+    }
+    const r = await ctx.app.getMigration(ref, args.migration_id);
+    if (r.status !== 200) throw appMigrationError(ctx, r, ref, `migration ${args.migration_id}`);
+    const d = r.data;
+    const stageTxt = s => (s && typeof s === 'object' ? quoted(s) : (s === null || s === undefined ? '—' : String(s)));
+    const journal = (d.items || []).map(i => i.record_id
+      ? `case ${i.record_id} · ${i.module_key} · v${i.from_version} → v${d.to_version} · stage ${stageTxt(i.before_stage)} → ${stageTxt(i.after_stage)}`
+      : `site ${i.site_id} · pin v${i.from_version} → v${d.to_version}`);
+    const raw = args.include_pre_state ? d : { ...d, items: (d.items || []).map(({ before_state, ...rest }) => rest) };
+    return {
+      workspace, id: d.id, status: d.status, from: d.from, to_version: d.to_version, reason: d.reason, actor: d.actor,
+      created_at: d.created_at, finished_at: d.finished_at, summary: d.summary, journal, raw,
     };
   },
 });
@@ -1232,6 +1402,6 @@ Model
 - roll-up: all_positive | any_negative | count_at_least{n,of} | sum_under{field,limit} | custom (parks: pending engineering). exit_signal = outcome downstream gates see.
 - tiers: supervisor always; executive tier on/off (supervisor_only); business-admin sign-off; delegation (executives act only on assigned sites).
 
-Loop: catalogue → list_workspaces → create_workspace → add_builtin_module / add_custom_module / disable_module / set_gate / add_stage / add_field / set_tiers / set_approvers / set_outcome → validate (local + app dry run) → diff → publish (dry run first; then confirm:true with the human's go-ahead; provision.admin_email on the first publish) → release_status.
+Loop: catalogue → list_workspaces → create_workspace → add_builtin_module / add_custom_module / disable_module / set_gate / add_stage / add_field / set_tiers / set_approvers / set_outcome → validate (local + app dry run) → diff → publish (dry run first; then confirm:true with the human's go-ahead; provision.admin_email on the first publish) → release_status. Running cases stay on the release their site is pinned to; to move them onto a newer release: migrate_running (dry run first, show the human; confirm:true + reason to execute) → migration_status.
 
-Rules: every write is validated and saved immediately; a step that would break the flow (gate cycle, gate on a module that is off, unreachable outcome, stage without approver, key collision) is refused unless allow_new_findings:true. remove_*, delete_workspace and publish are dry runs unless confirm:true. "conflict" = a human saved meanwhile: re-read (show_workspace) and redo the step. When the brief is ambiguous (who approves? what waits for what? who is the business admin?) ask the human instead of guessing. The human decides to publish. The one-time setup code returned by the first publish is a secret: hand it to the human once, never repeat or store it.`;
+Rules: every write is validated and saved immediately; a step that would break the flow (gate cycle, gate on a module that is off, unreachable outcome, stage without approver, key collision) is refused unless allow_new_findings:true. remove_*, delete_workspace, publish and migrate_running are dry runs unless confirm:true. "conflict" = a human saved meanwhile: re-read (show_workspace) and redo the step. When the brief is ambiguous (who approves? what waits for what? who is the business admin?) ask the human instead of guessing. The human decides to publish. The one-time setup code returned by the first publish is a secret: hand it to the human once, never repeat or store it.`;

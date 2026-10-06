@@ -75,6 +75,9 @@ export async function startFakeApp() {
   const st = {
     logins: 0, tokens: new Set(), workspaces: new Map(), calls: [],
     loginStatus: null, validateErrors: [], publishStatus: null, expireTokens: false,
+    // G3 migrations (docs/G3-API.md §1): every POST body received, executed runs, and a failure switch
+    // { status: 502 | 500 | 'reset', times: n } applied to the next n POSTs.
+    migrationBodies: [], migrations: [], migrateFail: null,
   };
   const send = (res, code, body, headers = {}) => { res.writeHead(code, { 'Content-Type': 'application/json', ...headers }); res.end(JSON.stringify(body)); };
   const server = http.createServer(async (req, res) => {
@@ -94,6 +97,8 @@ export async function startFakeApp() {
     if (!p.startsWith('/api/platform/')) return send(res, 404, { detail: 'not found' });
     const key = req.headers['x-platform-admin-key'];
     if (!key || !st.tokens.has(key) || st.expireTokens) { st.expireTokens = false; st.tokens.clear(); return send(res, 401, { detail: 'Invalid or expired admin token.' }); }
+    const mm = /^\/api\/platform\/workspaces\/([^/]+)\/migrations(?:\/([^/]+))?$/.exec(p);
+    if (mm) return fakeMigrations(req, res, decodeURIComponent(mm[1]), mm[2], data);
     const m = /^\/api\/platform\/workspaces(?:\/([^/]+))?(?:\/releases(?:\/(validate|\d+))?)?$/.exec(p);
     if (!m) return send(res, 404, { detail: 'not found' });
     const ref = m[1] && decodeURIComponent(m[1]);
@@ -126,6 +131,78 @@ export async function startFakeApp() {
     }
     return send(res, 404, { detail: 'not found' });
   });
+
+  // Fake of POST/GET …/migrations with the app's shapes: three cases on the workspace — a finished one
+  // (stays), a compatible running one, and a blocked running one (stage_missing; skipped on execute).
+  function fakeMigrations(req, res, ref, id, data) {
+    const w = st.workspaces.get(ref);
+    if (!w) return send(res, 404, { detail: `No workspace is linked to configurator id '${ref}'.` });
+    if (w.status !== 'active') return send(res, 409, { detail: `Workspace '${ref}' is ${w.status}.`, code: 'workspace_not_active' });
+    const mine = st.migrations.filter(x => x.ref === ref).map(({ ref: _r, ...x }) => x);
+    if (req.method === 'GET' && !id) return send(res, 200, { items: mine.reverse().map(({ items, ...head }) => head) });
+    if (req.method === 'GET') { const x = mine.find(y => y.id === id); return x ? send(res, 200, x) : send(res, 404, { detail: 'Migration not found.' }); }
+    if (req.method !== 'POST' || id) return send(res, 405, { detail: 'method not allowed' });
+    st.migrationBodies.push(data);
+    const f = st.migrateFail;
+    if (f && f.times-- > 0) { if (f.status === 'reset') return req.socket.destroy(); return send(res, f.status, { detail: 'forced failure' }); }
+    const allowed = ['from_release_version', 'to_release_version', 'scope', 'reason', 'dry_run', 'stage_map', 'restart_stage_on_chain_change'];
+    const extra = Object.keys(data || {}).filter(k => !allowed.includes(k));
+    if (extra.length) return send(res, 422, { detail: extra.map(k => ({ loc: ['body', k], msg: 'Extra inputs are not permitted' })) });
+    const dryRun = data.dry_run !== false;
+    const reason = String(data.reason || '').trim();
+    if (!dryRun && reason.length < 3) return send(res, 422, { detail: 'A reason (at least 3 characters) is required to migrate running cases.', code: 'reason_required' });
+    const nRel = w.releases.length;
+    if (!nRel) return send(res, 409, { detail: 'This workspace has no published release.', code: 'no_release' });
+    const to = data.to_release_version || nRel;
+    if (to > nRel) return send(res, 404, { detail: `Release v${to} does not exist.`, code: 'unknown_release' });
+    const from = data.from_release_version || 'all_older';
+    if (from !== 'all_older' && from > nRel) return send(res, 404, { detail: `Release v${from} does not exist.`, code: 'unknown_release' });
+    if (from === to) return send(res, 422, { detail: 'The source and target release are the same.', code: 'same_release' });
+    const versions = from === 'all_older' ? Array.from({ length: to - 1 }, (_, i) => i + 1) : [from];
+    const scope = data.scope || {};
+    const uuid = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    const signOff = { order: 3, name: 'Sign-off', step: 0, role: 'supervisor', chain: ['supervisor'], restricted_to: null };
+    const none = { kept: [], dropped: [], kind_changed: [], new_required: [] };
+    const item = (n, name, fromV, status, outcome, extra = {}) => ({
+      record_id: uuid(n), module_key: 'vendor_onboarding', site: { id: uuid(100 + n), name, code: 'BT-FAKE-' + n },
+      from_version: fromV, to_version: to, case_status: status, in_flight: status === 'in_progress',
+      compatible: ['would_migrate', 'migrated'].includes(outcome), co_migrated: false, outcome, blocking: [], warnings: [],
+      stage: { before: null, after: null }, stage_mapping: [], fields: none, approvals_carried: 0, message: null, ...extra,
+    });
+    let items = [
+      item(1, 'Site One', 1, 'completed', 'not_in_flight', { blocking: [{ code: 'not_in_flight', message: 'The case is completed; finished cases keep their release.' }] }),
+      item(2, 'Site Two', 1, 'in_progress', dryRun ? 'would_migrate' : 'migrated', {
+        stage: { before: signOff, after: signOff }, approvals_carried: 2,
+        warnings: [{ code: 'fields_dropped', message: 'Values of fields the target no longer has are removed from the live case.' }],
+        fields: { ...none, kept: [{ stage: 1, field: 'vendor_name' }], dropped: [{ stage: 1, field: 'old_note' }] },
+      }),
+      item(3, 'Site Three', 1, 'in_progress', dryRun ? 'blocked' : 'skipped', {
+        stage: { before: signOff, after: null },
+        blocking: [{ code: 'stage_missing', message: `Current stage 3 “Sign-off” has no counterpart in v${to}.`, stage: 3 }],
+        ...(dryRun ? {} : { message: 'incompatible at execution time' }),
+      }),
+    ].filter(i => versions.includes(i.from_version));
+    if (scope.module_keys && !scope.module_keys.includes('vendor_onboarding')) items = [];
+    if (scope.record_ids) items = items.filter(i => scope.record_ids.includes(i.record_id));
+    const by = {};
+    for (const i of items) by[i.outcome] = (by[i.outcome] || 0) + 1;
+    const summary = { records: items.length, sites: new Set(items.map(i => i.site.id)).size, compatible: items.filter(i => i.compatible).length, blocked: items.filter(i => i.in_flight && !i.compatible).length, by_outcome: by };
+    const options = { stage_map: data.stage_map || {}, restart_stage_on_chain_change: !!data.restart_stage_on_chain_change };
+    const head = { configurator_ref: ref, tenant_id: w.tenant_id, dry_run: dryRun, from: { spec: from === 'all_older' ? 'all_older' : 'v' + from, versions }, to: { id: 'rel-' + to, version: to }, scope, options, reason: reason || null, actor: creds.email };
+    if (dryRun) return send(res, 200, { ...head, migration_id: null, summary, items });
+    const migId = '11111111-2222-4333-8444-' + String(st.migrations.length + 1).padStart(12, '0');
+    const at = new Date().toISOString();
+    const moved = items.filter(i => i.outcome === 'migrated');
+    st.migrations.push({
+      ref, id: migId, from: head.from.spec, to_version: to, scope: { ...scope, options }, reason, actor: creds.email, status: 'done', summary, created_at: at, finished_at: at,
+      items: moved.flatMap(i => [
+        { site_id: i.site.id, record_id: null, module_key: null, from_version: i.from_version, before_stage: null, after_stage: null, before_state: null, plan: {}, at },
+        { site_id: i.site.id, record_id: i.record_id, module_key: i.module_key, from_version: i.from_version, before_stage: i.stage.before, after_stage: i.stage.after, before_state: { values: { vendor_name: 'Acme', old_note: 'PRE-STATE-MARKER' } }, plan: {}, at },
+      ]),
+    });
+    return send(res, 200, { ...head, migration_id: migId, summary, items });
+  }
+
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${server.address().port}/api`;
   return { base, creds, st, close: () => new Promise(r => server.close(r)) };
