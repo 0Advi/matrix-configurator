@@ -41,6 +41,7 @@ Legend: ✅ done, verified by the lead and **pushed** · 🔄 in progress (on di
 | 2b.5 | **Approved fixes 01/02/03** applied: corrected flow model, catalogue migration fixing the "BD done opens too early" gate bug (D18) + unreachable outcomes (D19), stale approvals claim | `building-blocks/`, migration `20261005_4` | all suites green |
 | 2b.6 | **Adoption audit** (user chose: Operaton = ideas only): every Operaton/NocoBase concept → code → localhost click-path | `docs/ADOPTION-AUDIT.md` | every path checked against the tree |
 | 2b.7 | Login list generator | `show-logins.mjs` | gitignored output, mode 600 |
+| 2b.8 | **W1** AI agent's `migrate_running` now calls the real migrations API (dry-run default; confirm + reason to execute; never re-sent) + `migration_status` op — 28 tools (`b570312`) | `agent-configurator/` | 64 tests; live dry run moved nothing |
 
 \* The 2 failing frontend tests are rent-v2 "flag OFF" tests; they fail only because the sandbox turns that flag on, and pass 9/9 with it off.
 
@@ -59,7 +60,6 @@ Legend: ✅ done, verified by the lead and **pushed** · 🔄 in progress (on di
 ## 2. In progress — on disk, not pushed yet 🔄
 | Task | Agent | Status |
 |---|---|---|
-| Wire the AI agent's `migrate_running` op to the real migrations API (dry-run default, confirm + reason to execute) | W1 | implemented; writing tests, then README |
 | Caveat fixes (task 4) — see 3.1 below | F5a | SEC-1 fix under way: platform admin can now re-issue an unclaimed admin's setup code |
 
 The lead pushes these only after verifying them.
@@ -84,7 +84,7 @@ The lead pushes these only after verifying them.
 - [ ] Walk every click-path in `docs/ADOPTION-AUDIT.md` and mark it verified.
 
 ### 3.3 Wrap-up (lead)
-- [ ] Verify + push W1, F5a, F5b; refresh README; final handover.
+- [x] Verify + push W1 (`b570312`). - [ ] Verify + push F5a, F5b; refresh README; final handover.
 - [ ] Clean up sandbox test tenants (smoke runs create one per run) or provide a one-command reset.
 
 ### 3.4 Known limitations — not scheduled (decide later)
