@@ -1,4 +1,4 @@
-"""0003_access.sql against a real PostgreSQL (same DSN convention as packages/store). Skipped without a server."""
+"""0004_access.sql against a real PostgreSQL (same DSN convention as packages/store). Skipped without a server."""
 import json
 import os
 import uuid
@@ -26,7 +26,7 @@ def conn():
     c.execute("CREATE TABLE workspaces (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), key text UNIQUE NOT NULL, name text NOT NULL)")
     c.execute(open(os.path.join(PKGS, "store", "sql", "0002_store.sql"), encoding="utf-8").read())
     for _ in range(2):                                                        # idempotent
-        c.execute(open(os.path.join(PKGS, "access", "sql", "0003_access.sql"), encoding="utf-8").read())
+        c.execute(open(os.path.join(PKGS, "access", "sql", "0004_access.sql"), encoding="utf-8").read())
     yield c
     c.close()
     admin.execute(f'DROP DATABASE "{name}" WITH (FORCE)')

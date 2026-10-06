@@ -82,7 +82,10 @@ Canonical, platform-owned types (the runtime and store emit them; no module code
 **Additions** (defined here, payloads in §3.3; their owners refine them additively):
 `module.record.migrated` (per case), `module.record.reopened` (RT-D06, CR loop C7), `module.sla.warning`,
 `module.sla.breached` (SLA design), `module.file.deleted` (file design), `signal.recorded` (manifest `signals[]`, M7),
-`subject.updated` (applied `SubjectUpdate`, C15). Adapter events stay **namespaced** (`<adapter namespace>.<name>`,
+`subject.updated` (applied `SubjectUpdate`, C15); from the companion plans: `module.sla.escalated`,
+`notification.failed` (`docs/notifications/NOTIFICATIONS-SLA.md`), `release.migration.started`,
+`release.migration.failed` (`docs/migrations/MIGRATION-HARDENING.md`). `module.file.downloaded` is deliberately **not**
+a bus event: downloads are audit rows in `case_file_access_log` (`docs/files/FILE-FIELDS.md`). Adapter events stay **namespaced** (`<adapter namespace>.<name>`,
 adapters README §2), e.g. `matrix_bd.pex.initialization_proposed` (C10), `matrix_bd.launch.rent_terms_committed`
 (C15), `matrix_bd.bd.change_request_approved` (C7), `matrix_bd.bd.loi_deadline_set` (existing example).
 
@@ -161,14 +164,20 @@ Max serialized size 64 KiB; files by reference (`file_id`), never bytes or signe
 | `module.file.deleted` | `file_id`, `stage_key`, `field_key`, `reason` (`replaced`\|`gc`\|`user`) |
 | `signal.recorded` | `signal_key`, `outcome` (∈ `signals[].outcomes`), `external_ref`, `source` (module_key = signal key, record_id = null allowed, subject required) |
 | `subject.updated` | `fields` {key: {before, after}}, `cause_event_id` (actor.kind = `adapter`/`system`) |
+| `module.sla.escalated` | `stage_key`, `sla_id`, `level`, `due_at`, `recipients` [user ids] (actor.kind = `timer`) — NOTIFICATIONS-SLA §6 |
+| `notification.failed` | `delivery_id`, `rule_key`, `channel`, `recipient_id`, `attempts`, `last_error_code`, `cause_event_id` (module_key/record_id of the cause, may be null) |
+| `release.migration.started` | `migration_id`, `plan_sha256`, `from_release` {id,version}, `reason`, `planned` {migrate, transform, skip, block} (record_id null; envelope `release` = target) — MIGRATION-HARDENING §7 |
+| `release.migration.failed` | `migration_id`, `plan_sha256`, `error_code`, `moved`, `remaining` (record_id null; correlation_id = migration id) |
 
 Versioning: additive optional fields keep `schema_version`; renames/removals/semantic changes bump it, and the
 publisher dual-emits both versions until every subscriber declares the new one (§6 S11).
 
 ## 4. Tables needed
 
-New migration `packages/store/sql/0004_events.sql` (after `0003_runtime.sql`, which adds `cases`/`case_events`
-per HARDENING §4). Same conventions as `0002_store.sql`: `workspace_id` on every row, `FORCE ROW LEVEL SECURITY`
+New migration `packages/store/sql/0005_events.sql` (after `0003_runtime.sql`, which adds `cases`/`case_events`
+per HARDENING §4). Canonical order of the first-party SQL across the plans: `0002_store` (exists) → `0003_runtime`
+(HARDENING) → `0004_access` (exists, `packages/access/sql`) → `0005_events` (this plan) → `0006_notify`
+(NOTIFICATIONS-SLA) → `0007_files` (FILE-FIELDS); migration-hardening changes are `ALTER`s folded into `0003_runtime`. Same conventions as `0002_store.sql`: `workspace_id` on every row, `FORCE ROW LEVEL SECURITY`
 with policy `ws_isolation` on `current_setting('app.workspace_id')`, workers use the same per-batch `SET LOCAL`.
 
 ```sql
@@ -391,7 +400,7 @@ Strangler, one coupling at a time; each phase is flag-guarded per workspace and 
 
 | Phase | What changes (exact functions) | Exit criterion |
 |---|---|---|
-| **0 Infra** | `0004_events.sql`; `events.append()`; worker + `facts`/`audit` projectors; envelope JSON Schema; `ALTER workspace_activity/audit_logs`. No behaviour change. | DB + unit tests green (§10) |
+| **0 Infra** | `0005_events.sql`; `events.append()`; worker + `facts`/`audit` projectors; envelope JSON Schema; `ALTER workspace_activity/audit_logs`. No behaviour change. | DB + unit tests green (§10) |
 | **1 Shadow — generic runtime** | `module_runtime_service._write_events` (`:294`) also appends bus events per the §2 mapping; `svc_assign` (`:513`) → `module.assignment.changed`; `svc_upload_file` (`:848`) → `module.file.uploaded`; `release_migration_service` finish → `module.record.migrated` / `release.migration.completed`; store `store_publish` → `release.published`. Comparator job: `record_facts` vs `site_module_outcomes` (`source='module_record'` rows). | zero diff 14 days; replay rebuild equals live projection |
 | **2 Shadow — built-ins** | Add `legacy_emit(session, site, module_key, type, …)` next to the existing `write_audit_event` in: `finance_service.svc_finance_request_approval/approve/reject`; `legal_service.svc_save_due_diligence/svc_save_licensing`; `design_service.svc_allocate_design/_advance_stage_after_approval/svc_request_gfc_approval/svc_gfc_decision`; `project_excellence_service.svc_allocate_pe/svc_review_pe_budget/svc_admin_review_pe_budget`; `project_service.svc_allocate_project/svc_submit_milestone/svc_admin_confirm_quality_audit/svc_pe_complete_quality_audit/svc_push_qa_report/svc_push_to_nso`; `nso_service.svc_save_stage_one/svc_final_approval`; `launch_service.svc_admin_final_confirm/svc_launch`; `financial_closure_service.svc_send_for_financial_closure/svc_admin_finalize_fc`; `change_request_service._maybe_recover_dd_verdict`. Built-ins have no `cases` row: record id = `uuid5(site_id, module_key)` in a `legacy_records` map with its own `seq`; release = `sites.config_release_id` or live. Comparator: `record_facts` vs `site_module_outcomes.builtin_raw`. | zero unexplained diff 14 days per module |
 | **3 Cut gate reads** | `build_facts` → `record_facts` (G7). Replace G1–G6 bodies with `gate_service.require(subject, module_key[, stage_key])`; old column check kept as logged comparator for one release, then deleted. | no comparator divergence; `site_module_outcomes` unused |

@@ -75,7 +75,7 @@ has changed. `svc.py` means `app/backend/app/services/module_runtime_service.py`
 
 ## 4. DB changes
 
-The new tables live in a new migration, `packages/store/sql/0004_files.sql`. It applies after `0003_runtime.sql`, which defines `cases`,
+The new tables live in a new migration, `packages/store/sql/0007_files.sql`. It applies after `0003_runtime.sql`, which defines `cases`,
 `case_events`, `case_stage_states` and the outbox (HARDENING §4, EVENT-BUS.md). It follows store conventions: a `workspace_id` on
 every row, `ws_isolation` RLS on `app.workspace_id` (`0002_store.sql:510-512`), and stage and field identified by **key** (RT-D01).
 
@@ -185,7 +185,7 @@ CREATE TABLE storage_purge_queue (
 
 The `from_v5.py` converter keeps the hint regex (`forms.py:26-27`) and only uses it to emit typed `accept`/`max_size_mb`.
 
-**Data migration** (one script, `0004_files_backfill`, run under `app.release_migration`)
+**Data migration** (one script, `0007_files_backfill`, run under `app.release_migration`)
 
 | Source | Target |
 |---|---|

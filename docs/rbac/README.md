@@ -1,7 +1,7 @@
 # Modular RBAC and permission model
 
 **Task 6** · 2026-10-06 · code: `packages/access/` · schema: `packages/manifest/workspace_manifest.schema.json` (`roles`,
-`permissions`, `module.members`, `module.visibility`) · storage: `packages/access/sql/0003_access.sql`
+`permissions`, `module.members`, `module.visibility`) · storage: `packages/access/sql/0004_access.sql`
 
 **Goal:** stop relying on four fixed roles and one `module` claim in the token. Who may do what is **data in the
 release manifest**. The platform adds only a **ceiling** (what a workspace may grant at all) and one operator
@@ -13,7 +13,7 @@ principal. A single function, `authorize(principal, action, resource, policy)`, 
 | `workspace_access/authorize.py` | `authorize()`, `can_be_assigned()`, `explain()` — the only access decision in the platform |
 | `workspace_access/guard.py` | `Guard`: loads the principal per request, picks the right release, caches policies per release id, raises problem+json |
 | `workspace_access/ceiling.py` + `platform_ceiling.json` | Publish-time platform ceiling (rule **C1**) |
-| `sql/0003_access.sql` | `workspace_role_assignments`, `module_memberships`, `workspace_access_versions`, `access_principal()` |
+| `sql/0004_access.sql` | `workspace_role_assignments`, `module_memberships`, `workspace_access_versions`, `access_principal()` |
 | `tests/` | 35 tests: every rule below on the Acme example **and** the real Matrix-bd templates, the guard, the SQL on PostgreSQL |
 
 ```bash
@@ -142,7 +142,7 @@ guards (`require_role`, `require_module`, `require_real_role`, `require_module_e
 
 | Phase | Change | Safe because |
 |---|---|---|
-| **P0 Tables + backfill (shadow)** | Apply `0003_access.sql`. Backfill: `users.role ∈ {business_admin, observer}` → `workspace_role_assignments`; every `user_module_memberships` row → `module_memberships(module, role_in_module)` (`supervisor_id` → `reports_to`; one row per supervisor collapses to one membership); `has_executive_access` → extra `(module, executive)` membership; workspace admins from the tenant owner list. Every guarded request also runs `Guard.check()` in **shadow mode** and logs disagreements with the old guard. | Old guards still decide; disagreements are measured on real traffic before anything switches. |
+| **P0 Tables + backfill (shadow)** | Apply `0004_access.sql`. Backfill: `users.role ∈ {business_admin, observer}` → `workspace_role_assignments`; every `user_module_memberships` row → `module_memberships(module, role_in_module)` (`supervisor_id` → `reports_to`; one row per supervisor collapses to one membership); `has_executive_access` → extra `(module, executive)` membership; workspace admins from the tenant owner list. Every guarded request also runs `Guard.check()` in **shadow mode** and logs disagreements with the old guard. | Old guards still decide; disagreements are measured on real traffic before anything switches. |
 | **P1 New routes on the guard** | Runtime routes for manifest modules (`/modules/{key}/cases/...`) use only `Guard.check()`. Built-in routes keep the old guards. | No old route changes behaviour. |
 | **P2 Frontend on memberships** | `/auth/whoami` returns `workspace_roles` + `memberships` + `access_version`; the module switcher lists memberships instead of the one claim. `X-View-As: <role>` replaces `X-Override-Role` / `X-Override-Module` and **only narrows reads** (writes ignore it). | Old headers keep working until P4; new header cannot escalate. |
 | **P3 Tokens without module** | Login stops writing `module` / `module_role` into `app_metadata`. `require_module(m)` becomes a shim: allowed if the principal has **any** membership in `m` (or `view_all_cases`). `require_role` shim: maps the 4 roles to workspace roles / "any membership with that role". Shadow disagreements must be zero for 2 weeks first. | Shims are strictly membership-based; the claim is no longer trusted. |

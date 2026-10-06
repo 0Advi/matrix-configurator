@@ -148,8 +148,8 @@ No selector names a role in code. Role selectors are **looked up in `roles[]` of
 | `actor` | `envelope.actor.on_behalf_of ?? actor.id` when `kind = user` (the actor is **excluded from every other selector**) | any |
 | `case_participants` | everyone who ever acted on the case (`CaseResource.participants`) | any |
 | `role:<key>` | holders of role `<key>`, using the role's declared `scope` (module scope ⇒ members **of this case's module**) | any |
-| `module.<key>` | role `<key>` must have `scope: module` and be in `module.members`; holders = `module_memberships (module_key, key)` (`0003_access.sql:29`) | module rules |
-| `workspace.<key>` | role `<key>` must have `scope: workspace`; holders = `workspace_role_assignments` (`0003_access.sql:20`) | any |
+| `module.<key>` | role `<key>` must have `scope: module` and be in `module.members`; holders = `module_memberships (module_key, key)` (`0004_access.sql:29`) | module rules |
+| `workspace.<key>` | role `<key>` must have `scope: workspace`; holders = `workspace_role_assignments` (`0004_access.sql:20`) | any |
 
 So `"module.supervisor"` resolves to the role whose **key** is `supervisor` (Acme and Matrix-bd both declare it with
 `scope: module`) and to the people holding that membership in the case's module. `"workspace.admin"` needs a role with
@@ -310,7 +310,7 @@ All carry the standard envelope incl. `release {id, version}` of the **case's pi
 | Runtime API additions | existing routes | `sla {due_at, state, level}` on case list items, detail `next_step`, and `GET /m/{key}/summary` `overdue` | GENERIC-RUNTIME-SPEC §4 row "Dashboard" |
 | Legacy bridge (cut-over only) | shim | `notify_enqueue` callers keep working until their module runs on templates; new code never calls it | RT-F02 |
 
-New tables (one migration `0005_notify.sql`, RLS like the store):
+New tables (one migration `0006_notify.sql`, RLS like the store):
 
 | Table | Key columns | Replaces |
 |---|---|---|

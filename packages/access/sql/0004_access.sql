@@ -1,4 +1,4 @@
--- 0003_access.sql — principal storage for manifest-driven RBAC (Task 6). Applies after 0002_store.sql. Idempotent.
+-- 0004_access.sql — principal storage for manifest-driven RBAC (Task 6). Applies after 0002_store.sql. Idempotent.
 --
 -- Replaces the one-primary-module model (users.role + one JWT `module` claim + user_module_memberships with a
 -- CHECK on three module keys and two role names) with:
