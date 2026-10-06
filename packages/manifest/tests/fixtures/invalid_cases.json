@@ -1065,6 +1065,96 @@
      ]
     }
    ]
+  },
+  {
+   "name": "can_grant_misplaced",
+   "rule": "R10",
+   "expect": {
+    "code": "can_grant_misplaced",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "append",
+     "path": "permissions",
+     "value": {
+      "action": "assign_cases",
+      "roles": [
+       "supervisor"
+      ],
+      "can_grant": [
+       "executive"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "can_grant_escalation",
+   "rule": "R10",
+   "expect": {
+    "code": "privilege_escalation",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "append",
+     "path": "permissions",
+     "value": {
+      "action": "manage_members",
+      "roles": [
+       "supervisor"
+      ],
+      "modules": [
+       "site_survey"
+      ],
+      "can_grant": [
+       "business_admin"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "can_grant_self",
+   "rule": "R10",
+   "expect": {
+    "code": "self_granting",
+    "severity": "warning"
+   },
+   "ops": [
+    {
+     "op": "append",
+     "path": "permissions",
+     "value": {
+      "action": "manage_members",
+      "roles": [
+       "supervisor"
+      ],
+      "can_grant": [
+       "supervisor",
+       "executive"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "visibility_not_member",
+   "rule": "R10",
+   "expect": {
+    "code": "visibility_not_member",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/visibility",
+     "value": {
+      "finance_reviewer": "all"
+     }
+    }
+   ]
   }
  ]
 }

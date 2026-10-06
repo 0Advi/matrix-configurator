@@ -32,7 +32,9 @@ R8  fields             — option/validation consistency (min <= max, valid rege
                          choice options unique, person role exists).
 R9  roll-up & views    — roll-up field references exist and are scorable; view stages/outcomes exist;
                          ``default_for`` is a subset of ``audience``.
-R10 grants             — read-only roles never hold a write grant; someone can publish.
+R10 grants & access    — read-only roles never hold a write grant; someone can publish; can_grant only on
+                         manage_members and never hands a workspace role to module-scoped holders;
+                         visibility names member roles only.
 """
 from __future__ import annotations
 
@@ -643,5 +645,22 @@ def _r10_grants(r: _Report, c: _Context) -> None:
                         f"permissions/{i}/roles")
         if g.get("action") == "publish_release":
             publishers |= set(_list(g.get("roles")))
+        if "can_grant" in g:
+            if g.get("action") != "manage_members":
+                r.error("R10", "can_grant_misplaced", f"can_grant only applies to manage_members, not {g.get('action')!r}",
+                        f"permissions/{i}/can_grant")
+            for role in _list(g.get("can_grant")):
+                if _role_ref(r, c, role, f"permissions/{i}/can_grant") and c.role[role].get("scope") == "workspace" \
+                        and not set(_list(g.get("roles"))) <= {k for k, ro in c.role.items() if ro.get("scope") == "workspace"}:
+                    r.error("R10", "privilege_escalation", f"module-scoped holders {sorted(_list(g.get('roles')))} cannot hand out "
+                                                           f"the workspace role {role!r}", f"permissions/{i}/can_grant")
+                if role in _list(g.get("roles")):
+                    r.warn("R10", "self_granting", f"holders of {role!r} may hand out {role!r} itself (peers can admit peers)",
+                           f"permissions/{i}/can_grant")
     if not publishers:
         r.warn("R10", "no_publisher", "no role holds publish_release; only the platform operator can publish", "permissions")
+    for i, mod in enumerate(c.modules):
+        for role, level in (mod.get("visibility") or {}).items() if isinstance(mod.get("visibility"), dict) else ():
+            if role not in _list(mod.get("members")):
+                r.error("R10", "visibility_not_member", f"visibility names {role!r}, which is not a member role of {mod.get('key')!r}",
+                        f"modules/{i}/visibility/{role}", module=mod.get("key"))

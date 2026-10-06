@@ -80,7 +80,7 @@ the same subject see each other through gates: `fit_out` opens when `site_survey
 | **R7** | **No built-in-only hard-coded behaviour**: no `type`, `implementation`, `route`, `builtin`, `status_source`, `outcome_map`, `reached_map` on a module; an adapter must be installed, at an installed version, and may only declare hooks it implements | `builtin_behavior`, `unknown_adapter`, `adapter_hook_unsupported` (E); `adapter_unverified` (W, no registry given) | 6 |
 | R8 | Typed validation is consistent: min ≤ max, regexes compile, validation keys fit the field type, money has a currency, person role exists | `field_validation` (E); `money_without_currency` (W) | 3 |
 | R9 | Roll-up fields exist and are scorable (choice/yes_no/number/money; sum_under needs number/money); views filter on real stages/outcomes; `default_for ⊆ audience` | `rollup_invalid`, `unknown_field`, `view_default_not_in_audience` (E); `affects_outcome_unused`, `view_audience_cannot_see` (W) | 3 |
-| R10 | Read-only roles never hold write grants; someone can publish | `read_only_grant` (E); `no_publisher` (W) | 2 |
+| R10 | Read-only roles never hold write grants; someone can publish; `can_grant` only on `manage_members`, names known roles and never lets module-scope holders hand out workspace roles; `visibility` names member roles only | `read_only_grant`, `can_grant_misplaced`, `unknown_role`, `privilege_escalation`, `visibility_not_member` (E); `no_publisher`, `self_granting` (W) | 6 |
 
 Findings carry `rule`, `code`, `message`, JSON `path` and `module` / `stage` / `field` — the configurator can
 point at the exact control.
@@ -114,6 +114,9 @@ The app's current `validate.py` (configurator-v5) cannot see:
 Modelling Matrix-bd's real flows (`docs/templates/`) added five generic capabilities: `restricted_to: subject_creator`,
 `submit.restrict_roles`, `submit.module` / `approval.module`, `approvals[].fields`, and same-stage rework in
 `send_back_to`. Each has validator coverage and fixtures.
+
+Task 6 (`docs/rbac/README.md`) added `module.visibility` (`all | own | actionable` per member role) and
+`permissions[].can_grant` (which roles a `manage_members` holder may hand out), both checked by R10.
 
 ## 5. Migration from today's releases
 

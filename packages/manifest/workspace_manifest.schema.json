@@ -976,6 +976,20 @@
             }
           },
           "description": "provenance only: the template this module was created from (Task 4)"
+        },
+        "visibility": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/key"
+          },
+          "additionalProperties": {
+            "enum": [
+              "all",
+              "own",
+              "actionable"
+            ]
+          },
+          "description": "Which cases each MEMBER role of this module sees. all: every case of the module; own: cases they opened, are assigned to, acted on, or whose subject they created; actionable: only cases where they can act now. Default (docs/rbac): 'all' for roles that appear as an approval tier in this module, else 'own'. Workspace-wide reading comes only from the view_all_cases grant."
         }
       }
     },
@@ -1016,6 +1030,15 @@
             "$ref": "#/$defs/key"
           },
           "description": "limit the grant to these modules; absent = every module"
+        },
+        "can_grant": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/key"
+          },
+          "description": "manage_members only: the roles this grant lets its holders hand out (e.g. supervisors may admit executives to their module). Absent = every module-scope role of the granted modules."
         }
       }
     }

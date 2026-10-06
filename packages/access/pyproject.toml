@@ -1,0 +1,11 @@
+[project]
+name = "workspace-access"
+version = "1.0.0"
+description = "Manifest-driven RBAC: principal, compiled policy, authorize(), backend guard, platform ceiling. Contract: docs/rbac/README.md"
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+test = ["pytest>=8", "psycopg>=3.1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

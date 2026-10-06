@@ -1,0 +1,17 @@
+{
+  "$comment": "Platform policy: the most a workspace manifest may grant. Checked at publish (check_ceiling) in addition to the manifest validator. Replaces v5's per-action platform_ceiling lists with scope rules that do not name roles.",
+  "grants": {
+    "edit_draft":       {"holder_scopes": ["workspace"], "read_only": false},
+    "publish_release":  {"holder_scopes": ["workspace"], "read_only": false},
+    "migrate_cases":    {"holder_scopes": ["workspace"], "read_only": false},
+    "manage_workspace": {"holder_scopes": ["workspace"], "read_only": false},
+    "override_step":    {"holder_scopes": ["workspace"], "read_only": false},
+    "manage_members":   {"holder_scopes": ["workspace", "module"], "read_only": false, "module_holders_need_modules": true},
+    "manage_views":     {"holder_scopes": ["workspace", "module"], "read_only": false},
+    "assign_cases":     {"holder_scopes": ["workspace", "module"], "read_only": false},
+    "view_all_cases":   {"holder_scopes": ["workspace", "module"], "read_only": true},
+    "view_audit":       {"holder_scopes": ["workspace", "module"], "read_only": true}
+  },
+  "max_workspace_roles": 20,
+  "max_module_roles": 30
+}
