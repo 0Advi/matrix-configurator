@@ -351,6 +351,25 @@ async function main() {
   r = await call('POST', `/platform/workspaces/${ref}/migrations`, { admin, body: { from_release_version: 2, to_release_version: 2, reason: 'noop' } });
   expect('#2 same source and target refused (422)', r, 422);
 
+  // ── F5a (also F4a gap 8): a provisioning retry after a crash adopts the committed tenant ───
+  const crashRef = `${ref}_crash`;
+  r = await call('POST', '/tenancy/request-workspace', { body: { company: `${company} Crash`, admin_email: `crash.${emails.ba}`, team_size: '1 to 10 users' } });
+  const crashReq = r.data?.id;
+  r = await call('POST', `/tenancy/requests/${crashReq}/approve`, { admin, body: { admin_name: 'Crash BA' } });
+  const crashTenant = r.data?.tenant_id;
+  const lostCode = r.data?.admin_setup_token;
+  // the process "died" after the approval committed, before the configurator link was written
+  const stuck = sql(`INSERT INTO platform_workspaces (workspace_ref, status, claimed_by, workspace_request_id, created_at)
+                     VALUES ('${crashRef}', 'provisioning', 'smoke', '${crashReq}', now() - interval '1 hour');`);
+  r = await call('POST', '/platform/workspaces', { admin, body: { configurator_ref: crashRef, company: `${company} Crash`, admin_email: `crash.${emails.ba}` } });
+  const resumed = r.data || {};
+  expect('F5a provisioning retry after a crash adopts the committed tenant (no second one) with a fresh setup code', r, 201,
+    { recovered: resumed.recovered, same_tenant: resumed.tenant_id === crashTenant },
+    stuck.ok && Boolean(crashTenant) && resumed.tenant_id === crashTenant && resumed.recovered === true
+      && Boolean(resumed.admin_setup_token) && resumed.admin_setup_token !== lostCode);
+  r = await call('POST', '/auth/password-reset/complete', { body: { email: `crash.${emails.ba}`, workspace_code: resumed.workspace_code, new_password: pw(), reset_token: resumed.admin_setup_token } });
+  expect('F5a ...and that fresh code claims the business admin', r, 200);
+
   // ── F5a: crash recovery, one live migration per workspace, idle-site re-pin ─────
   const v3 = workspaceManifest(ref, company, true);
   r = await call('POST', `/platform/workspaces/${ref}/releases`, { admin, body: { manifest: v3, reason: 'F5a v3: same rules, for the idle re-pin check' } });

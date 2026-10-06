@@ -484,3 +484,54 @@ async def test_deleting_a_site_also_purges_its_custom_module_files(monkeypatch, 
     await svc.delete_site(sess, tenant_id, site.id, {"sub": str(_uuid.uuid4()), "name": "A", "role": "business_admin"})
     assert "FROM module_files WHERE site_id = :sid AND tenant_id = :tid" in sess.executed[3]
     assert seen == ["loi/t/s/loi.pdf", "module-files/t/vendor/r/f/cert.pdf"]
+
+
+# ── Also fixed (F4a gap 8): crash-safe configurator provisioning ───────────────
+
+async def test_resume_point_after_a_crash(make_session, fake_result):
+    from app.services.platform_workspace_service import _resume_point
+
+    assert await _resume_point(make_session(), None) == (None, None)
+    tid = "22222222-2222-2222-2222-222222222222"
+    approved = make_session(fake_result(mappings_rows=[{"status": "approved", "provisioned_tenant_id": tid}]))
+    assert await _resume_point(approved, "req-1") == (None, tid)          # adopt, never a second tenant
+    pending = make_session(fake_result(mappings_rows=[{"status": "pending", "provisioned_tenant_id": None}]))
+    assert await _resume_point(pending, "req-1") == ("req-1", None)       # approve the SAME request
+    rejected = make_session(fake_result(mappings_rows=[{"status": "rejected", "provisioned_tenant_id": None}]))
+    assert await _resume_point(rejected, "req-1") == (None, None)         # start over
+
+
+async def test_provision_retry_adopts_the_committed_tenant(monkeypatch, make_session):
+    from app.services import platform_workspace_service as svc
+    from app.services import tenancy_service
+
+    calls = []
+
+    async def claim(_s, _ref, _who):
+        return "req-1"
+
+    async def resume(_s, prior):
+        return None, "tenant-1"
+
+    async def adopt(_s, tenant_id):
+        calls.append(("adopt", tenant_id))
+        return {"tenant_id": tenant_id, "workspace_code": "ACME-1", "seat_limit": 10, "business_admin_id": "ba-1",
+                "admin_email": "ba@acme.co", "admin_setup_token": "fresh-code", "company": "Acme", "recovered": True}
+
+    async def never(*_a, **_k):
+        raise AssertionError("must not create another request / tenant")
+
+    monkeypatch.setattr(svc, "_claim_ref", claim)
+    monkeypatch.setattr(svc, "_resume_point", resume)
+    monkeypatch.setattr(svc, "_adopt_tenant", adopt)
+    monkeypatch.setattr(tenancy_service, "insert_workspace_request", never)
+    monkeypatch.setattr(tenancy_service, "approve_workspace_request", never)
+    sess = make_session()
+    out = await svc.svc_provision_workspace(
+        sess, ref="ws_acme", company="Acme", admin_email="ba@acme.co", admin_name=None, seat_limit=None,
+        team_size=None, city=None, source_ip=None, actor_email="pa@example.com")
+    assert calls == [("adopt", "tenant-1")]
+    assert out["recovered"] is True and out["tenant_id"] == "tenant-1" and out["admin_setup_token"] == "fresh-code"
+    assert any("SET status = 'active'" in s for s in sess.executed)
+    audit = [p for s, p in zip(sess.executed, sess.execute_params) if "INSERT INTO audit_logs" in s]
+    assert audit and '"recovered": true' in audit[0]["prov"]
