@@ -1,0 +1,80 @@
+{
+  "matrix_bd.bd": {
+    "versions": [
+      "1.0.0"
+    ],
+    "hooks": [
+      "afterApprove",
+      "beforeSubmit",
+      "validateBusinessRule"
+    ],
+    "provided_by": "customer adapter package (Task 5 interface)"
+  },
+  "matrix_bd.legal": {
+    "versions": [
+      "1.0.0"
+    ],
+    "hooks": [
+      "syncExternalState",
+      "validateBusinessRule"
+    ],
+    "provided_by": "customer adapter package (Task 5 interface)"
+  },
+  "matrix_bd.finance_ca": {
+    "versions": [
+      "1.0.0"
+    ],
+    "hooks": [
+      "afterApprove",
+      "validateBusinessRule"
+    ],
+    "provided_by": "customer adapter package (Task 5 interface)"
+  },
+  "matrix_bd.project_excellence": {
+    "versions": [
+      "1.0.0"
+    ],
+    "hooks": [
+      "afterApprove"
+    ],
+    "provided_by": "customer adapter package (Task 5 interface)"
+  },
+  "matrix_bd.project": {
+    "versions": [
+      "1.0.0"
+    ],
+    "hooks": [
+      "syncExternalState"
+    ],
+    "provided_by": "customer adapter package (Task 5 interface)"
+  },
+  "matrix_bd.nso": {
+    "versions": [
+      "1.0.0"
+    ],
+    "hooks": [
+      "syncExternalState"
+    ],
+    "provided_by": "customer adapter package (Task 5 interface)"
+  },
+  "matrix_bd.launch_approval": {
+    "versions": [
+      "1.0.0"
+    ],
+    "hooks": [
+      "afterSubmit",
+      "syncExternalState",
+      "validateBusinessRule"
+    ],
+    "provided_by": "customer adapter package (Task 5 interface)"
+  },
+  "matrix_bd.financial_closure": {
+    "versions": [
+      "1.0.0"
+    ],
+    "hooks": [
+      "afterSubmit"
+    ],
+    "provided_by": "customer adapter package (Task 5 interface)"
+  }
+}

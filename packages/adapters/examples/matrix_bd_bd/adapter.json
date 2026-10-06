@@ -1,0 +1,23 @@
+{
+  "key": "matrix_bd.bd",
+  "version": "1.0.0",
+  "title": "Matrix-bd BD — rent terms and LOI deadline",
+  "hooks": ["beforeSubmit", "validateBusinessRule", "afterApprove"],
+  "namespace": "matrix_bd.bd",
+  "emits": ["matrix_bd.bd.loi_deadline_set"],
+  "consumes": [],
+  "commands": [],
+  "subject_fields": [],
+  "timeout_ms": 200,
+  "config_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["rent_stage", "deadline_stage", "deadline_field"],
+    "properties": {
+      "rent_stage": {"type": "string"},
+      "deadline_stage": {"type": "string"},
+      "deadline_field": {"type": "string"},
+      "schedule_max_rows": {"type": "integer", "minimum": 1, "maximum": 20, "default": 5}
+    }
+  }
+}

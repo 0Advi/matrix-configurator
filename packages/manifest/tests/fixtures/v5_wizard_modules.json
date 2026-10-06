@@ -1,0 +1,176 @@
+{
+ "$comment": "v5 custom modules = the configurator design's wizard templates (vendor, retail, franchise), wrapped as moduleManifest entries exactly as app-stack/smoke-configurator.mjs does. Input for test_from_v5.py.",
+ "modules": {
+  "vendor": {
+   "key": "vendor_onboarding",
+   "name": "Vendor Onboarding",
+   "type": "custom",
+   "enabled": true,
+   "route": "/m/vendor_onboarding",
+   "state": "live",
+   "tiers": {
+    "supervisor": true,
+    "executive": true,
+    "business_admin_signoff": true,
+    "delegation": true
+   },
+   "entry_gate": null,
+   "stages": [
+    {
+     "order": 1,
+     "name": "Vendor capture",
+     "outcome": "submitted",
+     "terminal": false,
+     "approvers": [
+      "executive"
+     ],
+     "fields": [
+      {
+       "key": "vendor_name",
+       "label": "Vendor name",
+       "kind": "text",
+       "required": true,
+       "validation": null,
+       "affects_outcome": false
+      },
+      {
+       "key": "gst_number",
+       "label": "GST number",
+       "kind": "text",
+       "required": true,
+       "validation": "^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$",
+       "affects_outcome": true
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "name": "Compliance check",
+     "outcome": "approved",
+     "terminal": true,
+     "approvers": [
+      "supervisor",
+      "business_admin"
+     ],
+     "fields": [
+      {
+       "key": "msme_certificate",
+       "label": "MSME certificate",
+       "kind": "file",
+       "required": false,
+       "validation": "pdf · max 10MB",
+       "affects_outcome": true
+      },
+      {
+       "key": "credit_days",
+       "label": "Credit days",
+       "kind": "number",
+       "required": true,
+       "validation": "min 0 · max 120",
+       "affects_outcome": true
+      }
+     ]
+    }
+   ],
+   "rollup": {
+    "strategy": "all_positive"
+   },
+   "exit_signal": "approved",
+   "navigation": []
+  },
+  "retail": {
+   "key": "retail_expansion",
+   "name": "Retail Expansion",
+   "type": "custom",
+   "enabled": true,
+   "route": "/m/retail_expansion",
+   "state": "live",
+   "tiers": {
+    "supervisor": true,
+    "executive": true,
+    "business_admin_signoff": true,
+    "delegation": true
+   },
+   "entry_gate": null,
+   "stages": [
+    {
+     "order": 1,
+     "name": "Catchment study",
+     "outcome": "approved",
+     "terminal": false,
+     "approvers": [
+      "supervisor"
+     ],
+     "fields": []
+    },
+    {
+     "order": 2,
+     "name": "Site scoring",
+     "outcome": "approved",
+     "terminal": false,
+     "approvers": [
+      "supervisor"
+     ],
+     "fields": []
+    },
+    {
+     "order": 3,
+     "name": "Expansion sign-off",
+     "outcome": "approved",
+     "terminal": true,
+     "approvers": [
+      "supervisor"
+     ],
+     "fields": []
+    }
+   ],
+   "rollup": {
+    "strategy": "all_positive"
+   },
+   "exit_signal": "approved",
+   "navigation": []
+  },
+  "franchise": {
+   "key": "franchise_compliance",
+   "name": "Franchise Compliance",
+   "type": "custom",
+   "enabled": true,
+   "route": "/m/franchise_compliance",
+   "state": "live",
+   "tiers": {
+    "supervisor": true,
+    "executive": true,
+    "business_admin_signoff": true,
+    "delegation": true
+   },
+   "entry_gate": null,
+   "stages": [
+    {
+     "order": 1,
+     "name": "Partner KYC",
+     "outcome": "approved",
+     "terminal": false,
+     "approvers": [
+      "supervisor"
+     ],
+     "fields": []
+    },
+    {
+     "order": 2,
+     "name": "Agreement check",
+     "outcome": "approved",
+     "terminal": true,
+     "approvers": [
+      "supervisor"
+     ],
+     "fields": []
+    }
+   ],
+   "rollup": {
+    "strategy": "all_positive"
+   },
+   "exit_signal": "approved",
+   "navigation": []
+  }
+ }
+}

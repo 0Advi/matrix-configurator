@@ -1,0 +1,377 @@
+{
+  "template": {
+    "key": "matrix-bd/design",
+    "version": "1.0.0",
+    "title": "Design / Technical",
+    "source": {
+      "repo": "Matrix-bd",
+      "commit": "3d4f277beb22c5be02c2abacea61b6afaee7cdeb",
+      "extracted_from": "building-blocks/from-matrix-bd/matrix-bd-flow.json",
+      "module": "design"
+    },
+    "visibility": "customer-private"
+  },
+  "requires": {
+    "subject": "site",
+    "modules": [
+      "finance_ca",
+      "legal"
+    ],
+    "roles": [
+      "business_admin",
+      "executive",
+      "supervisor"
+    ],
+    "outcomes": [
+      "approved",
+      "in_progress",
+      "submitted"
+    ]
+  },
+  "module": {
+    "key": "design",
+    "name": "Design / Technical",
+    "icon": "ruler",
+    "subject": "site",
+    "members": [
+      "executive",
+      "supervisor"
+    ],
+    "delegation": true,
+    "separation_of_duties": false,
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "legal",
+          "outcome": "approved"
+        },
+        {
+          "source": "finance_ca",
+          "outcome": "approved"
+        }
+      ],
+      "refusal_message": "Design is locked: waiting for a positive DDR and Finance approval."
+    },
+    "stages": [
+      {
+        "key": "recce",
+        "name": "Recce",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "outcome": "submitted",
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "send_back"
+            ],
+            "fields": [
+              {
+                "key": "recce_supervisor_comments",
+                "label": "Supervisor comments",
+                "required": false,
+                "type": "text"
+              }
+            ]
+          }
+        ],
+        "fields": [
+          {
+            "key": "recce_pack",
+            "label": "Recce pack",
+            "required": true,
+            "type": "file"
+          }
+        ]
+      },
+      {
+        "key": "drawing_2d",
+        "name": "2D drawing",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "outcome": "in_progress",
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "send_back"
+            ]
+          },
+          {
+            "role": "business_admin",
+            "actions": [
+              "approve",
+              "send_back"
+            ],
+            "fields": [
+              {
+                "key": "drawing_2d_admin_comments",
+                "label": "Admin comments",
+                "required": false,
+                "type": "text"
+              }
+            ]
+          }
+        ],
+        "fields": [
+          {
+            "key": "drawing_2d",
+            "label": "2D drawing",
+            "required": true,
+            "type": "file"
+          }
+        ]
+      },
+      {
+        "key": "drawing_3d",
+        "name": "3D render",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "outcome": "in_progress",
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "send_back"
+            ]
+          },
+          {
+            "role": "business_admin",
+            "actions": [
+              "approve",
+              "send_back"
+            ],
+            "fields": [
+              {
+                "key": "drawing_3d_admin_comments",
+                "label": "Admin comments",
+                "required": false,
+                "type": "text"
+              }
+            ]
+          }
+        ],
+        "fields": [
+          {
+            "key": "drawing_3d",
+            "label": "3D render",
+            "required": true,
+            "type": "file"
+          }
+        ]
+      },
+      {
+        "key": "gfc",
+        "name": "GFC approval",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "outcome": "approved",
+        "approvals": [
+          {
+            "role": "business_admin",
+            "actions": [
+              "approve",
+              "send_back"
+            ],
+            "label": "GFC decision",
+            "fields": [
+              {
+                "key": "gfc_comments",
+                "label": "GFC comments",
+                "required": false,
+                "type": "text"
+              }
+            ]
+          }
+        ],
+        "send_back_to": [
+          "drawing_3d"
+        ]
+      }
+    ],
+    "exit": {
+      "on_complete": "approved"
+    },
+    "template": {
+      "key": "matrix-bd/design",
+      "version": "1.0.0"
+    }
+  },
+  "summary": {
+    "stages": [
+      {
+        "key": "recce",
+        "name": "Recce",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "send_back"
+            ]
+          }
+        ],
+        "fields": [
+          "recce_pack"
+        ],
+        "approval_fields": [
+          "recce_supervisor_comments"
+        ],
+        "outcome": "submitted"
+      },
+      {
+        "key": "drawing_2d",
+        "name": "2D drawing",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "send_back"
+            ]
+          },
+          {
+            "role": "business_admin",
+            "actions": [
+              "approve",
+              "send_back"
+            ]
+          }
+        ],
+        "fields": [
+          "drawing_2d"
+        ],
+        "approval_fields": [
+          "drawing_2d_admin_comments"
+        ],
+        "outcome": "in_progress"
+      },
+      {
+        "key": "drawing_3d",
+        "name": "3D render",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ]
+        },
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "send_back"
+            ]
+          },
+          {
+            "role": "business_admin",
+            "actions": [
+              "approve",
+              "send_back"
+            ]
+          }
+        ],
+        "fields": [
+          "drawing_3d"
+        ],
+        "approval_fields": [
+          "drawing_3d_admin_comments"
+        ],
+        "outcome": "in_progress"
+      },
+      {
+        "key": "gfc",
+        "name": "GFC approval",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "approvals": [
+          {
+            "role": "business_admin",
+            "actions": [
+              "approve",
+              "send_back"
+            ],
+            "label": "GFC decision"
+          }
+        ],
+        "fields": [],
+        "approval_fields": [
+          "gfc_comments"
+        ],
+        "outcome": "approved",
+        "send_back_to": [
+          "drawing_3d"
+        ]
+      }
+    ],
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "legal",
+          "outcome": "approved"
+        },
+        {
+          "source": "finance_ca",
+          "outcome": "approved"
+        }
+      ],
+      "refusal_message": "Design is locked: waiting for a positive DDR and Finance approval."
+    },
+    "exit_outcomes": {
+      "on_complete": "approved"
+    },
+    "approval_tiers": [
+      "business_admin",
+      "supervisor"
+    ]
+  },
+  "adapter_hooks": [],
+  "behaviour": {
+    "generic": [
+      "entry gate: Legal 'approved' AND Finance 'approved'",
+      "upload → supervisor → (admin) review per deliverable",
+      "GFC rejection returns to the 3D stage (send_back_to)",
+      "a supervisor's own upload needs no second person (separation_of_duties off)",
+      "GFC approval opens Project Excellence and Project (their gates)"
+    ],
+    "matrix_bd_specific": [
+      "undo of supervisor/admin 2D/3D decisions (reversible_actions) — not carried over; a send_back is the generic correction"
+    ]
+  },
+  "renamed_fields": {}
+}

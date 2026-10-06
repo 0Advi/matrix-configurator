@@ -1,0 +1,429 @@
+{
+  "template": {
+    "key": "matrix-bd/nso",
+    "version": "1.0.0",
+    "title": "NSO",
+    "source": {
+      "repo": "Matrix-bd",
+      "commit": "3d4f277beb22c5be02c2abacea61b6afaee7cdeb",
+      "extracted_from": "building-blocks/from-matrix-bd/matrix-bd-flow.json",
+      "module": "nso"
+    },
+    "visibility": "customer-private"
+  },
+  "requires": {
+    "subject": "site",
+    "modules": [
+      "finance_ca",
+      "project"
+    ],
+    "roles": [
+      "supervisor"
+    ],
+    "outcomes": [
+      "done",
+      "in_progress",
+      "submitted"
+    ]
+  },
+  "module": {
+    "key": "nso",
+    "name": "NSO",
+    "icon": "store",
+    "subject": "site",
+    "members": [
+      "supervisor"
+    ],
+    "delegation": false,
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "finance_ca",
+          "outcome": "approved"
+        }
+      ],
+      "refusal_message": "NSO Stage 1 is locked until Finance / CA is approved."
+    },
+    "stages": [
+      {
+        "key": "property_communication",
+        "name": "Property & communication",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "outcome": "submitted",
+        "fields": [
+          {
+            "key": "property_details",
+            "label": "Property details",
+            "required": true,
+            "type": "text"
+          },
+          {
+            "key": "communication_floated",
+            "label": "Communication floated",
+            "required": true,
+            "type": "yes_no"
+          }
+        ]
+      },
+      {
+        "key": "licensing",
+        "name": "Licensing (from Legal)",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "outcome": "in_progress",
+        "fields": [
+          {
+            "key": "nso_fssai",
+            "label": "FSSAI",
+            "required": false,
+            "type": "choice",
+            "options": [
+              {
+                "value": "pending",
+                "label": "pending",
+                "score": "neutral"
+              },
+              {
+                "value": "done",
+                "label": "done",
+                "score": "positive"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "nso_health_trade",
+            "label": "Health & trade",
+            "required": false,
+            "type": "choice",
+            "options": [
+              {
+                "value": "pending",
+                "label": "pending",
+                "score": "neutral"
+              },
+              {
+                "value": "done",
+                "label": "done",
+                "score": "positive"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "nso_shops_estab",
+            "label": "Shops & establishment",
+            "required": false,
+            "type": "choice",
+            "options": [
+              {
+                "value": "pending",
+                "label": "pending",
+                "score": "neutral"
+              },
+              {
+                "value": "done",
+                "label": "done",
+                "score": "positive"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "nso_fire_noc",
+            "label": "Fire NOC",
+            "required": false,
+            "type": "choice",
+            "options": [
+              {
+                "value": "pending",
+                "label": "pending",
+                "score": "neutral"
+              },
+              {
+                "value": "done",
+                "label": "done",
+                "score": "positive"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "nso_storage_licence",
+            "label": "Storage licence",
+            "required": false,
+            "type": "choice",
+            "options": [
+              {
+                "value": "pending",
+                "label": "pending",
+                "score": "neutral"
+              },
+              {
+                "value": "done",
+                "label": "done",
+                "score": "positive"
+              }
+            ],
+            "affects_outcome": true
+          }
+        ]
+      },
+      {
+        "key": "launch_readiness",
+        "name": "Launch readiness",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "outcome": "in_progress",
+        "fields": [
+          {
+            "key": "dry_stock_order",
+            "label": "Dry stock order",
+            "required": true,
+            "type": "choice",
+            "options": [
+              {
+                "value": "pending",
+                "label": "pending",
+                "score": "neutral"
+              },
+              {
+                "value": "ordered",
+                "label": "ordered",
+                "score": "neutral"
+              },
+              {
+                "value": "received",
+                "label": "received",
+                "score": "positive"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "online_delivery",
+            "label": "Online delivery",
+            "required": true,
+            "type": "choice",
+            "options": [
+              {
+                "value": "pending",
+                "label": "pending",
+                "score": "neutral"
+              },
+              {
+                "value": "ready",
+                "label": "ready",
+                "score": "neutral"
+              },
+              {
+                "value": "active",
+                "label": "active",
+                "score": "positive"
+              }
+            ],
+            "affects_outcome": true
+          },
+          {
+            "key": "handover_checklist_signed",
+            "label": "Handover checklist signed",
+            "required": true,
+            "type": "yes_no",
+            "affects_outcome": true
+          },
+          {
+            "key": "launch_date",
+            "label": "Launch date",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "key": "launch_ready",
+            "label": "Launch ready",
+            "required": true,
+            "type": "yes_no"
+          }
+        ],
+        "gate": {
+          "match": "all",
+          "conditions": [
+            {
+              "source": "project",
+              "outcome": "done"
+            }
+          ],
+          "refusal_message": "Launch readiness opens when Project pushes the site to NSO."
+        }
+      },
+      {
+        "key": "final_approval",
+        "name": "Final approval",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "outcome": "done",
+        "fields": [
+          {
+            "key": "final_signoff_1",
+            "label": "Sign-off 1",
+            "required": true,
+            "type": "yes_no",
+            "affects_outcome": true
+          },
+          {
+            "key": "final_signoff_2",
+            "label": "Sign-off 2",
+            "required": true,
+            "type": "yes_no",
+            "affects_outcome": true
+          }
+        ]
+      }
+    ],
+    "exit": {
+      "on_complete": "done"
+    },
+    "adapter": {
+      "key": "matrix_bd.nso",
+      "version": "1.0.0",
+      "hooks": [
+        "syncExternalState"
+      ]
+    },
+    "template": {
+      "key": "matrix-bd/nso",
+      "version": "1.0.0"
+    }
+  },
+  "summary": {
+    "stages": [
+      {
+        "key": "property_communication",
+        "name": "Property & communication",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "approvals": [],
+        "fields": [
+          "property_details",
+          "communication_floated"
+        ],
+        "approval_fields": [],
+        "outcome": "submitted"
+      },
+      {
+        "key": "licensing",
+        "name": "Licensing (from Legal)",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "approvals": [],
+        "fields": [
+          "nso_fssai",
+          "nso_health_trade",
+          "nso_shops_estab",
+          "nso_fire_noc",
+          "nso_storage_licence"
+        ],
+        "approval_fields": [],
+        "outcome": "in_progress"
+      },
+      {
+        "key": "launch_readiness",
+        "name": "Launch readiness",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "approvals": [],
+        "fields": [
+          "dry_stock_order",
+          "online_delivery",
+          "handover_checklist_signed",
+          "launch_date",
+          "launch_ready"
+        ],
+        "approval_fields": [],
+        "outcome": "in_progress",
+        "gate": {
+          "match": "all",
+          "conditions": [
+            {
+              "source": "project",
+              "outcome": "done"
+            }
+          ],
+          "refusal_message": "Launch readiness opens when Project pushes the site to NSO."
+        }
+      },
+      {
+        "key": "final_approval",
+        "name": "Final approval",
+        "submit": {
+          "roles": [
+            "supervisor"
+          ]
+        },
+        "approvals": [],
+        "fields": [
+          "final_signoff_1",
+          "final_signoff_2"
+        ],
+        "approval_fields": [],
+        "outcome": "done"
+      }
+    ],
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "finance_ca",
+          "outcome": "approved"
+        }
+      ],
+      "refusal_message": "NSO Stage 1 is locked until Finance / CA is approved."
+    },
+    "exit_outcomes": {
+      "on_complete": "done"
+    },
+    "approval_tiers": []
+  },
+  "adapter_hooks": [
+    {
+      "hook": "syncExternalState",
+      "purpose": "Prefill the licensing stage from Legal's licensing values (lic_* → nso_*), read through the runtime's case-read API, never from Legal's tables.",
+      "why_not_generic": "Copying another module's field values is not expressible.",
+      "matrix_bd_source": "backend/app/services/nso_service.py refresh from Legal",
+      "generic_candidate": "field.prefill_from {source, stage, field}"
+    }
+  ],
+  "behaviour": {
+    "generic": [
+      "supervisor-only module (members: [supervisor])",
+      "stage 3 waits on Project 'done' (stage gate)",
+      "final approval completes NSO → opens Launch approval"
+    ],
+    "matrix_bd_specific": [
+      "licensing refreshed from Legal (adapter)"
+    ]
+  },
+  "renamed_fields": {}
+}

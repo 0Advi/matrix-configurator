@@ -1,0 +1,1061 @@
+openapi: 3.1.0
+info:
+  title: Workspace draft & release store
+  version: 1.0.0
+  description: 'Task 3 — first-party replacement for NocoBase (design-time store) and the configurator release tables. Prose contract: docs/store/API.md.
+    Every operation names the manifest grant it needs in x-grant (Task 6).'
+servers:
+- url: /api/v1
+security:
+- bearer: []
+paths:
+  /workspaces/{ws}/draft:
+    get:
+      summary: Load the head draft
+      x-grant: edit_draft
+      parameters:
+      - &id001
+        name: ws
+        in: path
+        required: true
+        description: workspace key, e.g. acme-retail
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Draft'
+          headers: &id002
+            ETag:
+              schema:
+                type: string
+              description: '"r<revision>"'
+        '404':
+          description: no_draft
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    put:
+      summary: Save a new draft revision
+      x-grant: edit_draft
+      parameters:
+      - *id001
+      - &id003
+        name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^"r[0-9]+"$
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Draft'
+          headers: *id002
+        '400':
+          description: bad_if_match
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: revision_conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '413':
+          description: manifest_too_large
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: not_a_manifest
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '428':
+          description: precondition_required
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveDraft'
+  /workspaces/{ws}/draft/validate:
+    post:
+      summary: Validate the head draft or an unsaved manifest
+      x-grant: edit_draft
+      parameters:
+      - *id001
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationReport'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateRequest'
+  /workspaces/{ws}/draft/reset:
+    post:
+      summary: Reset the draft to live / a release / a template (new revision)
+      x-grant: edit_draft
+      parameters:
+      - *id001
+      - *id003
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Draft'
+          headers: *id002
+        '409':
+          description: revision_conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetDraft'
+  /workspaces/{ws}/draft/revisions:
+    get:
+      summary: Draft revision history
+      x-grant: edit_draft
+      parameters:
+      - *id001
+      - &id004
+        name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - &id005
+        name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftRevisionPage'
+  /workspaces/{ws}/draft/revisions/{n}:
+    get:
+      summary: One draft revision
+      x-grant: edit_draft
+      parameters:
+      - *id001
+      - name: n
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Draft'
+        '404':
+          description: not_found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /workspaces/{ws}/releases:
+    get:
+      summary: Release history
+      x-grant: view_audit|edit_draft
+      parameters:
+      - *id001
+      - *id004
+      - *id005
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleasePage'
+    post:
+      summary: Publish the draft, or roll back to an older release
+      x-grant: publish_release
+      parameters:
+      - *id001
+      - &id006
+        name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          maxLength: 128
+      responses:
+        '201':
+          description: Published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishResult'
+        '409':
+          description: draft_changed / live_changed / nothing_to_publish / warnings_not_accepted
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: manifest_invalid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishRequest'
+  /workspaces/{ws}/releases/{version}:
+    get:
+      summary: One release (version number or 'live')
+      x-grant: view_audit|edit_draft
+      parameters:
+      - *id001
+      - name: version
+        in: path
+        required: true
+        schema:
+          oneOf:
+          - type: integer
+            minimum: 1
+          - const: live
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Release'
+        '404':
+          description: not_found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /workspaces/{ws}/modules:
+    get:
+      summary: Live module projection (navigation, guards)
+      x-grant: member
+      parameters:
+      - *id001
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModuleList'
+  /workspaces/{ws}/diff:
+    get:
+      summary: Key-based diff between two refs
+      x-grant: edit_draft|view_audit
+      parameters:
+      - *id001
+      - name: from
+        in: query
+        schema:
+          type: string
+          pattern: ^(live|draft|v[0-9]+|r[0-9]+)$
+          default: live
+      - name: to
+        in: query
+        schema:
+          type: string
+          pattern: ^(live|draft|v[0-9]+|r[0-9]+)$
+          default: draft
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Diff'
+        '404':
+          description: not_found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /workspaces/{ws}/migrations:
+    get:
+      summary: Migration history
+      x-grant: migrate_cases|view_audit
+      parameters:
+      - *id001
+      - *id004
+      - *id005
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/MigrationStatus'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrationPage'
+    post:
+      summary: Plan a migration of running cases (dry run, nothing moves)
+      x-grant: migrate_cases
+      parameters:
+      - *id001
+      - *id006
+      responses:
+        '201':
+          description: Planned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Migration'
+        '404':
+          description: not_found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: bad_stage_map
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanMigration'
+  /workspaces/{ws}/migrations/{id}:
+    get:
+      summary: One migration with progress
+      x-grant: migrate_cases|view_audit
+      parameters:
+      - *id001
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Migration'
+        '404':
+          description: not_found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /workspaces/{ws}/migrations/{id}/items:
+    get:
+      summary: Per-case journal
+      x-grant: migrate_cases|view_audit
+      parameters:
+      - *id001
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - *id004
+      - *id005
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrationItemPage'
+  /workspaces/{ws}/migrations/{id}/execute:
+    post:
+      summary: Execute a planned migration
+      x-grant: migrate_cases
+      parameters:
+      - *id001
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - *id006
+      responses:
+        '202':
+          description: Running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Migration'
+        '409':
+          description: plan_changed / migration_in_progress / bad_transition
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '410':
+          description: plan_expired
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteMigration'
+  /workspaces/{ws}/migrations/{id}/cancel:
+    post:
+      summary: Cancel a planned migration
+      x-grant: migrate_cases
+      parameters:
+      - *id001
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Migration'
+        '409':
+          description: bad_transition
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /workspaces/{ws}/activity:
+    get:
+      summary: Hash-chained activity log
+      x-grant: view_audit
+      parameters:
+      - *id001
+      - *id004
+      - *id005
+      - name: since
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+      - name: actions
+        in: query
+        schema:
+          type: string
+        description: comma-separated actions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityPage'
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Manifest:
+      type: object
+      description: workspace-manifest/1 — packages/manifest/workspace_manifest.schema.json
+      required:
+      - format
+      properties:
+        format:
+          const: workspace-manifest/1
+    Problem:
+      type: object
+      required:
+      - status
+      - code
+      - detail
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+        detail:
+          type: string
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Finding'
+      additionalProperties: true
+    Finding:
+      type: object
+      required:
+      - severity
+      - rule
+      - code
+      - message
+      - path
+      properties:
+        severity:
+          enum:
+          - error
+          - warning
+        rule:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        module:
+          type: string
+        stage:
+          type: string
+        field:
+          type: string
+    ValidationReport:
+      type: object
+      required:
+      - ok
+      - errors
+      - warnings
+      - findings
+      properties:
+        ok:
+          type: boolean
+        errors:
+          type: integer
+        warnings:
+          type: integer
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Finding'
+        revision:
+          type:
+          - integer
+          - 'null'
+        validated_at:
+          type: string
+          format: date-time
+        adapters_checked:
+          type: boolean
+    Draft:
+      type: object
+      required:
+      - revision
+      - manifest
+      - manifest_sha256
+      properties:
+        revision:
+          type: integer
+        base_release_version:
+          type:
+          - integer
+          - 'null'
+        manifest:
+          $ref: '#/components/schemas/Manifest'
+        manifest_sha256:
+          type: string
+        validation:
+          oneOf:
+          - $ref: '#/components/schemas/ValidationReport'
+          - type: 'null'
+        note:
+          type:
+          - string
+          - 'null'
+        saved_by:
+          type: string
+        saved_via:
+          enum:
+          - ui
+          - agent
+          - api
+          - import
+          - reset
+        saved_at:
+          type: string
+          format: date-time
+        live_version:
+          type:
+          - integer
+          - 'null'
+        differs_from_live:
+          type: boolean
+    DraftRevisionPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Draft'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+    SaveDraft:
+      type: object
+      required:
+      - manifest
+      properties:
+        manifest:
+          $ref: '#/components/schemas/Manifest'
+        note:
+          type: string
+          maxLength: 500
+        validate:
+          type: boolean
+          default: true
+    ValidateRequest:
+      type: object
+      properties:
+        manifest:
+          $ref: '#/components/schemas/Manifest'
+    ResetDraft:
+      type: object
+      required:
+      - to
+      properties:
+        to:
+          oneOf:
+          - const: live
+          - type: object
+            required:
+            - release
+            properties:
+              release:
+                type: integer
+          - type: object
+            required:
+            - template
+            properties:
+              template:
+                type: string
+    PublishRequest:
+      oneOf:
+      - type: object
+        required:
+        - draft_revision
+        - expected_live_version
+        - reason
+        properties:
+          draft_revision:
+            type: integer
+          expected_live_version:
+            type:
+            - integer
+            - 'null'
+          reason:
+            type: string
+            minLength: 3
+            maxLength: 500
+          accept_warnings:
+            type: boolean
+            default: false
+        additionalProperties: false
+      - type: object
+        required:
+        - rollback_to
+        - expected_live_version
+        - reason
+        properties:
+          rollback_to:
+            type: integer
+          expected_live_version:
+            type: integer
+          reason:
+            type: string
+            minLength: 3
+            maxLength: 500
+        additionalProperties: false
+    Release:
+      type: object
+      required:
+      - id
+      - version
+      - status
+      - manifest_sha256
+      - reason
+      - published_by
+      - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        status:
+          enum:
+          - live
+          - superseded
+        manifest_sha256:
+          type: string
+        manifest:
+          $ref: '#/components/schemas/Manifest'
+        reason:
+          type: string
+        published_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        from_draft_revision:
+          type:
+          - integer
+          - 'null'
+        rollback_of_version:
+          type:
+          - integer
+          - 'null'
+        validation:
+          $ref: '#/components/schemas/ValidationReport'
+        imported_from:
+          type:
+          - object
+          - 'null'
+        running_cases:
+          type: integer
+    ReleasePage:
+      type: object
+      properties:
+        live_version:
+          type:
+          - integer
+          - 'null'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Release'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+    PublishResult:
+      type: object
+      required:
+      - release
+      - validation
+      - modules
+      properties:
+        release:
+          $ref: '#/components/schemas/Release'
+        validation:
+          $ref: '#/components/schemas/ValidationReport'
+        modules:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              change:
+                enum:
+                - added
+                - removed
+                - changed
+                - unchanged
+        running_cases_on_older_releases:
+          type: integer
+    ModuleList:
+      type: object
+      properties:
+        release_version:
+          type: integer
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              name:
+                type: string
+              subject:
+                type: string
+              position:
+                type: integer
+              enabled:
+                type: boolean
+              members:
+                type: array
+                items:
+                  type: string
+              delegation:
+                type: boolean
+              adapter:
+                type:
+                - object
+                - 'null'
+              stage_keys:
+                type: array
+                items:
+                  type: string
+              introduced_in:
+                type: integer
+              changed_in:
+                type: integer
+    Diff:
+      type: object
+      properties:
+        from:
+          type: object
+        to:
+          type: object
+        summary:
+          type: object
+        changes:
+          type: array
+          items:
+            type: object
+            required:
+            - path
+            - op
+            - kind
+            - breaking
+            properties:
+              path:
+                type: string
+              op:
+                enum:
+                - add
+                - remove
+                - replace
+                - move
+              before: {}
+              after: {}
+              kind:
+                type: string
+              breaking:
+                type: boolean
+              impact:
+                type: string
+    MigrationStatus:
+      enum:
+      - planned
+      - running
+      - done
+      - failed
+      - cancelled
+      - expired
+    PlanMigration:
+      type: object
+      required:
+      - reason
+      properties:
+        to_version:
+          type: integer
+          description: 'default: live'
+        from:
+          oneOf:
+          - const: all_older
+          - type: array
+            items:
+              type: integer
+            minItems: 1
+        modules:
+          type: array
+          items:
+            type: string
+        stage_map:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: string
+        include_idle:
+          type: boolean
+          default: false
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 500
+    ExecuteMigration:
+      type: object
+      required:
+      - plan_sha256
+      - confirm
+      properties:
+        plan_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        confirm:
+          const: true
+    Migration:
+      type: object
+      required:
+      - id
+      - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/MigrationStatus'
+        to_version:
+          type: integer
+        from_versions:
+          type: array
+          items:
+            type: integer
+        plan_sha256:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        summary:
+          type: object
+        heartbeat_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        stale:
+          type: boolean
+        cases:
+          type: array
+          items:
+            type: object
+        reason:
+          type: string
+        requested_by:
+          type: string
+        error:
+          type:
+          - string
+          - 'null'
+    MigrationPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Migration'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+    MigrationItemPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              case_id:
+                type: string
+              module_key:
+                type: string
+              from_version:
+                type: integer
+              outcome:
+                enum:
+                - moved
+                - repinned
+                - skipped_incompatible
+                - skipped_closed
+              before_state:
+                type: object
+              after_state:
+                type: object
+              created_at:
+                type: string
+                format: date-time
+        next_cursor:
+          type:
+          - string
+          - 'null'
+    ActivityPage:
+      type: object
+      properties:
+        chain_valid:
+          type: boolean
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              seq:
+                type: integer
+              action:
+                type: string
+              actor:
+                type: string
+              at:
+                type: string
+                format: date-time
+              draft_revision:
+                type:
+                - integer
+                - 'null'
+              release_version:
+                type:
+                - integer
+                - 'null'
+              migration_id:
+                type:
+                - string
+                - 'null'
+              module_key:
+                type:
+                - string
+                - 'null'
+              detail:
+                type: object
+              hash:
+                type: string
+        next_cursor:
+          type:
+          - string
+          - 'null'

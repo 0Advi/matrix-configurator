@@ -1,0 +1,208 @@
+{
+  "template": {
+    "key": "matrix-bd/finance_ca",
+    "version": "1.0.0",
+    "title": "CA / Commercial code",
+    "source": {
+      "repo": "Matrix-bd",
+      "commit": "3d4f277beb22c5be02c2abacea61b6afaee7cdeb",
+      "extracted_from": "building-blocks/from-matrix-bd/matrix-bd-flow.json",
+      "module": "finance_ca"
+    },
+    "visibility": "customer-private"
+  },
+  "requires": {
+    "subject": "site",
+    "modules": [
+      "bd"
+    ],
+    "roles": [
+      "business_admin",
+      "executive",
+      "supervisor"
+    ],
+    "outcomes": [
+      "approved"
+    ]
+  },
+  "module": {
+    "key": "finance_ca",
+    "name": "CA / Commercial code",
+    "icon": "landmark",
+    "subject": "site",
+    "members": [
+      "executive",
+      "supervisor"
+    ],
+    "delegation": false,
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "bd",
+          "outcome": "done"
+        }
+      ],
+      "refusal_message": "Finance details can only be entered after the LOI is uploaded."
+    },
+    "stages": [
+      {
+        "key": "ca_kyc",
+        "name": "CA code & KYC",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ],
+          "restricted_to": "subject_creator",
+          "restrict_roles": [
+            "executive"
+          ]
+        },
+        "outcome": "approved",
+        "description": "The site owner (executive) or a supervisor enters CA code and KYC; supervisor then business admin approve. Either tier's 'reject' returns it for rework (no terminal reject).",
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "send_back"
+            ]
+          },
+          {
+            "role": "business_admin",
+            "actions": [
+              "approve",
+              "send_back"
+            ]
+          }
+        ],
+        "fields": [
+          {
+            "key": "kyc_verified",
+            "label": "KYC verified",
+            "required": true,
+            "type": "yes_no"
+          },
+          {
+            "key": "ca_code",
+            "label": "CA / Commercial code",
+            "required": true,
+            "type": "text",
+            "help": "Unique per workspace (case-insensitive); becomes the site's display code."
+          },
+          {
+            "key": "finance_amount",
+            "label": "Amount",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          }
+        ]
+      }
+    ],
+    "exit": {
+      "on_complete": "approved"
+    },
+    "adapter": {
+      "key": "matrix_bd.finance_ca",
+      "version": "1.0.0",
+      "hooks": [
+        "afterApprove",
+        "validateBusinessRule"
+      ]
+    },
+    "template": {
+      "key": "matrix-bd/finance_ca",
+      "version": "1.0.0"
+    }
+  },
+  "summary": {
+    "stages": [
+      {
+        "key": "ca_kyc",
+        "name": "CA code & KYC",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ],
+          "restricted_to": "subject_creator",
+          "restrict_roles": [
+            "executive"
+          ]
+        },
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "send_back"
+            ]
+          },
+          {
+            "role": "business_admin",
+            "actions": [
+              "approve",
+              "send_back"
+            ]
+          }
+        ],
+        "fields": [
+          "kyc_verified",
+          "ca_code",
+          "finance_amount"
+        ],
+        "approval_fields": [],
+        "outcome": "approved"
+      }
+    ],
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "bd",
+          "outcome": "done"
+        }
+      ],
+      "refusal_message": "Finance details can only be entered after the LOI is uploaded."
+    },
+    "exit_outcomes": {
+      "on_complete": "approved"
+    },
+    "approval_tiers": [
+      "business_admin",
+      "supervisor"
+    ]
+  },
+  "adapter_hooks": [
+    {
+      "hook": "validateBusinessRule",
+      "purpose": "ca_code is unique per workspace, case-insensitive.",
+      "why_not_generic": "Uniqueness across cases is not expressible.",
+      "matrix_bd_source": "backend/app/services/finance_service.py",
+      "generic_candidate": "validation.unique: 'workspace'"
+    },
+    {
+      "hook": "afterApprove",
+      "purpose": "On the final approval, the CA code becomes the site's display code (emits event subject.code_assigned {code}).",
+      "why_not_generic": "Writing a subject attribute on completion is not expressible.",
+      "matrix_bd_source": "backend/app/services/finance_service.py",
+      "generic_candidate": "exit.set_subject_fields"
+    }
+  ],
+  "behaviour": {
+    "generic": [
+      "three real states (owner entry → supervisor → admin) become ONE stage with a two-tier approval chain",
+      "a tier's 'reject' in Matrix-bd only unlocks the fields again → modelled as send_back, not reject",
+      "only the site's creator among executives may enter it (subject_creator)"
+    ],
+    "matrix_bd_specific": [
+      "unique CA code; CA code becomes the site code (adapter)"
+    ]
+  },
+  "renamed_fields": {}
+}

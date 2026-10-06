@@ -1,0 +1,328 @@
+{
+  "template": {
+    "key": "matrix-bd/financial_closure",
+    "version": "1.0.0",
+    "title": "Financial closure",
+    "source": {
+      "repo": "Matrix-bd",
+      "commit": "3d4f277beb22c5be02c2abacea61b6afaee7cdeb",
+      "extracted_from": "building-blocks/from-matrix-bd/matrix-bd-flow.json",
+      "module": "financial_closure"
+    },
+    "visibility": "customer-private"
+  },
+  "requires": {
+    "subject": "site",
+    "modules": [
+      "launch_approval",
+      "project"
+    ],
+    "roles": [
+      "business_admin",
+      "executive",
+      "supervisor"
+    ],
+    "outcomes": [
+      "allocated",
+      "done",
+      "rejected",
+      "submitted"
+    ]
+  },
+  "module": {
+    "key": "financial_closure",
+    "name": "Financial closure",
+    "icon": "receipt",
+    "subject": "site",
+    "members": [
+      "supervisor"
+    ],
+    "delegation": false,
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "launch_approval",
+          "outcome": "done"
+        }
+      ],
+      "refusal_message": "Financial closure opens only after the site is launched."
+    },
+    "stages": [
+      {
+        "key": "send_for_closure",
+        "name": "Send for closure",
+        "submit": {
+          "roles": [
+            "business_admin"
+          ]
+        },
+        "outcome": "allocated"
+      },
+      {
+        "key": "actuals",
+        "name": "Actuals (11 heads)",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ],
+          "module": "project"
+        },
+        "outcome": "submitted",
+        "approvals": [
+          {
+            "role": "supervisor",
+            "actions": [
+              "approve",
+              "reject",
+              "send_back"
+            ],
+            "module": "project"
+          }
+        ],
+        "fields": [
+          {
+            "key": "fc_professional_fees",
+            "label": "Professional Fees",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "fc_hvac",
+            "label": "HVAC",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "fc_furniture_light_planters",
+            "label": "Furniture, Light & Planters",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "fc_civil_interiors",
+            "label": "Civil & Interiors",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "fc_kitchen_equipment",
+            "label": "Kitchen Equipment",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "fc_branding",
+            "label": "Branding",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "fc_crockery_small_equipments",
+            "label": "Crockery & Small Equipments",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "fc_utilities",
+            "label": "Utilities",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "fc_licencing",
+            "label": "Licencing",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "fc_bd_cost",
+            "label": "BD Cost",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          },
+          {
+            "key": "fc_misc",
+            "label": "Misc",
+            "required": true,
+            "type": "money",
+            "validation": {
+              "min": 0,
+              "currency": "INR"
+            }
+          }
+        ]
+      },
+      {
+        "key": "sign_off",
+        "name": "Closure sign-off",
+        "submit": {
+          "roles": [
+            "business_admin"
+          ]
+        },
+        "outcome": "done"
+      }
+    ],
+    "exit": {
+      "on_complete": "done",
+      "on_reject": "rejected"
+    },
+    "adapter": {
+      "key": "matrix_bd.financial_closure",
+      "version": "1.0.0",
+      "hooks": [
+        "afterSubmit"
+      ]
+    },
+    "template": {
+      "key": "matrix-bd/financial_closure",
+      "version": "1.0.0"
+    }
+  },
+  "summary": {
+    "stages": [
+      {
+        "key": "send_for_closure",
+        "name": "Send for closure",
+        "submit": {
+          "roles": [
+            "business_admin"
+          ]
+        },
+        "approvals": [],
+        "fields": [],
+        "approval_fields": [],
+        "outcome": "allocated"
+      },
+      {
+        "key": "actuals",
+        "name": "Actuals (11 heads)",
+        "submit": {
+          "roles": [
+            "executive",
+            "supervisor"
+          ],
+          "module": "project"
+        },
+        "approvals": [
+          {
+            "role": "supervisor",
+            "module": "project",
+            "actions": [
+              "approve",
+              "reject",
+              "send_back"
+            ]
+          }
+        ],
+        "fields": [
+          "fc_professional_fees",
+          "fc_hvac",
+          "fc_furniture_light_planters",
+          "fc_civil_interiors",
+          "fc_kitchen_equipment",
+          "fc_branding",
+          "fc_crockery_small_equipments",
+          "fc_utilities",
+          "fc_licencing",
+          "fc_bd_cost",
+          "fc_misc"
+        ],
+        "approval_fields": [],
+        "outcome": "submitted"
+      },
+      {
+        "key": "sign_off",
+        "name": "Closure sign-off",
+        "submit": {
+          "roles": [
+            "business_admin"
+          ]
+        },
+        "approvals": [],
+        "fields": [],
+        "approval_fields": [],
+        "outcome": "done"
+      }
+    ],
+    "entry_gate": {
+      "match": "all",
+      "conditions": [
+        {
+          "source": "launch_approval",
+          "outcome": "done"
+        }
+      ],
+      "refusal_message": "Financial closure opens only after the site is launched."
+    },
+    "exit_outcomes": {
+      "on_complete": "done",
+      "on_reject": "rejected"
+    },
+    "approval_tiers": [
+      "supervisor@project"
+    ]
+  },
+  "adapter_hooks": [
+    {
+      "hook": "afterSubmit",
+      "purpose": "sign_off: emit subject.archived (the site moves to the admin's history).",
+      "why_not_generic": "Subject lifecycle changes are events, not module behaviour.",
+      "matrix_bd_source": "backend/app/services/financial_closure_service.py"
+    }
+  ],
+  "behaviour": {
+    "generic": [
+      "staffed by the PROJECT team: submit and review roles borrowed from module 'project' (submit.module / approval.module)",
+      "11 actual-cost heads as money fields",
+      "admin sends for closure and signs off"
+    ],
+    "matrix_bd_specific": [
+      "has no members of its own in Matrix-bd (has_membership=false) — 'members: [supervisor]' is only the module's own placeholder role",
+      "site archived on closure (adapter → event)"
+    ]
+  },
+  "renamed_fields": {}
+}

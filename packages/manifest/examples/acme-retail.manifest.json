@@ -1,0 +1,641 @@
+{
+  "format": "workspace-manifest/1",
+  "workspace": {
+    "key": "acme-retail",
+    "name": "Acme Retail",
+    "locale": "en",
+    "currency": "USD",
+    "timezone": "UTC",
+    "description": "Example workspace: survey a candidate store site, then fit it out."
+  },
+  "subjects": [
+    {
+      "key": "site",
+      "label": "Site",
+      "plural": "Sites",
+      "fields": [
+        {
+          "key": "name",
+          "label": "Site name",
+          "type": "text",
+          "required": true,
+          "validation": {
+            "max_length": 120
+          }
+        },
+        {
+          "key": "city",
+          "label": "City",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "area_sqft",
+          "label": "Area (sq ft)",
+          "type": "number",
+          "validation": {
+            "min": 100,
+            "max": 50000
+          }
+        }
+      ]
+    }
+  ],
+  "roles": [
+    {
+      "key": "workspace_admin",
+      "name": "Workspace admin",
+      "scope": "workspace",
+      "rank": 100,
+      "description": "Designs and publishes the workspace configuration."
+    },
+    {
+      "key": "business_admin",
+      "name": "Business admin",
+      "scope": "workspace",
+      "rank": 90
+    },
+    {
+      "key": "supervisor",
+      "name": "Supervisor",
+      "scope": "module",
+      "rank": 20
+    },
+    {
+      "key": "executive",
+      "name": "Executive",
+      "scope": "module",
+      "rank": 10
+    },
+    {
+      "key": "finance_reviewer",
+      "name": "Finance reviewer",
+      "scope": "module",
+      "rank": 30,
+      "description": "Custom role: signs off spend in the fit-out module."
+    },
+    {
+      "key": "observer",
+      "name": "Observer",
+      "scope": "workspace",
+      "rank": 0,
+      "read_only": true
+    }
+  ],
+  "outcomes": [
+    {
+      "key": "pending",
+      "label": "Pending",
+      "kind": "open"
+    },
+    {
+      "key": "in_progress",
+      "label": "In progress",
+      "kind": "progress"
+    },
+    {
+      "key": "submitted",
+      "label": "Submitted",
+      "kind": "progress"
+    },
+    {
+      "key": "approved",
+      "label": "Approved",
+      "kind": "positive"
+    },
+    {
+      "key": "rejected",
+      "label": "Rejected",
+      "kind": "negative"
+    },
+    {
+      "key": "done",
+      "label": "Done",
+      "kind": "positive"
+    },
+    {
+      "key": "skipped",
+      "label": "Skipped",
+      "kind": "neutral"
+    }
+  ],
+  "signals": [
+    {
+      "key": "building_permit",
+      "label": "Building permit",
+      "subject": "site",
+      "outcomes": [
+        "applied",
+        "granted",
+        "refused"
+      ],
+      "description": "Posted by the permits integration as an event."
+    }
+  ],
+  "modules": [
+    {
+      "key": "site_survey",
+      "name": "Site survey",
+      "icon": "map-pin",
+      "subject": "site",
+      "members": [
+        "supervisor",
+        "executive"
+      ],
+      "delegation": true,
+      "entry_gate": null,
+      "stages": [
+        {
+          "key": "capture",
+          "name": "Capture the site",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ]
+          },
+          "approvals": [
+            {
+              "role": "supervisor",
+              "actions": [
+                "approve",
+                "send_back",
+                "reject"
+              ]
+            }
+          ],
+          "outcome": "submitted",
+          "fields": [
+            {
+              "key": "photos",
+              "label": "Site photos",
+              "type": "file",
+              "required": true,
+              "validation": {
+                "accept": [
+                  "image/jpeg",
+                  "image/png"
+                ],
+                "max_size_mb": 10,
+                "max_files": 8
+              }
+            },
+            {
+              "key": "frontage_m",
+              "label": "Frontage (m)",
+              "type": "number",
+              "required": true,
+              "validation": {
+                "min": 1,
+                "max": 200,
+                "step": 0.1
+              }
+            },
+            {
+              "key": "footfall",
+              "label": "Footfall",
+              "type": "choice",
+              "required": true,
+              "options": [
+                {
+                  "value": "high",
+                  "label": "High",
+                  "score": "positive"
+                },
+                {
+                  "value": "medium",
+                  "label": "Medium",
+                  "score": "neutral"
+                },
+                {
+                  "value": "low",
+                  "label": "Low",
+                  "score": "negative"
+                }
+              ],
+              "affects_outcome": true
+            }
+          ]
+        },
+        {
+          "key": "feasibility",
+          "name": "Feasibility",
+          "submit": {
+            "roles": [
+              "supervisor"
+            ]
+          },
+          "approvals": [
+            {
+              "role": "business_admin",
+              "actions": [
+                "approve",
+                "send_back",
+                "reject"
+              ]
+            }
+          ],
+          "outcome": "in_progress",
+          "send_back_to": [
+            "capture"
+          ],
+          "fields": [
+            {
+              "key": "monthly_rent",
+              "label": "Monthly rent",
+              "type": "money",
+              "required": true,
+              "validation": {
+                "min": 0,
+                "currency": "USD"
+              }
+            },
+            {
+              "key": "lease_years",
+              "label": "Lease term (years)",
+              "type": "number",
+              "required": true,
+              "validation": {
+                "min": 1,
+                "max": 30,
+                "step": 1
+              }
+            },
+            {
+              "key": "parking",
+              "label": "Parking available",
+              "type": "yes_no",
+              "affects_outcome": true
+            }
+          ]
+        },
+        {
+          "key": "sign_off",
+          "name": "Sign-off",
+          "submit": {
+            "roles": [
+              "business_admin"
+            ]
+          },
+          "outcome": "approved",
+          "fields": [
+            {
+              "key": "decision_note",
+              "label": "Decision note",
+              "type": "long_text",
+              "validation": {
+                "max_length": 2000
+              }
+            }
+          ]
+        }
+      ],
+      "exit": {
+        "on_complete": "approved",
+        "on_reject": "rejected"
+      },
+      "rollup": {
+        "strategy": "any_negative",
+        "fields": [
+          "capture.footfall",
+          "feasibility.parking"
+        ],
+        "positive": "approved",
+        "negative": "rejected"
+      },
+      "views": [
+        {
+          "key": "my_queue",
+          "name": "My queue",
+          "audience": [
+            "executive",
+            "supervisor"
+          ],
+          "default_for": [
+            "executive"
+          ],
+          "filter": {
+            "mine": "actionable",
+            "status": [
+              "open",
+              "in_progress"
+            ]
+          },
+          "columns": [
+            "subject.name",
+            "subject.city",
+            "stage",
+            "updated_at"
+          ],
+          "sort": {
+            "by": "updated_at",
+            "dir": "desc"
+          }
+        },
+        {
+          "key": "awaiting_sign_off",
+          "name": "Awaiting sign-off",
+          "audience": [
+            "supervisor",
+            "business_admin",
+            "observer"
+          ],
+          "default_for": [
+            "business_admin"
+          ],
+          "filter": {
+            "stage": [
+              "sign_off"
+            ]
+          },
+          "columns": [
+            "subject.name",
+            "feasibility.monthly_rent",
+            "opened_at"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "fit_out",
+      "name": "Fit-out",
+      "icon": "hammer",
+      "subject": "site",
+      "members": [
+        "supervisor",
+        "executive",
+        "finance_reviewer"
+      ],
+      "delegation": true,
+      "entry_gate": {
+        "match": "all",
+        "conditions": [
+          {
+            "source": "site_survey",
+            "outcome": "approved"
+          }
+        ],
+        "refusal_message": "Fit-out opens after the site survey is approved."
+      },
+      "stages": [
+        {
+          "key": "plan",
+          "name": "Fit-out plan",
+          "submit": {
+            "roles": [
+              "executive"
+            ],
+            "restricted_to": "assignee"
+          },
+          "approvals": [
+            {
+              "role": "supervisor"
+            },
+            {
+              "role": "finance_reviewer",
+              "actions": [
+                "approve",
+                "send_back"
+              ],
+              "label": "Budget sign-off"
+            }
+          ],
+          "outcome": "submitted",
+          "fields": [
+            {
+              "key": "budget",
+              "label": "Budget",
+              "type": "money",
+              "required": true,
+              "validation": {
+                "min": 0,
+                "max": 2000000
+              }
+            },
+            {
+              "key": "contractor",
+              "label": "Contractor",
+              "type": "text",
+              "required": true
+            },
+            {
+              "key": "drawings",
+              "label": "Drawings",
+              "type": "file",
+              "validation": {
+                "accept": [
+                  "application/pdf"
+                ],
+                "max_size_mb": 20
+              }
+            }
+          ]
+        },
+        {
+          "key": "build",
+          "name": "Build",
+          "submit": {
+            "roles": [
+              "executive"
+            ]
+          },
+          "approvals": [
+            {
+              "role": "supervisor"
+            }
+          ],
+          "gate": {
+            "match": "all",
+            "conditions": [
+              {
+                "source": "building_permit",
+                "outcome": "granted"
+              }
+            ],
+            "refusal_message": "Build can start once the building permit is granted."
+          },
+          "outcome": "in_progress",
+          "fields": [
+            {
+              "key": "completion_pct",
+              "label": "Completion (%)",
+              "type": "number",
+              "required": true,
+              "validation": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "key": "site_lead",
+              "label": "Site lead",
+              "type": "person",
+              "validation": {
+                "role": "executive"
+              }
+            }
+          ]
+        },
+        {
+          "key": "handover",
+          "name": "Handover",
+          "submit": {
+            "roles": [
+              "supervisor"
+            ]
+          },
+          "approvals": [
+            {
+              "role": "business_admin",
+              "actions": [
+                "approve",
+                "send_back"
+              ]
+            }
+          ],
+          "outcome": "done",
+          "send_back_to": [
+            "build"
+          ],
+          "fields": [
+            {
+              "key": "snag_free",
+              "label": "Snag list cleared",
+              "type": "yes_no",
+              "required": true,
+              "affects_outcome": true
+            },
+            {
+              "key": "handover_date",
+              "label": "Handover date",
+              "type": "date",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "exit": {
+        "on_complete": "done",
+        "on_reject": "rejected"
+      },
+      "rollup": {
+        "strategy": "all_positive",
+        "fields": [
+          "handover.snag_free"
+        ],
+        "positive": "done",
+        "negative": "skipped"
+      },
+      "views": [
+        {
+          "key": "active_builds",
+          "name": "Active builds",
+          "audience": [
+            "supervisor",
+            "executive",
+            "business_admin"
+          ],
+          "default_for": [
+            "supervisor"
+          ],
+          "filter": {
+            "stage": [
+              "build"
+            ],
+            "status": [
+              "in_progress"
+            ]
+          },
+          "columns": [
+            "subject.name",
+            "build.completion_pct",
+            "assigned_to"
+          ]
+        },
+        {
+          "key": "budget_review",
+          "name": "Budget review",
+          "audience": [
+            "finance_reviewer",
+            "business_admin"
+          ],
+          "default_for": [
+            "finance_reviewer"
+          ],
+          "filter": {
+            "stage": [
+              "plan"
+            ],
+            "mine": "actionable"
+          },
+          "columns": [
+            "subject.name",
+            "plan.budget",
+            "plan.contractor"
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "action": "edit_draft",
+      "roles": [
+        "workspace_admin"
+      ]
+    },
+    {
+      "action": "publish_release",
+      "roles": [
+        "workspace_admin"
+      ]
+    },
+    {
+      "action": "migrate_cases",
+      "roles": [
+        "workspace_admin"
+      ]
+    },
+    {
+      "action": "manage_members",
+      "roles": [
+        "business_admin"
+      ]
+    },
+    {
+      "action": "manage_views",
+      "roles": [
+        "business_admin"
+      ]
+    },
+    {
+      "action": "assign_cases",
+      "roles": [
+        "supervisor",
+        "business_admin"
+      ]
+    },
+    {
+      "action": "view_all_cases",
+      "roles": [
+        "business_admin",
+        "observer",
+        "supervisor"
+      ]
+    },
+    {
+      "action": "override_step",
+      "roles": [
+        "business_admin"
+      ]
+    },
+    {
+      "action": "view_audit",
+      "roles": [
+        "business_admin",
+        "observer",
+        "workspace_admin"
+      ]
+    }
+  ]
+}

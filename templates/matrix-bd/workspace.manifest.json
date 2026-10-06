@@ -1,0 +1,2371 @@
+{
+  "format": "workspace-manifest/1",
+  "workspace": {
+    "key": "retail-expansion",
+    "name": "Retail expansion (Matrix-bd flow)",
+    "locale": "en-IN",
+    "currency": "INR",
+    "description": "Matrix-bd's nine former built-in modules, rebuilt from templates/matrix-bd."
+  },
+  "subjects": [
+    {
+      "key": "site",
+      "label": "Site",
+      "plural": "Sites",
+      "fields": [
+        {
+          "key": "name",
+          "label": "Site name",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "key": "city",
+          "label": "City",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "key": "visit_date",
+          "label": "Visit date",
+          "required": true,
+          "type": "date"
+        },
+        {
+          "key": "model",
+          "label": "Store model",
+          "required": false,
+          "type": "text",
+          "validation": {
+            "pattern": "e.g. BTC Cafe+"
+          }
+        },
+        {
+          "key": "spoc_name",
+          "label": "SPOC name",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "key": "google_maps_url",
+          "label": "Google Maps link",
+          "required": false,
+          "type": "text",
+          "validation": {
+            "pattern": "^https?://"
+          }
+        },
+        {
+          "key": "area_sqft",
+          "label": "Area (sqft)",
+          "required": false,
+          "type": "number",
+          "validation": {
+            "min": 0
+          }
+        }
+      ]
+    }
+  ],
+  "roles": [
+    {
+      "key": "workspace_admin",
+      "name": "Workspace admin",
+      "scope": "workspace",
+      "rank": 100
+    },
+    {
+      "key": "business_admin",
+      "name": "Business admin",
+      "scope": "workspace",
+      "rank": 90
+    },
+    {
+      "key": "supervisor",
+      "name": "Supervisor",
+      "scope": "module",
+      "rank": 20
+    },
+    {
+      "key": "executive",
+      "name": "Executive",
+      "scope": "module",
+      "rank": 10
+    },
+    {
+      "key": "observer",
+      "name": "Observer",
+      "scope": "workspace",
+      "rank": 0,
+      "read_only": true
+    }
+  ],
+  "outcomes": [
+    {
+      "key": "pending",
+      "label": "Pending",
+      "kind": "open"
+    },
+    {
+      "key": "allocated",
+      "label": "Allocated",
+      "kind": "open"
+    },
+    {
+      "key": "in_progress",
+      "label": "In progress",
+      "kind": "progress"
+    },
+    {
+      "key": "submitted",
+      "label": "Submitted",
+      "kind": "progress"
+    },
+    {
+      "key": "rejected",
+      "label": "Rejected",
+      "kind": "negative"
+    },
+    {
+      "key": "approved",
+      "label": "Approved",
+      "kind": "positive"
+    },
+    {
+      "key": "done",
+      "label": "Done",
+      "kind": "positive"
+    },
+    {
+      "key": "skipped",
+      "label": "Skipped",
+      "kind": "neutral"
+    }
+  ],
+  "signals": [],
+  "modules": [
+    {
+      "key": "bd",
+      "name": "BD — site identification",
+      "icon": "map-pin",
+      "subject": "site",
+      "members": [
+        "executive",
+        "supervisor"
+      ],
+      "delegation": true,
+      "separation_of_duties": false,
+      "entry_gate": null,
+      "stages": [
+        {
+          "key": "draft",
+          "name": "Draft & shortlist",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ]
+          },
+          "outcome": "in_progress",
+          "description": "An executive or supervisor captures the site; a supervisor shortlists, rejects or archives it.",
+          "approvals": [
+            {
+              "role": "supervisor",
+              "actions": [
+                "approve",
+                "reject",
+                "send_back"
+              ],
+              "label": "Shortlist",
+              "fields": [
+                {
+                  "key": "rejection_reasons",
+                  "label": "Rejection reasons",
+                  "required": false,
+                  "type": "long_text",
+                  "validation": {
+                    "pattern": "list; used only when rejecting"
+                  },
+                  "help": "list; used only when rejecting"
+                }
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "key": "rent_type",
+              "label": "Rent type",
+              "required": false,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "fixed",
+                  "label": "fixed"
+                },
+                {
+                  "value": "revshare",
+                  "label": "revshare"
+                },
+                {
+                  "value": "mg_revshare",
+                  "label": "mg_revshare"
+                },
+                {
+                  "value": "staggered",
+                  "label": "staggered"
+                }
+              ]
+            },
+            {
+              "key": "expected_rent",
+              "label": "Expected rent / MG / base rent",
+              "required": false,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              },
+              "help": "₹ per month; required when staggered"
+            },
+            {
+              "key": "staggered_escalation",
+              "label": "Staggered escalation schedule",
+              "required": false,
+              "type": "long_text",
+              "help": "Up to 5 rows of {year, percent}; checked by the template adapter (validateBusinessRule)."
+            }
+          ]
+        },
+        {
+          "key": "details",
+          "name": "Details review",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ]
+          },
+          "outcome": "approved",
+          "approvals": [
+            {
+              "role": "supervisor",
+              "actions": [
+                "approve",
+                "reject",
+                "send_back"
+              ],
+              "fields": [
+                {
+                  "key": "expected_loi_days",
+                  "label": "Expected LOI days",
+                  "required": true,
+                  "type": "number",
+                  "help": "set by the supervisor at approval → LOI deadline"
+                }
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "key": "score",
+              "label": "Score",
+              "required": false,
+              "type": "number",
+              "validation": {
+                "min": 1,
+                "max": 5
+              }
+            },
+            {
+              "key": "est_sales",
+              "label": "Estimated monthly sales",
+              "required": false,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "nearest_competitor_a_m",
+              "label": "Nearest competitor A (m)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "key": "nearest_competitor_b_m",
+              "label": "Nearest competitor B (m)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "key": "carpet_area_sqft",
+              "label": "Carpet area (sqft)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "key": "cam_charges",
+              "label": "CAM charges",
+              "required": false,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "rent",
+              "label": "Rent",
+              "required": false,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "security_deposit",
+              "label": "Security deposit",
+              "required": false,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "capex",
+              "label": "Capex",
+              "required": false,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "brokerage",
+              "label": "Brokerage",
+              "required": false,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "lock_in_months",
+              "label": "Lock-in (months)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "key": "tenure_months",
+              "label": "Tenure (months)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "key": "rent_free_days",
+              "label": "Rent-free days",
+              "required": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "key": "loi",
+          "name": "LOI",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ]
+          },
+          "outcome": "done",
+          "approvals": [
+            {
+              "role": "supervisor",
+              "actions": [
+                "approve",
+                "send_back"
+              ],
+              "label": "Send to Legal",
+              "fields": [
+                {
+                  "key": "loi_send_back_comments",
+                  "label": "Send-back comments",
+                  "required": false,
+                  "type": "text",
+                  "validation": {
+                    "pattern": "required when the supervisor sends the LOI back"
+                  },
+                  "help": "required when the supervisor sends the LOI back"
+                }
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "key": "loi_document",
+              "label": "Signed LOI",
+              "required": true,
+              "type": "file"
+            }
+          ],
+          "send_back_to": [
+            "loi"
+          ]
+        }
+      ],
+      "exit": {
+        "on_complete": "done",
+        "on_reject": "rejected"
+      },
+      "adapter": {
+        "key": "matrix_bd.bd",
+        "version": "1.0.0",
+        "hooks": [
+          "afterApprove",
+          "beforeSubmit",
+          "validateBusinessRule"
+        ],
+        "config": {
+          "rent_stage": "draft",
+          "deadline_stage": "details",
+          "deadline_field": "expected_loi_days",
+          "schedule_max_rows": 5
+        }
+      },
+      "template": {
+        "key": "matrix-bd/bd",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "key": "legal",
+      "name": "Legal & Compliance",
+      "icon": "scale",
+      "subject": "site",
+      "members": [
+        "executive",
+        "supervisor"
+      ],
+      "delegation": true,
+      "entry_gate": {
+        "match": "all",
+        "conditions": [
+          {
+            "source": "bd",
+            "outcome": "done"
+          }
+        ],
+        "refusal_message": "Legal & Compliance is locked: waiting for BD to send the signed LOI to Legal."
+      },
+      "stages": [
+        {
+          "key": "ddr",
+          "name": "Due diligence report (DDR)",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ],
+            "restricted_to": "assignee",
+            "restrict_roles": [
+              "executive"
+            ]
+          },
+          "outcome": "approved",
+          "approvals": [
+            {
+              "role": "supervisor",
+              "actions": [
+                "approve",
+                "reject",
+                "send_back"
+              ],
+              "label": "Final verdict",
+              "fields": [
+                {
+                  "key": "dd_final_verdict",
+                  "label": "Final verdict",
+                  "required": true,
+                  "type": "choice",
+                  "options": [
+                    {
+                      "value": "positive",
+                      "label": "positive",
+                      "score": "positive"
+                    },
+                    {
+                      "value": "negative",
+                      "label": "negative",
+                      "score": "negative"
+                    }
+                  ],
+                  "affects_outcome": true
+                },
+                {
+                  "key": "dd_rejection_reason",
+                  "label": "Rejection reason",
+                  "required": false,
+                  "type": "text",
+                  "validation": {
+                    "pattern": "required when the verdict is negative"
+                  },
+                  "help": "required when the verdict is negative"
+                }
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "key": "dd_title_doc",
+              "label": "Title document",
+              "required": false,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "yes",
+                  "score": "positive"
+                },
+                {
+                  "value": "no",
+                  "label": "no",
+                  "score": "negative"
+                },
+                {
+                  "value": "n_a",
+                  "label": "n/a",
+                  "score": "neutral"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "dd_sanctioned_plan",
+              "label": "Sanctioned plan",
+              "required": false,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "yes",
+                  "score": "positive"
+                },
+                {
+                  "value": "no",
+                  "label": "no",
+                  "score": "negative"
+                },
+                {
+                  "value": "n_a",
+                  "label": "n/a",
+                  "score": "neutral"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "dd_oc_cc",
+              "label": "OC / CC",
+              "required": false,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "yes",
+                  "score": "positive"
+                },
+                {
+                  "value": "no",
+                  "label": "no",
+                  "score": "negative"
+                },
+                {
+                  "value": "n_a",
+                  "label": "n/a",
+                  "score": "neutral"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "dd_commercial_use",
+              "label": "Commercial use permitted",
+              "required": false,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "yes",
+                  "score": "positive"
+                },
+                {
+                  "value": "no",
+                  "label": "no",
+                  "score": "negative"
+                },
+                {
+                  "value": "n_a",
+                  "label": "n/a",
+                  "score": "neutral"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "dd_property_tax",
+              "label": "Property tax",
+              "required": false,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "yes",
+                  "score": "positive"
+                },
+                {
+                  "value": "no",
+                  "label": "no",
+                  "score": "negative"
+                },
+                {
+                  "value": "n_a",
+                  "label": "n/a",
+                  "score": "neutral"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "dd_electricity",
+              "label": "Electricity",
+              "required": false,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "yes",
+                  "score": "positive"
+                },
+                {
+                  "value": "no",
+                  "label": "no",
+                  "score": "negative"
+                },
+                {
+                  "value": "n_a",
+                  "label": "n/a",
+                  "score": "neutral"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "dd_fire_noc",
+              "label": "Fire NOC",
+              "required": false,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "yes",
+                  "score": "positive"
+                },
+                {
+                  "value": "no",
+                  "label": "no",
+                  "score": "negative"
+                },
+                {
+                  "value": "n_a",
+                  "label": "n/a",
+                  "score": "neutral"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "dd_other_1",
+              "label": "Other check 1 (custom label)",
+              "required": false,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "yes",
+                  "score": "positive"
+                },
+                {
+                  "value": "no",
+                  "label": "no",
+                  "score": "negative"
+                },
+                {
+                  "value": "n_a",
+                  "label": "n/a",
+                  "score": "neutral"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "dd_other_2",
+              "label": "Other check 2 (custom label)",
+              "required": false,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "yes",
+                  "score": "positive"
+                },
+                {
+                  "value": "no",
+                  "label": "no",
+                  "score": "negative"
+                },
+                {
+                  "value": "n_a",
+                  "label": "n/a",
+                  "score": "neutral"
+                }
+              ],
+              "affects_outcome": true
+            }
+          ]
+        },
+        {
+          "key": "agreement",
+          "name": "Agreement",
+          "submit": {
+            "roles": [
+              "supervisor"
+            ]
+          },
+          "outcome": "submitted",
+          "fields": [
+            {
+              "key": "agr_signed",
+              "label": "Agreement signed",
+              "required": false,
+              "type": "yes_no"
+            },
+            {
+              "key": "agr_registered",
+              "label": "Agreement registered",
+              "required": false,
+              "type": "yes_no"
+            },
+            {
+              "key": "agr_document",
+              "label": "Agreement document",
+              "required": false,
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "key": "licensing",
+          "name": "Licensing",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ],
+            "restricted_to": "assignee",
+            "restrict_roles": [
+              "executive"
+            ]
+          },
+          "outcome": "done",
+          "approvals": [
+            {
+              "role": "supervisor",
+              "actions": [
+                "approve",
+                "send_back"
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "key": "lic_fssai",
+              "label": "FSSAI",
+              "required": true,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "yes",
+                  "score": "positive"
+                },
+                {
+                  "value": "no",
+                  "label": "no",
+                  "score": "negative"
+                },
+                {
+                  "value": "n_a",
+                  "label": "n/a",
+                  "score": "neutral"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "lic_health_trade",
+              "label": "Health & trade",
+              "required": true,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "yes",
+                  "score": "positive"
+                },
+                {
+                  "value": "no",
+                  "label": "no",
+                  "score": "negative"
+                },
+                {
+                  "value": "n_a",
+                  "label": "n/a",
+                  "score": "neutral"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "lic_shops_estab",
+              "label": "Shops & establishment",
+              "required": true,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "yes",
+                  "score": "positive"
+                },
+                {
+                  "value": "no",
+                  "label": "no",
+                  "score": "negative"
+                },
+                {
+                  "value": "n_a",
+                  "label": "n/a",
+                  "score": "neutral"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "lic_fire_noc",
+              "label": "Fire NOC",
+              "required": true,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "yes",
+                  "score": "positive"
+                },
+                {
+                  "value": "no",
+                  "label": "no",
+                  "score": "negative"
+                },
+                {
+                  "value": "n_a",
+                  "label": "n/a",
+                  "score": "neutral"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "lic_storage",
+              "label": "Storage licence",
+              "required": true,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "yes",
+                  "score": "positive"
+                },
+                {
+                  "value": "no",
+                  "label": "no",
+                  "score": "negative"
+                },
+                {
+                  "value": "n_a",
+                  "label": "n/a",
+                  "score": "neutral"
+                }
+              ],
+              "affects_outcome": true
+            }
+          ]
+        }
+      ],
+      "exit": {
+        "on_complete": "done",
+        "on_reject": "rejected"
+      },
+      "adapter": {
+        "key": "matrix_bd.legal",
+        "version": "1.0.0",
+        "hooks": [
+          "syncExternalState",
+          "validateBusinessRule"
+        ]
+      },
+      "template": {
+        "key": "matrix-bd/legal",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "key": "finance_ca",
+      "name": "CA / Commercial code",
+      "icon": "landmark",
+      "subject": "site",
+      "members": [
+        "executive",
+        "supervisor"
+      ],
+      "delegation": false,
+      "entry_gate": {
+        "match": "all",
+        "conditions": [
+          {
+            "source": "bd",
+            "outcome": "done"
+          }
+        ],
+        "refusal_message": "Finance details can only be entered after the LOI is uploaded."
+      },
+      "stages": [
+        {
+          "key": "ca_kyc",
+          "name": "CA code & KYC",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ],
+            "restricted_to": "subject_creator",
+            "restrict_roles": [
+              "executive"
+            ]
+          },
+          "outcome": "approved",
+          "description": "The site owner (executive) or a supervisor enters CA code and KYC; supervisor then business admin approve. Either tier's 'reject' returns it for rework (no terminal reject).",
+          "approvals": [
+            {
+              "role": "supervisor",
+              "actions": [
+                "approve",
+                "send_back"
+              ]
+            },
+            {
+              "role": "business_admin",
+              "actions": [
+                "approve",
+                "send_back"
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "key": "kyc_verified",
+              "label": "KYC verified",
+              "required": true,
+              "type": "yes_no"
+            },
+            {
+              "key": "ca_code",
+              "label": "CA / Commercial code",
+              "required": true,
+              "type": "text",
+              "help": "Unique per workspace (case-insensitive); becomes the site's display code."
+            },
+            {
+              "key": "finance_amount",
+              "label": "Amount",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            }
+          ]
+        }
+      ],
+      "exit": {
+        "on_complete": "approved"
+      },
+      "adapter": {
+        "key": "matrix_bd.finance_ca",
+        "version": "1.0.0",
+        "hooks": [
+          "afterApprove",
+          "validateBusinessRule"
+        ]
+      },
+      "template": {
+        "key": "matrix-bd/finance_ca",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "key": "design",
+      "name": "Design / Technical",
+      "icon": "ruler",
+      "subject": "site",
+      "members": [
+        "executive",
+        "supervisor"
+      ],
+      "delegation": true,
+      "separation_of_duties": false,
+      "entry_gate": {
+        "match": "all",
+        "conditions": [
+          {
+            "source": "legal",
+            "outcome": "approved"
+          },
+          {
+            "source": "finance_ca",
+            "outcome": "approved"
+          }
+        ],
+        "refusal_message": "Design is locked: waiting for a positive DDR and Finance approval."
+      },
+      "stages": [
+        {
+          "key": "recce",
+          "name": "Recce",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ]
+          },
+          "outcome": "submitted",
+          "approvals": [
+            {
+              "role": "supervisor",
+              "actions": [
+                "approve",
+                "send_back"
+              ],
+              "fields": [
+                {
+                  "key": "recce_supervisor_comments",
+                  "label": "Supervisor comments",
+                  "required": false,
+                  "type": "text"
+                }
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "key": "recce_pack",
+              "label": "Recce pack",
+              "required": true,
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "key": "drawing_2d",
+          "name": "2D drawing",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ]
+          },
+          "outcome": "in_progress",
+          "approvals": [
+            {
+              "role": "supervisor",
+              "actions": [
+                "approve",
+                "send_back"
+              ]
+            },
+            {
+              "role": "business_admin",
+              "actions": [
+                "approve",
+                "send_back"
+              ],
+              "fields": [
+                {
+                  "key": "drawing_2d_admin_comments",
+                  "label": "Admin comments",
+                  "required": false,
+                  "type": "text"
+                }
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "key": "drawing_2d",
+              "label": "2D drawing",
+              "required": true,
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "key": "drawing_3d",
+          "name": "3D render",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ]
+          },
+          "outcome": "in_progress",
+          "approvals": [
+            {
+              "role": "supervisor",
+              "actions": [
+                "approve",
+                "send_back"
+              ]
+            },
+            {
+              "role": "business_admin",
+              "actions": [
+                "approve",
+                "send_back"
+              ],
+              "fields": [
+                {
+                  "key": "drawing_3d_admin_comments",
+                  "label": "Admin comments",
+                  "required": false,
+                  "type": "text"
+                }
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "key": "drawing_3d",
+              "label": "3D render",
+              "required": true,
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "key": "gfc",
+          "name": "GFC approval",
+          "submit": {
+            "roles": [
+              "supervisor"
+            ]
+          },
+          "outcome": "approved",
+          "approvals": [
+            {
+              "role": "business_admin",
+              "actions": [
+                "approve",
+                "send_back"
+              ],
+              "label": "GFC decision",
+              "fields": [
+                {
+                  "key": "gfc_comments",
+                  "label": "GFC comments",
+                  "required": false,
+                  "type": "text"
+                }
+              ]
+            }
+          ],
+          "send_back_to": [
+            "drawing_3d"
+          ]
+        }
+      ],
+      "exit": {
+        "on_complete": "approved"
+      },
+      "template": {
+        "key": "matrix-bd/design",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "key": "project_excellence",
+      "name": "Project Excellence",
+      "icon": "gauge",
+      "subject": "site",
+      "members": [
+        "executive",
+        "supervisor"
+      ],
+      "delegation": true,
+      "entry_gate": {
+        "match": "all",
+        "conditions": [
+          {
+            "source": "design",
+            "outcome": "approved"
+          }
+        ],
+        "refusal_message": "Project Excellence is locked until Design GFC is approved."
+      },
+      "stages": [
+        {
+          "key": "gfc_budget",
+          "name": "GFC budget (11 heads)",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ]
+          },
+          "outcome": "approved",
+          "approvals": [
+            {
+              "role": "supervisor",
+              "actions": [
+                "approve",
+                "reject",
+                "send_back"
+              ],
+              "fields": [
+                {
+                  "key": "pex_supervisor_comments",
+                  "label": "Supervisor comments",
+                  "required": false,
+                  "type": "text"
+                }
+              ]
+            },
+            {
+              "role": "business_admin",
+              "actions": [
+                "approve",
+                "reject",
+                "send_back"
+              ],
+              "fields": [
+                {
+                  "key": "pex_initialization_date",
+                  "label": "Project initialization date",
+                  "required": true,
+                  "type": "date"
+                },
+                {
+                  "key": "pex_admin_comments",
+                  "label": "Admin comments",
+                  "required": false,
+                  "type": "text"
+                }
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "key": "pex_professional_fees",
+              "label": "Professional Fees",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "pex_hvac",
+              "label": "HVAC",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "pex_furniture_light_planters",
+              "label": "Furniture, Light & Planters",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "pex_civil_interiors",
+              "label": "Civil & Interiors",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "pex_kitchen_equipment",
+              "label": "Kitchen Equipment",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "pex_branding",
+              "label": "Branding",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "pex_crockery_small_equipments",
+              "label": "Crockery & Small Equipments",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "pex_utilities",
+              "label": "Utilities",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "pex_licencing",
+              "label": "Licencing",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "pex_bd_cost",
+              "label": "BD Cost",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "pex_misc",
+              "label": "Misc",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "pex_total_indoor_area_sqft",
+              "label": "Total indoor area (sqft)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "key": "pex_total_area_sqft",
+              "label": "Total area (sqft)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "key": "pex_covers",
+              "label": "Covers",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "key": "pex_documents",
+              "label": "Budget documents",
+              "required": false,
+              "type": "file",
+              "validation": {
+                "accept": [
+                  "image/png",
+                  "image/jpeg",
+                  "application/pdf"
+                ],
+                "max_size_mb": 5
+              }
+            }
+          ]
+        },
+        {
+          "key": "quality_audit_reports",
+          "name": "Quality-audit reports",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ],
+            "restricted_to": "assignee",
+            "restrict_roles": [
+              "executive"
+            ]
+          },
+          "outcome": "done",
+          "fields": [
+            {
+              "key": "qa_before_report",
+              "label": "Quality audit — before",
+              "required": true,
+              "type": "file",
+              "validation": {
+                "accept": [
+                  "application/pdf"
+                ]
+              }
+            },
+            {
+              "key": "qa_after_report",
+              "label": "Quality audit — after",
+              "required": true,
+              "type": "file",
+              "validation": {
+                "accept": [
+                  "application/pdf"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "exit": {
+        "on_complete": "done",
+        "on_reject": "rejected"
+      },
+      "adapter": {
+        "key": "matrix_bd.project_excellence",
+        "version": "1.0.0",
+        "hooks": [
+          "afterApprove"
+        ]
+      },
+      "template": {
+        "key": "matrix-bd/project_excellence",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "key": "project",
+      "name": "Project execution",
+      "icon": "hammer",
+      "subject": "site",
+      "members": [
+        "executive",
+        "supervisor"
+      ],
+      "delegation": true,
+      "entry_gate": {
+        "match": "all",
+        "conditions": [
+          {
+            "source": "design",
+            "outcome": "approved"
+          }
+        ],
+        "refusal_message": "Project is locked until Design receives final GFC approval."
+      },
+      "stages": [
+        {
+          "key": "initialization",
+          "name": "Initialization date",
+          "submit": {
+            "roles": [
+              "business_admin",
+              "supervisor"
+            ]
+          },
+          "outcome": "allocated",
+          "description": "Proposed by the admin (from the PE approval) or a supervisor; the executive accepts or sends it back.",
+          "approvals": [
+            {
+              "role": "executive",
+              "actions": [
+                "approve",
+                "send_back"
+              ],
+              "label": "Accept date"
+            }
+          ],
+          "fields": [
+            {
+              "key": "initialization_date",
+              "label": "Initialization date",
+              "required": true,
+              "type": "date"
+            }
+          ]
+        },
+        {
+          "key": "expected_completion",
+          "name": "Expected completion",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ]
+          },
+          "outcome": "submitted",
+          "approvals": [
+            {
+              "role": "supervisor",
+              "actions": [
+                "approve",
+                "send_back"
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "key": "expected_completion_date",
+              "label": "Expected completion date",
+              "required": true,
+              "type": "date"
+            }
+          ]
+        },
+        {
+          "key": "mid_project_visit",
+          "name": "Mid-project visit",
+          "submit": {
+            "roles": [
+              "supervisor"
+            ]
+          },
+          "outcome": "in_progress",
+          "fields": [
+            {
+              "key": "mid_project_visit_date",
+              "label": "Mid-project visit date",
+              "required": true,
+              "type": "date"
+            }
+          ]
+        },
+        {
+          "key": "quality_audit",
+          "name": "Quality audit",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ]
+          },
+          "outcome": "approved",
+          "approvals": [
+            {
+              "role": "supervisor",
+              "actions": [
+                "approve",
+                "reject",
+                "send_back"
+              ],
+              "fields": [
+                {
+                  "key": "quality_audit_comments",
+                  "label": "Comments",
+                  "required": false,
+                  "type": "text"
+                }
+              ]
+            },
+            {
+              "role": "supervisor",
+              "actions": [
+                "approve",
+                "send_back"
+              ],
+              "module": "project_excellence",
+              "label": "Project Excellence sign-off"
+            }
+          ],
+          "fields": [
+            {
+              "key": "inspection_date",
+              "label": "Inspection date",
+              "required": true,
+              "type": "date"
+            }
+          ]
+        },
+        {
+          "key": "push_to_nso",
+          "name": "Push to NSO",
+          "submit": {
+            "roles": [
+              "supervisor"
+            ]
+          },
+          "outcome": "done"
+        }
+      ],
+      "exit": {
+        "on_complete": "done",
+        "on_reject": "rejected"
+      },
+      "adapter": {
+        "key": "matrix_bd.project",
+        "version": "1.0.0",
+        "hooks": [
+          "syncExternalState"
+        ]
+      },
+      "template": {
+        "key": "matrix-bd/project",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "key": "nso",
+      "name": "NSO",
+      "icon": "store",
+      "subject": "site",
+      "members": [
+        "supervisor"
+      ],
+      "delegation": false,
+      "entry_gate": {
+        "match": "all",
+        "conditions": [
+          {
+            "source": "finance_ca",
+            "outcome": "approved"
+          }
+        ],
+        "refusal_message": "NSO Stage 1 is locked until Finance / CA is approved."
+      },
+      "stages": [
+        {
+          "key": "property_communication",
+          "name": "Property & communication",
+          "submit": {
+            "roles": [
+              "supervisor"
+            ]
+          },
+          "outcome": "submitted",
+          "fields": [
+            {
+              "key": "property_details",
+              "label": "Property details",
+              "required": true,
+              "type": "text"
+            },
+            {
+              "key": "communication_floated",
+              "label": "Communication floated",
+              "required": true,
+              "type": "yes_no"
+            }
+          ]
+        },
+        {
+          "key": "licensing",
+          "name": "Licensing (from Legal)",
+          "submit": {
+            "roles": [
+              "supervisor"
+            ]
+          },
+          "outcome": "in_progress",
+          "fields": [
+            {
+              "key": "nso_fssai",
+              "label": "FSSAI",
+              "required": false,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "pending",
+                  "label": "pending",
+                  "score": "neutral"
+                },
+                {
+                  "value": "done",
+                  "label": "done",
+                  "score": "positive"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "nso_health_trade",
+              "label": "Health & trade",
+              "required": false,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "pending",
+                  "label": "pending",
+                  "score": "neutral"
+                },
+                {
+                  "value": "done",
+                  "label": "done",
+                  "score": "positive"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "nso_shops_estab",
+              "label": "Shops & establishment",
+              "required": false,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "pending",
+                  "label": "pending",
+                  "score": "neutral"
+                },
+                {
+                  "value": "done",
+                  "label": "done",
+                  "score": "positive"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "nso_fire_noc",
+              "label": "Fire NOC",
+              "required": false,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "pending",
+                  "label": "pending",
+                  "score": "neutral"
+                },
+                {
+                  "value": "done",
+                  "label": "done",
+                  "score": "positive"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "nso_storage_licence",
+              "label": "Storage licence",
+              "required": false,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "pending",
+                  "label": "pending",
+                  "score": "neutral"
+                },
+                {
+                  "value": "done",
+                  "label": "done",
+                  "score": "positive"
+                }
+              ],
+              "affects_outcome": true
+            }
+          ]
+        },
+        {
+          "key": "launch_readiness",
+          "name": "Launch readiness",
+          "submit": {
+            "roles": [
+              "supervisor"
+            ]
+          },
+          "outcome": "in_progress",
+          "fields": [
+            {
+              "key": "dry_stock_order",
+              "label": "Dry stock order",
+              "required": true,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "pending",
+                  "label": "pending",
+                  "score": "neutral"
+                },
+                {
+                  "value": "ordered",
+                  "label": "ordered",
+                  "score": "neutral"
+                },
+                {
+                  "value": "received",
+                  "label": "received",
+                  "score": "positive"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "online_delivery",
+              "label": "Online delivery",
+              "required": true,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "pending",
+                  "label": "pending",
+                  "score": "neutral"
+                },
+                {
+                  "value": "ready",
+                  "label": "ready",
+                  "score": "neutral"
+                },
+                {
+                  "value": "active",
+                  "label": "active",
+                  "score": "positive"
+                }
+              ],
+              "affects_outcome": true
+            },
+            {
+              "key": "handover_checklist_signed",
+              "label": "Handover checklist signed",
+              "required": true,
+              "type": "yes_no",
+              "affects_outcome": true
+            },
+            {
+              "key": "launch_date",
+              "label": "Launch date",
+              "required": true,
+              "type": "date"
+            },
+            {
+              "key": "launch_ready",
+              "label": "Launch ready",
+              "required": true,
+              "type": "yes_no"
+            }
+          ],
+          "gate": {
+            "match": "all",
+            "conditions": [
+              {
+                "source": "project",
+                "outcome": "done"
+              }
+            ],
+            "refusal_message": "Launch readiness opens when Project pushes the site to NSO."
+          }
+        },
+        {
+          "key": "final_approval",
+          "name": "Final approval",
+          "submit": {
+            "roles": [
+              "supervisor"
+            ]
+          },
+          "outcome": "done",
+          "fields": [
+            {
+              "key": "final_signoff_1",
+              "label": "Sign-off 1",
+              "required": true,
+              "type": "yes_no",
+              "affects_outcome": true
+            },
+            {
+              "key": "final_signoff_2",
+              "label": "Sign-off 2",
+              "required": true,
+              "type": "yes_no",
+              "affects_outcome": true
+            }
+          ]
+        }
+      ],
+      "exit": {
+        "on_complete": "done"
+      },
+      "adapter": {
+        "key": "matrix_bd.nso",
+        "version": "1.0.0",
+        "hooks": [
+          "syncExternalState"
+        ]
+      },
+      "template": {
+        "key": "matrix-bd/nso",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "key": "launch_approval",
+      "name": "Launch approval",
+      "icon": "rocket",
+      "subject": "site",
+      "members": [
+        "executive",
+        "supervisor"
+      ],
+      "delegation": false,
+      "entry_gate": {
+        "match": "all",
+        "conditions": [
+          {
+            "source": "nso",
+            "outcome": "done"
+          }
+        ],
+        "refusal_message": "Launch approval is locked: waiting for NSO final approval."
+      },
+      "stages": [
+        {
+          "key": "admin_review",
+          "name": "Admin review",
+          "submit": {
+            "roles": [
+              "business_admin"
+            ]
+          },
+          "outcome": "submitted",
+          "fields": [
+            {
+              "key": "rent_terms",
+              "label": "Rent terms",
+              "required": false,
+              "type": "long_text",
+              "validation": {
+                "pattern": "field group rent-terms.json"
+              },
+              "help": "Rent-terms group (rent type and its conditional amounts); checked by the template adapter."
+            },
+            {
+              "key": "admin_review_comment",
+              "label": "Admin comment",
+              "required": false,
+              "type": "text"
+            }
+          ]
+        },
+        {
+          "key": "creator_review",
+          "name": "Creator review",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ],
+            "restricted_to": "subject_creator"
+          },
+          "outcome": "submitted",
+          "fields": [
+            {
+              "key": "exec_verdict",
+              "label": "Verdict",
+              "required": true,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "approved",
+                  "label": "approved",
+                  "score": "positive"
+                },
+                {
+                  "value": "rejected",
+                  "label": "rejected",
+                  "score": "negative"
+                }
+              ]
+            },
+            {
+              "key": "exec_comment",
+              "label": "Comment",
+              "required": false,
+              "type": "text"
+            },
+            {
+              "key": "rent_start_date",
+              "label": "Rent start date",
+              "required": true,
+              "type": "date",
+              "help": "The only field the site's creator may edit in this loop."
+            }
+          ]
+        },
+        {
+          "key": "supervisor_review",
+          "name": "Supervisor review",
+          "submit": {
+            "roles": [
+              "supervisor"
+            ]
+          },
+          "outcome": "submitted",
+          "fields": [
+            {
+              "key": "supervisor_verdict",
+              "label": "Verdict",
+              "required": true,
+              "type": "choice",
+              "options": [
+                {
+                  "value": "approved",
+                  "label": "approved",
+                  "score": "positive"
+                },
+                {
+                  "value": "rejected",
+                  "label": "rejected",
+                  "score": "negative"
+                }
+              ]
+            },
+            {
+              "key": "supervisor_comment",
+              "label": "Comment",
+              "required": false,
+              "type": "text"
+            }
+          ]
+        },
+        {
+          "key": "admin_final",
+          "name": "Admin final confirm",
+          "submit": {
+            "roles": [
+              "business_admin"
+            ]
+          },
+          "outcome": "approved",
+          "fields": [
+            {
+              "key": "admin_final_comment",
+              "label": "Final comment",
+              "required": false,
+              "type": "text"
+            }
+          ]
+        },
+        {
+          "key": "launch",
+          "name": "Launch",
+          "submit": {
+            "roles": [
+              "business_admin"
+            ]
+          },
+          "outcome": "done"
+        }
+      ],
+      "exit": {
+        "on_complete": "done"
+      },
+      "adapter": {
+        "key": "matrix_bd.launch_approval",
+        "version": "1.0.0",
+        "hooks": [
+          "afterSubmit",
+          "syncExternalState",
+          "validateBusinessRule"
+        ]
+      },
+      "template": {
+        "key": "matrix-bd/launch_approval",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "key": "financial_closure",
+      "name": "Financial closure",
+      "icon": "receipt",
+      "subject": "site",
+      "members": [
+        "supervisor"
+      ],
+      "delegation": false,
+      "entry_gate": {
+        "match": "all",
+        "conditions": [
+          {
+            "source": "launch_approval",
+            "outcome": "done"
+          }
+        ],
+        "refusal_message": "Financial closure opens only after the site is launched."
+      },
+      "stages": [
+        {
+          "key": "send_for_closure",
+          "name": "Send for closure",
+          "submit": {
+            "roles": [
+              "business_admin"
+            ]
+          },
+          "outcome": "allocated"
+        },
+        {
+          "key": "actuals",
+          "name": "Actuals (11 heads)",
+          "submit": {
+            "roles": [
+              "executive",
+              "supervisor"
+            ],
+            "module": "project"
+          },
+          "outcome": "submitted",
+          "approvals": [
+            {
+              "role": "supervisor",
+              "actions": [
+                "approve",
+                "reject",
+                "send_back"
+              ],
+              "module": "project"
+            }
+          ],
+          "fields": [
+            {
+              "key": "fc_professional_fees",
+              "label": "Professional Fees",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "fc_hvac",
+              "label": "HVAC",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "fc_furniture_light_planters",
+              "label": "Furniture, Light & Planters",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "fc_civil_interiors",
+              "label": "Civil & Interiors",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "fc_kitchen_equipment",
+              "label": "Kitchen Equipment",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "fc_branding",
+              "label": "Branding",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "fc_crockery_small_equipments",
+              "label": "Crockery & Small Equipments",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "fc_utilities",
+              "label": "Utilities",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "fc_licencing",
+              "label": "Licencing",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "fc_bd_cost",
+              "label": "BD Cost",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            },
+            {
+              "key": "fc_misc",
+              "label": "Misc",
+              "required": true,
+              "type": "money",
+              "validation": {
+                "min": 0,
+                "currency": "INR"
+              }
+            }
+          ]
+        },
+        {
+          "key": "sign_off",
+          "name": "Closure sign-off",
+          "submit": {
+            "roles": [
+              "business_admin"
+            ]
+          },
+          "outcome": "done"
+        }
+      ],
+      "exit": {
+        "on_complete": "done",
+        "on_reject": "rejected"
+      },
+      "adapter": {
+        "key": "matrix_bd.financial_closure",
+        "version": "1.0.0",
+        "hooks": [
+          "afterSubmit"
+        ]
+      },
+      "template": {
+        "key": "matrix-bd/financial_closure",
+        "version": "1.0.0"
+      }
+    }
+  ],
+  "permissions": [
+    {
+      "action": "edit_draft",
+      "roles": [
+        "workspace_admin"
+      ]
+    },
+    {
+      "action": "publish_release",
+      "roles": [
+        "workspace_admin"
+      ]
+    },
+    {
+      "action": "migrate_cases",
+      "roles": [
+        "workspace_admin"
+      ]
+    },
+    {
+      "action": "manage_members",
+      "roles": [
+        "business_admin"
+      ]
+    },
+    {
+      "action": "manage_views",
+      "roles": [
+        "business_admin"
+      ]
+    },
+    {
+      "action": "assign_cases",
+      "roles": [
+        "supervisor",
+        "business_admin"
+      ]
+    },
+    {
+      "action": "view_all_cases",
+      "roles": [
+        "business_admin",
+        "observer"
+      ]
+    },
+    {
+      "action": "override_step",
+      "roles": [
+        "business_admin"
+      ]
+    },
+    {
+      "action": "view_audit",
+      "roles": [
+        "business_admin",
+        "observer"
+      ]
+    }
+  ]
+}
