@@ -1,0 +1,933 @@
+{
+ "$comment": "Each case = the example manifest (examples/acme-retail.manifest.json) + ops; the validator must report a finding with expect.code at expect.severity. op: set | del | append; path: '/'-separated; value {'$copy': path} copies another node.",
+ "base": "examples/acme-retail.manifest.json",
+ "cases": [
+  {
+   "name": "dup_module_key",
+   "rule": "R1",
+   "expect": {
+    "code": "duplicate_module_key",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "append",
+     "path": "modules",
+     "value": {
+      "$copy": "modules/0"
+     }
+    }
+   ]
+  },
+  {
+   "name": "dup_stage_key",
+   "rule": "R1",
+   "expect": {
+    "code": "duplicate_key",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/stages/1/key",
+     "value": "capture"
+    }
+   ]
+  },
+  {
+   "name": "dup_role_key",
+   "rule": "R1",
+   "expect": {
+    "code": "duplicate_key",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "append",
+     "path": "roles",
+     "value": {
+      "key": "executive",
+      "name": "Exec 2",
+      "scope": "module"
+     }
+    }
+   ]
+  },
+  {
+   "name": "dup_field_key",
+   "rule": "R1",
+   "expect": {
+    "code": "duplicate_key",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/stages/0/fields/1/key",
+     "value": "photos"
+    }
+   ]
+  },
+  {
+   "name": "reserved_module_key",
+   "rule": "R1",
+   "expect": {
+    "code": "reserved_key",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/key",
+     "value": "admin"
+    },
+    {
+     "op": "set",
+     "path": "modules/1/entry_gate/conditions/0/source",
+     "value": "admin"
+    }
+   ]
+  },
+  {
+   "name": "module_signal_clash",
+   "rule": "R1",
+   "expect": {
+    "code": "duplicate_module_key",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "signals/0/key",
+     "value": "site_survey"
+    }
+   ]
+  },
+  {
+   "name": "unknown_member_role",
+   "rule": "R2",
+   "expect": {
+    "code": "unknown_role",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "append",
+     "path": "modules/0/members",
+     "value": "inspector"
+    }
+   ]
+  },
+  {
+   "name": "workspace_role_as_member",
+   "rule": "R2",
+   "expect": {
+    "code": "role_scope",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "append",
+     "path": "modules/0/members",
+     "value": "business_admin"
+    }
+   ]
+  },
+  {
+   "name": "unknown_stage_outcome",
+   "rule": "R2",
+   "expect": {
+    "code": "unknown_outcome",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/stages/0/outcome",
+     "value": "shortlisted"
+    }
+   ]
+  },
+  {
+   "name": "unknown_subject",
+   "rule": "R2",
+   "expect": {
+    "code": "unknown_subject",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/subject",
+     "value": "vendor"
+    }
+   ]
+  },
+  {
+   "name": "send_back_forward",
+   "rule": "R2",
+   "expect": {
+    "code": "bad_send_back",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/stages/1/send_back_to",
+     "value": [
+      "sign_off"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "grant_unknown_role",
+   "rule": "R2",
+   "expect": {
+    "code": "unknown_role",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "append",
+     "path": "permissions",
+     "value": {
+      "action": "view_audit",
+      "roles": [
+       "auditor"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "read_only_submitter",
+   "rule": "R3",
+   "expect": {
+    "code": "stage_without_actor",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/stages/2/submit/roles",
+     "value": [
+      "observer"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "read_only_submitter_actor",
+   "rule": "R3",
+   "expect": {
+    "code": "invalid_actor",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/stages/2/submit/roles",
+     "value": [
+      "observer"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "non_member_approver",
+   "rule": "R3",
+   "expect": {
+    "code": "invalid_actor",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/stages/0/approvals/0/role",
+     "value": "finance_reviewer"
+    }
+   ]
+  },
+  {
+   "name": "assignee_no_delegation",
+   "rule": "R3",
+   "expect": {
+    "code": "assignee_without_delegation",
+    "severity": "warning"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/delegation",
+     "value": false
+    }
+   ]
+  },
+  {
+   "name": "gate_unknown_source",
+   "rule": "R4",
+   "expect": {
+    "code": "gate_unknown_source",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/entry_gate/conditions/0/source",
+     "value": "bd"
+    }
+   ]
+  },
+  {
+   "name": "entry_self_reference",
+   "rule": "R4",
+   "expect": {
+    "code": "gate_self_reference",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/entry_gate/conditions/0/source",
+     "value": "fit_out"
+    }
+   ]
+  },
+  {
+   "name": "gate_unknown_stage",
+   "rule": "R4",
+   "expect": {
+    "code": "gate_unknown_stage",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/entry_gate/conditions/0",
+     "value": {
+      "source": "site_survey",
+      "stage": "lease"
+     }
+    }
+   ]
+  },
+  {
+   "name": "gate_unknown_field",
+   "rule": "R4",
+   "expect": {
+    "code": "gate_unknown_field",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/entry_gate/conditions/0",
+     "value": {
+      "source": "site_survey",
+      "stage": "feasibility",
+      "field": "rent",
+      "op": "lt",
+      "value": 5000
+     }
+    }
+   ]
+  },
+  {
+   "name": "gate_op_type",
+   "rule": "R4",
+   "expect": {
+    "code": "gate_op_type",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/entry_gate/conditions/0",
+     "value": {
+      "source": "site_survey",
+      "stage": "capture",
+      "field": "footfall",
+      "op": "gt",
+      "value": "low"
+     }
+    }
+   ]
+  },
+  {
+   "name": "dead_gate_disabled_source",
+   "rule": "R5",
+   "expect": {
+    "code": "dead_gate",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/enabled",
+     "value": false
+    }
+   ]
+  },
+  {
+   "name": "dead_gate_subject_mismatch",
+   "rule": "R5",
+   "expect": {
+    "code": "dead_gate",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "append",
+     "path": "subjects",
+     "value": {
+      "key": "vendor",
+      "label": "Vendor"
+     }
+    },
+    {
+     "op": "set",
+     "path": "modules/0/subject",
+     "value": "vendor"
+    }
+   ]
+  },
+  {
+   "name": "dead_gate_cycle",
+   "rule": "R5",
+   "expect": {
+    "code": "dead_gate",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/entry_gate",
+     "value": {
+      "match": "all",
+      "conditions": [
+       {
+        "source": "fit_out",
+        "outcome": "submitted"
+       }
+      ],
+      "refusal_message": "after fit-out"
+     }
+    }
+   ]
+  },
+  {
+   "name": "dead_gate_contradiction",
+   "rule": "R5",
+   "expect": {
+    "code": "dead_gate",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "append",
+     "path": "modules/1/entry_gate/conditions",
+     "value": {
+      "source": "site_survey",
+      "outcome": "rejected"
+     }
+    }
+   ]
+  },
+  {
+   "name": "dead_gate_own_later_stage",
+   "rule": "R5",
+   "expect": {
+    "code": "dead_gate",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/stages/1/gate",
+     "value": {
+      "match": "all",
+      "conditions": [
+       {
+        "source": "fit_out",
+        "stage": "handover"
+       }
+      ],
+      "refusal_message": "x"
+     }
+    }
+   ]
+  },
+  {
+   "name": "dead_gate_any_all_dead",
+   "rule": "R5",
+   "expect": {
+    "code": "dead_gate",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/entry_gate",
+     "value": {
+      "match": "any",
+      "conditions": [
+       {
+        "source": "site_survey",
+        "outcome": "done"
+       },
+       {
+        "source": "building_permit",
+        "outcome": "expired"
+       }
+      ],
+      "refusal_message": "x"
+     }
+    }
+   ]
+  },
+  {
+   "name": "unreachable_module_outcome",
+   "rule": "R6",
+   "expect": {
+    "code": "unreachable_outcome",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/entry_gate/conditions/0/outcome",
+     "value": "done"
+    }
+   ]
+  },
+  {
+   "name": "unreachable_signal_outcome",
+   "rule": "R6",
+   "expect": {
+    "code": "unreachable_outcome",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/stages/1/gate/conditions/0/outcome",
+     "value": "approved"
+    }
+   ]
+  },
+  {
+   "name": "unreachable_field_value",
+   "rule": "R6",
+   "expect": {
+    "code": "unreachable_outcome",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/entry_gate/conditions/0",
+     "value": {
+      "source": "site_survey",
+      "stage": "capture",
+      "field": "footfall",
+      "op": "eq",
+      "value": "huge"
+     }
+    }
+   ]
+  },
+  {
+   "name": "exit_not_final",
+   "rule": "R6",
+   "expect": {
+    "code": "exit_not_final",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/exit/on_complete",
+     "value": "submitted"
+    }
+   ]
+  },
+  {
+   "name": "reject_without_exit",
+   "rule": "R6",
+   "expect": {
+    "code": "reject_without_exit",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "del",
+     "path": "modules/0/exit/on_reject"
+    }
+   ]
+  },
+  {
+   "name": "unused_reject_exit",
+   "rule": "R6",
+   "expect": {
+    "code": "unused_exit",
+    "severity": "warning"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/stages/0/approvals/0/actions",
+     "value": [
+      "approve",
+      "send_back"
+     ]
+    },
+    {
+     "op": "set",
+     "path": "modules/1/stages/1/approvals/0/actions",
+     "value": [
+      "approve",
+      "send_back"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "view_unreachable_outcome",
+   "rule": "R6",
+   "expect": {
+    "code": "unreachable_outcome",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/views/0/filter/reached",
+     "value": [
+      "done"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "builtin_type",
+   "rule": "R7",
+   "expect": {
+    "code": "builtin_behavior",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/type",
+     "value": "builtin"
+    }
+   ]
+  },
+  {
+   "name": "builtin_implementation",
+   "rule": "R7",
+   "expect": {
+    "code": "builtin_behavior",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/implementation",
+     "value": "builtin:bd"
+    }
+   ]
+  },
+  {
+   "name": "builtin_status_source",
+   "rule": "R7",
+   "expect": {
+    "code": "builtin_behavior",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/status_source",
+     "value": "sites.status"
+    }
+   ]
+  },
+  {
+   "name": "unknown_adapter",
+   "rule": "R7",
+   "expect": {
+    "code": "unknown_adapter",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/adapter",
+     "value": {
+      "key": "legacy.launch",
+      "version": "1.0.0",
+      "hooks": [
+       "afterApprove"
+      ]
+     }
+    }
+   ],
+   "adapters": {}
+  },
+  {
+   "name": "adapter_hook_unsupported",
+   "rule": "R7",
+   "expect": {
+    "code": "adapter_hook_unsupported",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/adapter",
+     "value": {
+      "key": "permits",
+      "version": "1.0.0",
+      "hooks": [
+       "afterApprove",
+       "computeOutcome"
+      ]
+     }
+    }
+   ],
+   "adapters": {
+    "permits": {
+     "versions": [
+      "1.0.0"
+     ],
+     "hooks": [
+      "afterApprove"
+     ]
+    }
+   }
+  },
+  {
+   "name": "adapter_unverified",
+   "rule": "R7",
+   "expect": {
+    "code": "adapter_unverified",
+    "severity": "warning"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/adapter",
+     "value": {
+      "key": "permits",
+      "version": "1.0.0",
+      "hooks": [
+       "afterApprove"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "min_gt_max",
+   "rule": "R8",
+   "expect": {
+    "code": "field_validation",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/stages/0/fields/1/validation/min",
+     "value": 500
+    }
+   ]
+  },
+  {
+   "name": "bad_regex",
+   "rule": "R8",
+   "expect": {
+    "code": "field_validation",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/stages/0/fields/1/validation",
+     "value": {
+      "pattern": "([A-Z"
+     }
+    }
+   ]
+  },
+  {
+   "name": "pattern_on_number",
+   "rule": "R8",
+   "expect": {
+    "code": "field_validation",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/stages/1/fields/1/validation/pattern",
+     "value": "^[0-9]+$"
+    }
+   ]
+  },
+  {
+   "name": "person_unknown_role",
+   "rule": "R2",
+   "expect": {
+    "code": "unknown_role",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/stages/1/fields/1/validation/role",
+     "value": "foreman"
+    }
+   ]
+  },
+  {
+   "name": "rollup_unknown_field",
+   "rule": "R9",
+   "expect": {
+    "code": "unknown_field",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/rollup/fields",
+     "value": [
+      "capture.footfall",
+      "feasibility.garden"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "rollup_unscorable_field",
+   "rule": "R9",
+   "expect": {
+    "code": "rollup_invalid",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/rollup/fields",
+     "value": [
+      "plan.contractor"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "view_default_not_audience",
+   "rule": "R9",
+   "expect": {
+    "code": "view_default_not_in_audience",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/views/0/default_for",
+     "value": [
+      "business_admin"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "view_unknown_stage",
+   "rule": "R2",
+   "expect": {
+    "code": "unknown_stage",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/0/views/1/filter/stage",
+     "value": [
+      "negotiation"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "read_only_write_grant",
+   "rule": "R10",
+   "expect": {
+    "code": "read_only_grant",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "append",
+     "path": "permissions",
+     "value": {
+      "action": "publish_release",
+      "roles": [
+       "observer"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "no_publisher",
+   "rule": "R10",
+   "expect": {
+    "code": "no_publisher",
+    "severity": "warning"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "permissions",
+     "value": []
+    }
+   ]
+  },
+  {
+   "name": "schema_missing_exit",
+   "rule": "R0",
+   "expect": {
+    "code": "schema",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "del",
+     "path": "modules/0/exit"
+    }
+   ]
+  },
+  {
+   "name": "schema_options_on_text",
+   "rule": "R0",
+   "expect": {
+    "code": "schema",
+    "severity": "error"
+   },
+   "ops": [
+    {
+     "op": "set",
+     "path": "modules/1/stages/0/fields/1/options",
+     "value": [
+      {
+       "value": "a",
+       "label": "A"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

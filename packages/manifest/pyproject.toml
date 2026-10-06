@@ -1,0 +1,9 @@
+[project]
+name = "workspace-manifest"
+version = "1.0.0"
+description = "Schema and validator for workspace-manifest/1"
+requires-python = ">=3.10"
+dependencies = ["jsonschema>=4.18"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

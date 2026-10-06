@@ -1,0 +1,997 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://workspace-platform.local/schemas/workspace_manifest.schema.json",
+  "title": "Workspace manifest",
+  "description": "The single source of modular behaviour. A workspace is a set of modules; a module is a sequence of stages that a case (about one subject, e.g. a site or a vendor) moves through. Roles, outcomes, subjects, gates, approvals, fields, views and permissions are all declared here; the runtime has no built-in module and no fixed role list. Structural rules live in this schema; cross-reference rules (unknown roles, dead gates, unreachable outcomes, …) live in the validator (packages/manifest/workspace_manifest/validate.py).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "workspace",
+    "subjects",
+    "roles",
+    "outcomes",
+    "modules"
+  ],
+  "properties": {
+    "format": {
+      "const": "workspace-manifest/1"
+    },
+    "workspace": {
+      "$ref": "#/$defs/workspace"
+    },
+    "subjects": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/subject"
+      },
+      "description": "What cases are about. Gates can only wait on modules that run on the same subject."
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/role"
+      }
+    },
+    "outcomes": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/outcome"
+      },
+      "description": "The outcome vocabulary of this workspace. Stage outcomes, exits, gates and views may only use these keys."
+    },
+    "signals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/signal"
+      },
+      "default": []
+    },
+    "modules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/module"
+      }
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/grant"
+      },
+      "default": [],
+      "description": "Workspace-level grants (publish, migrate, manage members, …). Module-level work permissions come from stage actors. Semantics: docs/rbac (Task 6)."
+    }
+  },
+  "$defs": {
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,38}$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "name"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,40}$"
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "locale": {
+          "type": "string",
+          "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+          "default": "en"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "ISO 4217 default for money fields"
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "label"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/key"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "plural": {
+          "$ref": "#/$defs/text"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/field"
+          },
+          "default": [],
+          "description": "Attributes captured when the subject is created (e.g. name, city). Shared by every module on this subject."
+        }
+      }
+    },
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "name",
+        "scope"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/key"
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "scope": {
+          "enum": [
+            "workspace",
+            "module"
+          ],
+          "description": "workspace: held once per workspace (e.g. business_admin, observer). module: held per module membership (e.g. supervisor of 'vendor_intake')."
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "default": 0,
+          "description": "Display/escalation order only. Never used as an implicit permission."
+        },
+        "read_only": {
+          "type": "boolean",
+          "default": false,
+          "description": "Can never be a stage actor or hold a write grant."
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "label",
+        "kind"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,38}$"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "kind": {
+          "enum": [
+            "open",
+            "progress",
+            "positive",
+            "negative",
+            "neutral"
+          ],
+          "description": "positive/negative/neutral outcomes are final when used as an exit."
+        }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "label",
+        "subject",
+        "outcomes"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/key"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "subject": {
+          "$ref": "#/$defs/key"
+        },
+        "outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "description": {
+          "type": "string",
+          "description": "External fact a gate may wait on, posted to the runtime as an event (never read from another system's tables)."
+        }
+      }
+    },
+    "condition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "outcome"
+          ],
+          "properties": {
+            "source": {
+              "$ref": "#/$defs/key"
+            },
+            "outcome": {
+              "type": "string"
+            }
+          },
+          "description": "the source module/signal has reached this outcome (cumulative: 'reached', not 'is currently')"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "stage"
+          ],
+          "properties": {
+            "source": {
+              "$ref": "#/$defs/key"
+            },
+            "stage": {
+              "$ref": "#/$defs/key"
+            }
+          },
+          "description": "the named stage of the source module is complete"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "stage",
+            "field",
+            "op",
+            "value"
+          ],
+          "properties": {
+            "source": {
+              "$ref": "#/$defs/key"
+            },
+            "stage": {
+              "$ref": "#/$defs/key"
+            },
+            "field": {
+              "$ref": "#/$defs/key"
+            },
+            "op": {
+              "enum": [
+                "eq",
+                "ne",
+                "lt",
+                "lte",
+                "gt",
+                "gte",
+                "in"
+              ]
+            },
+            "value": {}
+          },
+          "description": "a submitted field value of the source module satisfies op/value"
+        }
+      ]
+    },
+    "gate": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "match",
+            "conditions",
+            "refusal_message"
+          ],
+          "properties": {
+            "match": {
+              "enum": [
+                "all",
+                "any"
+              ]
+            },
+            "conditions": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/condition"
+              }
+            },
+            "refusal_message": {
+              "$ref": "#/$defs/text"
+            }
+          }
+        }
+      ]
+    },
+    "option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "label"
+      ],
+      "properties": {
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "score": {
+          "enum": [
+            "positive",
+            "negative",
+            "neutral"
+          ],
+          "description": "how a roll-up counts this choice"
+        }
+      }
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "label",
+        "type"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/key"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "type": {
+          "enum": [
+            "text",
+            "long_text",
+            "number",
+            "money",
+            "date",
+            "choice",
+            "multi_choice",
+            "yes_no",
+            "file",
+            "person"
+          ]
+        },
+        "required": {
+          "type": "boolean",
+          "default": false
+        },
+        "help": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/option"
+          }
+        },
+        "validation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "min": {
+              "type": "number"
+            },
+            "max": {
+              "type": "number"
+            },
+            "step": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "min_length": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "max_length": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "pattern": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pattern_message": {
+              "type": "string"
+            },
+            "currency": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            },
+            "min_date": {
+              "type": "string"
+            },
+            "max_date": {
+              "type": "string"
+            },
+            "accept": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z]+/[a-z0-9.+*-]+$"
+              },
+              "minItems": 1
+            },
+            "max_size_mb": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 100
+            },
+            "max_files": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
+            },
+            "role": {
+              "$ref": "#/$defs/key",
+              "description": "person fields: pick a member holding this role"
+            }
+          }
+        },
+        "affects_outcome": {
+          "type": "boolean",
+          "default": false,
+          "description": "fed into the module roll-up"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "choice",
+                  "multi_choice"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "options"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "not": {
+                  "enum": [
+                    "choice",
+                    "multi_choice"
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "options"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "submit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "roles"
+      ],
+      "properties": {
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/key"
+          }
+        },
+        "restricted_to": {
+          "enum": [
+            "case_creator",
+            "assignee"
+          ],
+          "description": "only the case's creator / current assignee among those roles may submit; others act only as a recorded override (if a grant allows it)"
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role"
+      ],
+      "properties": {
+        "role": {
+          "$ref": "#/$defs/key"
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "approve",
+              "reject",
+              "send_back"
+            ]
+          },
+          "default": [
+            "approve",
+            "reject",
+            "send_back"
+          ]
+        },
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "name",
+        "submit",
+        "outcome"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/key"
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "submit": {
+          "$ref": "#/$defs/submit"
+        },
+        "approvals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/approval"
+          },
+          "default": [],
+          "description": "ordered approval tiers after the submit step; empty = the submit completes the stage"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/field"
+          },
+          "default": []
+        },
+        "gate": {
+          "$ref": "#/$defs/gate",
+          "description": "extra condition before this stage may be submitted"
+        },
+        "outcome": {
+          "type": "string",
+          "description": "outcome the module has REACHED once this stage completes"
+        },
+        "send_back_to": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/key"
+          },
+          "description": "earlier stages a send_back may return to; default = the previous stage"
+        },
+        "sla_hours": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "exit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "on_complete"
+      ],
+      "properties": {
+        "on_complete": {
+          "type": "string"
+        },
+        "on_reject": {
+          "type": "string"
+        }
+      }
+    },
+    "rollup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy"
+      ],
+      "properties": {
+        "strategy": {
+          "enum": [
+            "none",
+            "all_positive",
+            "any_negative",
+            "count_at_least",
+            "sum_under"
+          ]
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+          },
+          "description": "stage_key.field_key references"
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "limit": {
+          "type": "number"
+        },
+        "positive": {
+          "type": "string"
+        },
+        "negative": {
+          "type": "string"
+        }
+      }
+    },
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "name",
+        "audience"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/key"
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "audience": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/key"
+          }
+        },
+        "default_for": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/key"
+          }
+        },
+        "filter": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "open",
+                  "in_progress",
+                  "completed",
+                  "rejected",
+                  "parked"
+                ]
+              },
+              "uniqueItems": true
+            },
+            "stage": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/key"
+              },
+              "uniqueItems": true
+            },
+            "reached": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "uniqueItems": true
+            },
+            "mine": {
+              "enum": [
+                "assigned",
+                "created",
+                "actionable"
+              ]
+            },
+            "subject_field": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "field",
+                "op",
+                "value"
+              ],
+              "properties": {
+                "field": {
+                  "$ref": "#/$defs/key"
+                },
+                "op": {
+                  "enum": [
+                    "eq",
+                    "ne",
+                    "in"
+                  ]
+                },
+                "value": {}
+              }
+            }
+          }
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "sort": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "by"
+          ],
+          "properties": {
+            "by": {
+              "type": "string"
+            },
+            "dir": {
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "version",
+        "hooks"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{1,60}$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "hooks": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "beforeOpen",
+              "beforeSubmit",
+              "afterSubmit",
+              "beforeApprove",
+              "afterApprove",
+              "computeOutcome",
+              "syncExternalState",
+              "validateBusinessRule"
+            ]
+          }
+        },
+        "config": {
+          "type": "object",
+          "description": "adapter-specific settings, validated by the adapter's own config schema"
+        }
+      },
+      "description": "Optional. A registered, versioned plug-in for behaviour the manifest cannot express (Task 5). Its hooks are declared, so nothing runs that the manifest does not show."
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "name",
+        "subject",
+        "members",
+        "stages",
+        "exit"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/key"
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "icon": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]{1,40}$"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "subject": {
+          "$ref": "#/$defs/key"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/key"
+          },
+          "description": "module-scope roles that exist in this module (people join the module in one of these roles)"
+        },
+        "delegation": {
+          "type": "boolean",
+          "default": false,
+          "description": "a member may assign a case to another member"
+        },
+        "separation_of_duties": {
+          "type": "boolean",
+          "default": true,
+          "description": "one person may act on only one step of a stage pass"
+        },
+        "entry_gate": {
+          "$ref": "#/$defs/gate"
+        },
+        "stages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/stage"
+          }
+        },
+        "exit": {
+          "$ref": "#/$defs/exit"
+        },
+        "rollup": {
+          "$ref": "#/$defs/rollup"
+        },
+        "views": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/view"
+          },
+          "default": []
+        },
+        "adapter": {
+          "$ref": "#/$defs/adapter"
+        },
+        "template": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "key",
+            "version"
+          ],
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "description": "provenance only: the template this module was created from (Task 4)"
+        }
+      }
+    },
+    "grant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "roles"
+      ],
+      "properties": {
+        "action": {
+          "enum": [
+            "publish_release",
+            "edit_draft",
+            "migrate_cases",
+            "manage_members",
+            "manage_views",
+            "assign_cases",
+            "view_all_cases",
+            "override_step",
+            "view_audit",
+            "manage_workspace"
+          ]
+        },
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/key"
+          }
+        },
+        "modules": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/key"
+          },
+          "description": "limit the grant to these modules; absent = every module"
+        }
+      }
+    }
+  }
+}
