@@ -23,3 +23,6 @@ app-stack/run/
 
 # original repo file (public config, identical to Matrix-bd origin/main)
 !app/frontend/.env.production
+
+# local-only generated files (e.g. LOGINS.local.md from show-logins.mjs — contains passwords)
+*.local.md
