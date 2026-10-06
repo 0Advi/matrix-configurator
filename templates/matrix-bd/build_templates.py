@@ -146,7 +146,7 @@ EXEC_SUP = ["executive", "supervisor"]
 # ───────────────────────────────────────────────────────────────────────────── module definitions ──
 DEFS = {}
 
-DEFS["bd"] = dict(
+DEFS["bd"] = dict(  # adapter: packages/adapters/examples/matrix_bd_bd (Task 5 example)
     flow="bd", name="BD — site identification", icon="map-pin", members=EXEC_SUP, delegation=True,
     separation_of_duties=False,
     entry_gate=None,
@@ -170,6 +170,9 @@ DEFS["bd"] = dict(
     ],
     exit={"on_complete": "done", "on_reject": "rejected"},
     adapter_hooks=[
+        hook("beforeSubmit", "Normalise rent terms: switching away from 'staggered' clears the schedule; the schedule is stored as canonical JSON sorted by year.",
+             "Normalising one field depending on another is not expressible.", "backend/app/services/bd_service.py _apply_staggered_escalation",
+             generic_candidate="field.visible_if (hidden fields are cleared on submit)"),
         hook("validateBusinessRule", "Rent terms: which amounts are required depends on rent_type (fixed / revshare / mg_revshare / staggered); the staggered schedule has at most 5 {year, percent} rows.",
              "Conditional requirements and repeating rows are not expressible in workspace-manifest/1.", "rent-terms.json; backend/app/domain/schemas/site.py CreateDraftRequest",
              generic_candidate="field.required_if + a 'table' field type"),
@@ -424,6 +427,9 @@ def build_module(key: str) -> dict:
     m["exit"] = d["exit"]
     if d["adapter_hooks"]:
         m["adapter"] = {"key": f"matrix_bd.{key}", "version": TEMPLATE_VERSION, "hooks": sorted({h["hook"] for h in d["adapter_hooks"]})}
+    if key == "bd":  # settings the example adapter reads instead of hard-coding field/stage keys
+        m["adapter"]["config"] = {"rent_stage": "draft", "deadline_stage": "details", "deadline_field": "expected_loi_days",
+                                  "schedule_max_rows": 5}
     m["template"] = {"key": f"matrix-bd/{key}", "version": TEMPLATE_VERSION}
     return m
 

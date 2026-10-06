@@ -309,8 +309,15 @@
       "version": "1.0.0",
       "hooks": [
         "afterApprove",
+        "beforeSubmit",
         "validateBusinessRule"
-      ]
+      ],
+      "config": {
+        "rent_stage": "draft",
+        "deadline_stage": "details",
+        "deadline_field": "expected_loi_days",
+        "schedule_max_rows": 5
+      }
     },
     "template": {
       "key": "matrix-bd/bd",
@@ -429,6 +436,13 @@
     ]
   },
   "adapter_hooks": [
+    {
+      "hook": "beforeSubmit",
+      "purpose": "Normalise rent terms: switching away from 'staggered' clears the schedule; the schedule is stored as canonical JSON sorted by year.",
+      "why_not_generic": "Normalising one field depending on another is not expressible.",
+      "matrix_bd_source": "backend/app/services/bd_service.py _apply_staggered_escalation",
+      "generic_candidate": "field.visible_if (hidden fields are cleared on submit)"
+    },
     {
       "hook": "validateBusinessRule",
       "purpose": "Rent terms: which amounts are required depends on rent_type (fixed / revshare / mg_revshare / staggered); the staggered schedule has at most 5 {year, percent} rows.",

@@ -428,8 +428,15 @@
         "version": "1.0.0",
         "hooks": [
           "afterApprove",
+          "beforeSubmit",
           "validateBusinessRule"
-        ]
+        ],
+        "config": {
+          "rent_stage": "draft",
+          "deadline_stage": "details",
+          "deadline_field": "expected_loi_days",
+          "schedule_max_rows": 5
+        }
       },
       "template": {
         "key": "matrix-bd/bd",

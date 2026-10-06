@@ -56,7 +56,7 @@ cross-module role check inside an adapter).
 
 | Module | Hooks | For |
 |---|---|---|
-| BD | `validateBusinessRule`, `afterApprove` | rent-terms conditional amounts + staggered schedule; LOI deadline from `expected_loi_days` |
+| BD | `beforeSubmit`, `validateBusinessRule`, `afterApprove` | clear the schedule when not staggered; rent-terms conditional amounts + staggered schedule; LOI deadline from `expected_loi_days` — **implemented as the Task 5 example** (`packages/adapters/examples/matrix_bd_bd`) |
 | Legal | `validateBusinessRule`, `syncExternalState` | verdict ⇄ action consistency, licensing completeness; change-request revival of a rejected DDR |
 | Finance / CA | `validateBusinessRule`, `afterApprove` | unique CA code; CA code becomes the site code (event) |
 | Design | — | fully generic |
@@ -66,7 +66,7 @@ cross-module role check inside an adapter).
 | Launch approval | `syncExternalState`, `validateBusinessRule`, `afterSubmit` | auto-open when NSO completes; rent-terms group; terms committed / launched as subject events |
 | Financial closure | `afterSubmit` | site archived (event) |
 
-**13 hook uses across 8 modules; 1 module (Design) needs none.** Every cross-module effect is an **event**; no adapter
+**14 hook uses across 8 modules; 1 module (Design) needs none.** Every cross-module effect is an **event**; no adapter
 writes another module's data (Task 5 rules).
 
 ## 4. Generic-candidate backlog
@@ -77,6 +77,7 @@ remaining Matrix-bd behaviour into configuration:
 | Candidate | Retires | Effort |
 |---|---|---|
 | `field.required_if` + a `table` field type (rows of typed columns, `max_rows`) | BD and Launch rent terms | M |
+| `field.visible_if` (hidden fields cleared on submit) | BD schedule normalisation | S |
 | `field.prefill_from {source, stage, field}` | NSO licensing refresh, Project initialization prefill | S |
 | `module.auto_open: true` (open a case when the entry gate opens) | Launch auto-open | S |
 | `exit.set_subject_fields` / subject events on completion | CA code → site code, launched, archived, committed rent terms | M |

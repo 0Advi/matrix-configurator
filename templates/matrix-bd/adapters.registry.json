@@ -5,6 +5,7 @@
     ],
     "hooks": [
       "afterApprove",
+      "beforeSubmit",
       "validateBusinessRule"
     ],
     "provided_by": "customer adapter package (Task 5 interface)"

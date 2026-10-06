@@ -21,6 +21,7 @@ Source: Matrix-bd `bd` @ `3d4f277` · members: executive, supervisor · delegati
 
 | Hook | Purpose | Why not generic | Generic candidate | Matrix-bd source |
 |---|---|---|---|---|
+| `beforeSubmit` | Normalise rent terms: switching away from 'staggered' clears the schedule; the schedule is stored as canonical JSON sorted by year. | Normalising one field depending on another is not expressible. | field.visible_if (hidden fields are cleared on submit) | `backend/app/services/bd_service.py _apply_staggered_escalation` |
 | `validateBusinessRule` | Rent terms: which amounts are required depends on rent_type (fixed / revshare / mg_revshare / staggered); the staggered schedule has at most 5 {year, percent} rows. | Conditional requirements and repeating rows are not expressible in workspace-manifest/1. | field.required_if + a 'table' field type | `rent-terms.json; backend/app/domain/schemas/site.py CreateDraftRequest` |
 | `afterApprove` | On details approval, turn expected_loi_days into an LOI deadline (emits event bd.loi_deadline_set {due_at}). | Per-case deadlines computed from a field are not expressible (stage.sla_hours is static). | stage.sla_from_field | `backend/app/services/bd_service.py approve` |
 
