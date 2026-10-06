@@ -1,0 +1,11 @@
+[project]
+name = "workspace-store"
+version = "1.0.0"
+description = "First-party draft & release store (SQL + tests). Contract: docs/store/API.md"
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+test = ["pytest>=8", "psycopg[binary]>=3.1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
