@@ -11,7 +11,11 @@ nocobase/
   lib/client.mjs            the client (contract API)
   lib/schema.mjs            cfg_* collection definitions (used by provision/reset)
   lib/env.mjs               tiny .env loader used by the scripts
+  lib/ui-spec.mjs           the "Matrix Configurator" admin-UI menu: group + 7 read-only page blueprints
   scripts/provision.mjs     idempotent: collections + fields + root API key
+  scripts/provision-workflow.mjs  idempotent: cfg_activity + workflow "Release published → activity log" (+ backfill, --prove)
+  scripts/provision-ui.mjs        idempotent: admin-UI menu group "Matrix Configurator" + 7 read-only pages
+  scripts/provision-acl.mjs       idempotent: read-only role configurator_viewer (+ --test-user, live check)
   scripts/smoke.mjs         exercises every client method against the live instance
   scripts/wait-for-nocobase.mjs   poll until healthy (for start scripts)
   scripts/reset.mjs         delete all cfg_* rows (keeps the instance)
@@ -24,11 +28,16 @@ nocobase/
 docker compose up -d                              # first boot installs NocoBase (about 1-3 min)
 node nocobase/scripts/wait-for-nocobase.mjs       # exits 0 once /api/__health_check is 200
 node nocobase/scripts/provision.mjs               # safe to re-run; prints "no changes" when done
+node nocobase/scripts/provision-workflow.mjs      # cfg_activity + publish workflow (after provision.mjs)
+node nocobase/scripts/provision-ui.mjs            # admin menu "Matrix Configurator" (after provision-workflow.mjs)
+node nocobase/scripts/provision-acl.mjs --test-user   # read-only role + local test user (after provision-ui.mjs)
 node nocobase/scripts/smoke.mjs                   # optional end-to-end check, cleans up after itself
 ```
 
-Or use the `npm` scripts from `nocobase/`: `npm run wait`, `npm run provision`, `npm run smoke`,
-`npm run reset -- --yes`. There are no dependencies to install.
+Or use the `npm` scripts from `nocobase/`: `npm run wait`, `npm run provision`, `npm run provision:all`
+(all four provisioners in order), `npm run provision:workflow | provision:ui | provision:acl`, `npm run smoke`,
+`npm run reset -- --yes`. There are no dependencies to install. Every provisioner is idempotent: a second run
+prints "no changes — already provisioned".
 
 `docker compose stop` / `start` keeps all data. **`docker compose down -v` deletes the database and
 storage volumes.** After that, start the stack again and re-run `provision.mjs`.
@@ -58,14 +67,44 @@ Environment (`.env` at the project root; the template is `.env.example`):
 | `NOCOBASE_TZ` | compose (`TZ`) | default `UTC` |
 | `NB_DB_NAME`, `NB_DB_USER`, `NB_DB_PASSWORD` | compose | Postgres credentials |
 | `NOCOBASE_HTTP_PORT` | compose | host port (default 13000) |
+| `NOCOBASE_VIEWER_EMAIL`, `NOCOBASE_VIEWER_PASSWORD` | `provision-acl.mjs --test-user` | local test user with only the read-only `configurator_viewer` role (generated; never printed) |
 
-### Admin UI
+### Admin UI: where to see the configurator in NocoBase
 
-Open http://localhost:13000 and sign in with `NOCOBASE_ROOT_EMAIL` / `NOCOBASE_ROOT_PASSWORD`
-from the project-root `.env`. The collections are listed under
-**Data sources → Main → Collections** (in the settings / plugin-settings menu) as "Configurator · Workspaces / Releases /
-Modules / Gates / Stages". To browse records, add a page with a **Table** block on one of these
-collections.
+Sign in at **http://localhost:13000** with `NOCOBASE_ROOT_EMAIL` / `NOCOBASE_ROOT_PASSWORD` from the
+project-root `.env`. The top menu bar has a group **Matrix Configurator**; its pages are in the left sidebar.
+Every page has a stable URL (`/admin/<pageSchemaUid>`), so you can also open it directly:
+
+| Click path (after sign-in) | URL | Shows |
+|---|---|---|
+| Matrix Configurator → **Overview** | `/admin/mcfg-overview` | what NocoBase stores for the configurator, with links |
+| Matrix Configurator → **Workspaces** | `/admin/mcfg-workspaces` | `cfg_workspaces`: name, slug, custom?, live/draft version, last updated. Click a **name** (or **View**) → read-only drawer with every field including the `state` JSON |
+| Matrix Configurator → **Releases** | `/admin/mcfg-releases` | `cfg_releases`, newest first: workspace, version, reason, published by, created at. Filter by workspace. Click the **version** (or **View**) → drawer with the `manifest` JSON |
+| Matrix Configurator → **Modules** / **Gates** / **Stages** | `/admin/mcfg-modules`, `-gates`, `-stages` | the projection tables, with a filter form (workspace slug; plus kind/status, from/to key, module key). Click a row's name (or **View**) → drawer with its `data` / `condition` JSON |
+| Matrix Configurator → **Activity** | `/admin/mcfg-activity` | `cfg_activity`, the log the NocoBase **workflow** writes on every new release (see below) |
+| ⚙ (top right) → **Workflow** → "Matrix Configurator · Release published → activity log" → **Configure** | `/admin/settings/workflow` | the workflow canvas (trigger → Query record → Create record); the **Executed** count opens its execution history |
+| ⚙ → **Users & Permissions** → Roles & Permissions → **Configurator viewer** | `/admin/settings/users-permissions` | the read-only role (Data sources → Main → Configure; Desktop routes) |
+| ⚙ → **Data sources** → Main → Collections | | the raw collection definitions ("Configurator · …") |
+
+Each table page offers only **Filter**, **Refresh** and **View**. There is no Add / Edit / Delete / bulk action
+on purpose: the configurator (http://localhost:4300) owns every write and validates a draft before it saves it;
+editing `state` here would bypass that. (Root can still switch on the UI editor and add buttons by hand;
+`provision-ui.mjs` detects such buttons on its next run and rebuilds the page read-only.)
+
+Screenshots of every page: `docs/reports/N1-screens/`.
+
+How the pages are built (NocoBase 2.2.20 "modern" pages, `plugin-flow-engine`): each page is a
+`desktopRoutes` row of type `flowPage` under a `group` route, whose content is a tree of flow models
+(`RootPageModel → RootPageTabModel → BlockGridModel → TableBlockModel / FilterFormBlockModel`, popups as
+`ChildPageModel → DetailsBlockModel`) stored in `flowModels`. `provision-ui.mjs` writes them through the
+server-side `flowSurfaces` API, the same one NocoBase's own UI-builder uses: `flowSurfaces:createMenu`
+(group) → `flowSurfaces:createPage` (with fixed `pageSchemaUid`s, hence the stable URLs) →
+`flowSurfaces:applyBlueprint` (`mode: "replace"`, blueprint from `lib/ui-spec.mjs`) →
+`flowSurfaces:removeNode` for every action that is not Filter / Refresh / View. (`applyBlueprint` always injects
+Add new, Delete, Edit and bulk-delete buttons; there is no switch to turn that off.) A hash of each page spec is
+kept in `desktopRoutes.options.matrixConfigurator.specHash`, so a re-run only rebuilds pages whose spec
+changed or that are no longer read-only. `--force` rebuilds everything, and `--remove` deletes the group and
+its pages.
 
 To inspect the database directly:
 `docker compose exec postgres psql -U "$NB_DB_USER" "$NB_DB_NAME"` (values come from `.env`).
@@ -84,6 +123,7 @@ same `general` template the admin UI uses. Every collection also gets the UI's p
 | `cfg_modules` | `workspace_slug`, `module_key`, `name`, `glyph`, `kind`, `status`, `route` (varchar), `data` json |
 | `cfg_gates` | `workspace_slug`, `from_key`, `to_key` (varchar), `condition` json |
 | `cfg_stages` | `workspace_slug`, `module_key` (varchar), `position` integer, `name`, `outcome` (varchar), `terminal` boolean, `data` json |
+| `cfg_activity` *(NocoBase-owned, created by `provision-workflow.mjs`; not part of the contract)* | `event`, `summary`, `workspace_slug`, `workspace_name`, `published_by` (varchar), `version` integer, `reason` text, `release_id` bigint, `published_at` timestamptz. Written only by the workflow |
 
 JSON fields use Postgres `json`, not `jsonb`, on purpose. `json` stores the text verbatim, so
 objects round-trip exactly, **including key order**. `jsonb` would re-sort keys.
@@ -158,44 +198,68 @@ timeout), `.code` (the NocoBase error code, e.g. `INVALID_TOKEN`) and `.body`.
 The root role bypasses ACL. For anything beyond local development, use a narrower role and key
 (see below).
 
-## Extending with workflows and ACL
+## Workflow: every publish is logged by NocoBase (`provision-workflow.mjs`)
 
-Both plugins are built in and enabled in the community image, and the `cfg_*` tables are normal
-NocoBase collections. Workflows and permissions therefore apply to every write made through this
-client.
+The community **Workflow** plugin (built in and enabled) runs a workflow named
+**"Matrix Configurator · Release published → activity log"**:
 
-**Workflow: react to a publish.** In the admin UI, go to **Workflow → New → Collection event**,
-set Collection to `Configurator · Releases`, set Trigger on to "After record added", then add
-nodes. For example, an **HTTP request** node posts `{{$context.data.manifest}}` to a deploy hook,
-or a **Notification** node alerts admins. The same workflow can be created through the API:
+| Part | Configuration |
+|---|---|
+| Trigger | **Collection event** on `cfg_releases`, *After record added* (`mode: 1`), **asynchronous**, so a slow or failed run never blocks a publish. Condition: `workspace_slug` does not contain `__smoke`, so `smoke.mjs` throwaway releases are ignored |
+| Node 1 | **Query record**: the `cfg_workspaces` row whose `slug` = `{{$context.data.workspace_slug}}` (may be empty, e.g. for a tenant that was never a configurator workspace) |
+| Node 2 | **Create record** in `cfg_activity`: `event`, `summary` ("<slug> v<version> published by <who>"), `workspace_slug`, `workspace_name` (from node 1), `version`, `reason`, `published_by`, `release_id`, `published_at` |
 
-```js
-const wf = await nb.request('POST', 'workflows:create', { body: {
-  title: 'On release published', type: 'collection', enabled: true, sync: false,
-  config: { collection: 'cfg_releases', mode: 1 /* 1=create, 2=update, 4=destroy */ },
-}});
-// then add nodes with POST workflows/<wf.data.id>/nodes:create  { type: 'request' | 'notification' | ... }
-```
+`cfg_activity` is owned by NocoBase. The configurator never writes it, and it is not in the contract
+`COLLECTIONS`, so `provision.mjs`, `reset.mjs` and the client ignore it. Its definition is
+`ACTIVITY_COLLECTION` in `lib/schema.mjs`. On the first run the script also backfills releases that have no
+activity entry yet by running the same workflow manually (`workflows:execute`, request body
+`{ "data": <releaseId> }`). Skip this with `--no-backfill`. The workflow never changes `cfg_workspaces`; a
+"last published" field there would bump the configurator's `updatedAt` and race with its saves.
 
-Another useful trigger is `mode: 2` on `cfg_workspaces` with `changed: ['live_version']`, which fires
-when a workspace goes live.
+Proof run: `node nocobase/scripts/provision-workflow.mjs --prove` inserts **one** marked test release
+(`workspace_slug: "__n1_workflow_test__"`), waits for the workflow's `cfg_activity` row (about 0.5 s), prints
+it, and deletes **both** rows again. This is the one documented exception to "`cfg_releases` is append-only".
+See it in the UI: **⚙ → Workflow → … → Configure** shows the canvas, the **Executed** count lists the runs, and
+**Matrix Configurator → Activity** shows the entries. If the live workflow differs from the script and has
+already run, NocoBase keeps executed versions immutable; re-run with `--revise` to create and enable a
+corrected revision.
 
-**ACL: a non-root role.** Under **Users & Permissions → Roles**, create e.g. `configurator`. In
-**Data source permissions → Main**, grant view/create/update on `cfg_workspaces`, `cfg_modules`,
-`cfg_gates` and `cfg_stages`, and only view/create on `cfg_releases`. That makes the ledger truly
-append-only. Assign the role to a service user, sign in as that user, and create an API key bound to
-the `configurator` role; use it as `NOCOBASE_TOKEN`. The API equivalent is roughly
-`POST /api/roles:create { name: 'configurator', title: 'Configurator' }`, followed by
-`POST /api/roles/configurator/dataSourceResources:create { dataSourceKey: 'main', name: 'cfg_releases', usingActionsConfig: true, actions: [{ name: 'view' }, { name: 'create' }] }`.
+Other triggers worth adding the same way: `mode: 2` on `cfg_workspaces` with `changed: ['live_version']`
+(a workspace goes live), or an **HTTP request** / **Notification** node after node 2 (deploy hook, admin alert).
+
+## ACL: read-only role `configurator_viewer` (`provision-acl.mjs`)
+
+| Layer | Setting |
+|---|---|
+| System | snippets `!pm`, `!pm.*`, `!ui.*`: no plugin manager, no settings pages, no UI editor |
+| Menu | only the **Matrix Configurator** group, its 7 pages and their tabs (`roles/<role>/desktopRoutes:set`). New menus are not granted automatically (`allowNewMenu: false`) |
+| Tables | global strategy for data source `main`: **no actions**. Independent permission **view** (all fields) on `cfg_workspaces`, `cfg_releases`, `cfg_modules`, `cfg_gates`, `cfg_stages`, `cfg_activity`. No create / update / destroy / export |
+
+`--test-user` creates (or repairs) the local user `configurator-viewer`, which has **only** this role. Its
+e-mail and generated password go to the gitignored project `.env` (`NOCOBASE_VIEWER_EMAIL` /
+`NOCOBASE_VIEWER_PASSWORD`) and are never printed. Whenever those credentials exist, every run ends with a
+live check made as that user. The user must be able to sign in, see only the Matrix Configurator menu, and list
+all six collections. Each of these must return **403**: update / destroy / create / export on cfg_*,
+`flowModels:save` (UI editor), `collections:create` and `workflows:list`. The write probes cannot change data
+even if ACL were wrong: update and destroy target id 0, and the create probe uses `__n1_acl_probe__` and is
+deleted again. Sign in as that user to see the same pages without the ⚙ settings and UI-editor icons.
+
+For the configurator's own service account, a narrower write role is the next step. Grant
+view/create/update/destroy on `cfg_workspaces` and the projections, and only view/create on `cfg_releases` (an
+append-only ledger, enforced). Create an API key while signed in as that user and use it as `NOCOBASE_TOKEN`
+instead of the root key. API: `roles:create`, then
+`roles/<role>/dataSourceResources:create { dataSourceKey: 'main', name, usingActionsConfig: true, actions: [...] }`.
 
 ## License note
 
 The NocoBase kernel and plugins are distributed under the **NocoBase License Agreement**
-(https://www.nocobase.com/agreement), a bespoke licence that is **not** OSI-approved. Some source
-files also reference AGPL-3.0 and commercial dual-licensing. This setup uses only the official
-community Docker image and its built-in, enabled plugins. No commercial plugins are installed or
-enabled, and none are needed. Review the agreement before redistributing or offering this as a
-hosted service.
+(https://www.nocobase.com/agreement), a bespoke licence that is **not** OSI-approved. It incorporates
+Apache-2.0 but adds supplementary terms that prevail; some source files also reference AGPL-3.0 and commercial
+dual-licensing. See `building-blocks/from-nocobase/concept-map.md` for §5.2 (branding) and §5.4 (no public
+no-/low-code SaaS). This setup uses **community features only**: the official community Docker image and its
+built-in, enabled plugins (collection manager, flow-engine pages, Workflow with Query/Create nodes, ACL, API
+keys). No commercial plugin is installed, enabled or attempted. Do not enable commercial plugins such as
+*Workflow: Approval*. Review the agreement before redistributing or offering this as a hosted service.
 
 ## Troubleshooting
 
@@ -205,5 +269,10 @@ hosted service.
   `[PubSubManager] adapter is not exist` are normal for a single node.
 * If `health()` is false but `health({ deep: false })` is true, either the credentials or
   `NOCOBASE_TOKEN` are wrong, or `provision.mjs` has not run yet.
+* No "Matrix Configurator" menu after sign-in: run `provision-workflow.mjs`, then `provision-ui.mjs`. If the
+  `configurator_viewer` user sees no menu, re-run `provision-acl.mjs`. Route ids change when pages are
+  recreated, for example after `provision-ui.mjs --remove`.
+* `docker compose down -v` wipes the menu, workflow and role along with the data. `npm run provision:all`
+  (from `nocobase/`) restores all of them.
 * The root password in `.env` is only applied on the **first** install. If you change it later,
   change it in the admin UI too, or wipe the volumes with `docker compose down -v`.

@@ -201,3 +201,58 @@ Suite before F4b: 624 tests, 622 pass / 2 fail; after: 683 tests, 681 pass / the
 | `app-stack/status.sh` | rows `nocobase` and `configurator` (pid or "external process", mode). |
 | `app-stack/stop.sh` | stops the `configurator` daemon (only if started by app-stack); `--with-nocobase` also stops NocoBase (left running by default — the standalone configurator uses it too); flags parsed explicitly. |
 | `app-stack/README.md` | components table + commands updated. |
+
+## Phase 2b — G3: migrate running cases, creator-scoped stages, role-scoped saved views (2026-10-05/06)
+
+Three capabilities inspired by the user's own repo `Adityashandilya555/operaton-plat` (@ `fc65499`, provenance in the
+root `THIRD_PARTY.md` §I): **#2** an audited "migrate running cases" platform-admin action next to version pinning,
+**#3** "only for sites they created" (a stage-level creator rule), **#4** role-scoped saved views on custom-module
+pages. Contract: `docs/G3-API.md`. Report: `docs/reports/G3.md`. Every entry below is a change to apply to the real
+project (file — what — why).
+
+### Database (ledger 70 → 73; applied by the app's own runner, 36 statements, 0 failures; re-run ×2 on a clone: idempotent)
+
+| File | Change | Why |
+|---|---|---|
+| `backend/database/migrations/20261005_1_release_migrations.sql` (sha256 0ccf0ef5fc15…) | **added**: `module_release_migrations` (header: tenant, target release, `from_spec` v<N>/all_older, scope, mandatory reason ≥3, platform-admin actor, status running/done/failed, summary; only status/summary/finished_at mutable while running) + `module_release_migration_items` (APPEND-ONLY: site-pin item + one per record, from/to release, before/after stage, **full pre-migration runtime_state**, plan; insert guard: running migration of the same tenant, its target, row currently on `from`); `cfg_release_migration_authorizes()`; **replaces** `cfg_sites_pin_release()` (20261004_4) and `cfg_module_records_guard()` (20261004_5): a pinned site / a record may change release only when the transaction-local `matrix.release_migration` names a running migration with an item authorising exactly that move — `matrix.allow_repin=on` is no longer honoured; the record-vs-site-pin check now runs on INSERT and on a release change only (a finished case may stay on the release it finished on after its site moved). RLS `tenant_isolation` + REVOKE anon/authenticated on both tables. | #2: a controlled, journaled re-pin path that only the migration service uses; F2's free switch left no trace. |
+| `backend/database/migrations/20261005_2_creator_scoped_stages.sql` (sha256 1e30e14e41ab…) | **added** `cfg_release_stage_restriction()`, `cfg_user_owns_site()` (submitted_by OR assigned_to); **replaces** `cfg_module_approvals_guard()` (20261004_5): identical except `entitled` also requires owns(site, actor) on the first step of a `restricted_to: site_creator` stage (so a non-owner is accepted only as a flagged business-admin override). | #3 enforced by the DB too, not only by the app. |
+| `backend/database/migrations/20261005_3_module_views.sql` (sha256 5f85e6c2fb73…) | **added** `module_views` (tenant, module_key or NULL = every custom module, name, filter jsonb, columns jsonb, audience text[], position, is_default, seed_key, created_by, soft delete; FK (tenant, module) → tenant_modules ON DELETE CASCADE; partial unique (tenant, module, seed_key)); `cfg_seed_module_views(tenant, module)` (6 defaults, ON CONFLICT DO NOTHING); AFTER INSERT/UPDATE OF enabled trigger on `tenant_modules` (custom + enabled ⇒ seed, i.e. on publish); backfill for existing enabled custom modules (38 modules × 6 in the sandbox); RLS `tenant_isolation` + REVOKE. | #4. |
+
+`module_catalog` is **not** touched (the lead applies G2's catalog corrections in a later migration).
+
+### Backend
+
+| File | Change | Why |
+|---|---|---|
+| `backend/app/services/module_runtime/runtime.py` | `Actor.owned_sites`; `CREATOR_RULE`; `creator_step(state)`; `next_step()` adds `restricted_to`; `_authorize()`: on the creator step a non-owner executive/supervisor → `Refusal("not_site_creator")`, a non-owner business admin → override (SoD still checked), the owner needs no delegation; `act()` puts `restricted_to` + `site_creator` into the event payload (hash-chained). | #3 in the interpreter, so `allowed_actions` and the action endpoint agree. (F3's reference copy in `third_party/matrix-adapters/` is unchanged.) |
+| `backend/app/services/module_runtime/migrate.py` | **added**: pure planner — `stage_mapping()` (explicit / same / by_name / by_order / unmapped), `plan()` (blocking reasons, warnings, fields kept/dropped/kind-changed/new-required, chain check mid-stage, optional stage restart), `apply()` (re-keyed state on the target release + one chained `release_migrated` event). | #2, unit-testable without a DB. |
+| `backend/app/services/release_migration_service.py` | **added**: `svc_migrate_running_cases` (dry run / execute; per-site locked transaction: re-plan under `FOR UPDATE`, journal items, site pin, records, stage rows re-keyed, audit `module_release_migrated` per case with provenance incl. `pre_state`, `site_release_migrated`, `release_migration_executed`), `svc_list_migrations`, `svc_get_migration`. | #2; one transaction per site, never half-migrated. |
+| `backend/app/routers/platform.py` | `POST/GET /platform/workspaces/{ref}/migrations`, `GET …/migrations/{id}`; pydantic `MigrateIn`/`MigrationScope` (`extra="forbid"`). | #2 API (platform-admin key). |
+| `backend/app/services/module_runtime_service.py` | `_owned_sites()` (sites with a case of the module that the user submitted / is assigned to); `_actor()` fills `owned_sites`; `has_creator_rule()`; `not_site_creator → 403`; audit provenance `rule`, `site_creator`, `creator_override`; executive scope (`_executive_sees`) adds owned sites when the case's module has a creator-scoped stage (list + detail); `svc_list_records(view_id=)` applies a saved view after the scope; list items gain `opened_by`, `owned_by_me`, `next_step.restricted_to`; detail gains `stages[].restricted_to`, `next_step.restricted_to`, `me.owns_site`. | #3 + #4. |
+| `backend/app/routers/module_runtime.py` | `GET /m/{key}/records?view=<uuid>`. | #4. |
+| `backend/app/domain/schemas/module_views.py` | **added**: `ViewFilter` (extra=forbid), `ViewIn`, `ViewPatch`, column/audience vocabularies. | #4: a crafted filter cannot smuggle scope keys. |
+| `backend/app/services/module_views_service.py` | **added**: `matches()` (pure filter), `default_view_id()`, `get_view_for()` (404 outside tenant/module/audience), `svc_list_views`, `svc_create_view`, `svc_update_view`, `svc_delete_view` (soft), `svc_reset_views` (+ audit rows). | #4. |
+| `backend/app/routers/module_views.py` + `backend/app/main.py` (`ROUTERS += module_views`) | **added** `GET/POST /m/{key}/views`, `PATCH/DELETE /m/{key}/views/{id}`, `POST /m/{key}/views/reset`. | #4 API. |
+| `backend/app/services/module_runtime/validate.py` | findings `creator_rule_first_tier`, `creator_rule_builtin_ignored`. | #3 publish validation. |
+| `backend/app/services/module_runtime/manifest.schema.json` | stage property `restricted_to: {enum: ["site_creator"]}` (only change vs the building-blocks copy). | #3: the manifest is `additionalProperties: false`. |
+| `backend/tests/test_observer_readonly.py` | `_NO_SESSION_ALLOWLIST += /platform/workspaces/{ref}/migrations`. | Platform-admin-key route, like the other `/platform/*` routes. |
+| `backend/tests/test_g3_features.py` | **added** — 29 tests (creator rule ×9, publish findings ×2, planner ×8, resolution/reason/request model ×3, views ×5, migrations-as-files ×3 … see report). | |
+
+### Frontend
+
+| File | Change | Why |
+|---|---|---|
+| `frontend/public/configurator/configurator.dc.html` (**in-app copy only; `web/` untouched**) | per-stage **"Only the site’s creator can do this"** toggle in the wizard's Stages step and on the inspector's stage cards of custom modules (built-ins: none); methods `creatorToggleVals`, `stageManifestRule`, `toggleStageCreator`; v5 state `stage.creatorOnly`; `wizSave` carries it; `wizManifest()` and `manifest()` emit `restricted_to: "site_creator"` (custom modules only); `diffList()` reports a `creator rule` change. 54 diff lines. | #3 authored in the designer (single source of truth). The standalone `web/` copy keeps `creatorOnly` in the shared NocoBase draft (plain JSON) but neither shows nor emits it; G1's agent configurator edits the same JSON — the key to use is `stages[].creatorOnly`. |
+| `frontend/src/modules/admin/workspaces/MigrateCasesPanel.jsx` (**added**) + `WorkspacesList.jsx` | "Migrate running cases" in a workspace's Details: from (v<N> / every older) → onto (default live), modules, restart option → **Dry run** → table (site, module, from, stage before → after + non-trivial mapping, fields kept/dropped, approvals, outcome, blocking/warnings) → mandatory reason → confirm → result + earlier migrations. | #2 UI. |
+| `frontend/src/modules/admin/adminApi.js` | `platformApi.migrate / migrations / migration`. | #2. |
+| `frontend/src/services/api/moduleRuntimeApi.js` | `listRecords(…, {viewId})`, `listViews`, `createView`, `updateView`, `deleteView`, `resetViews`, `resolveView()` (id / seed key / sidebar page key → view), `LEGACY_VIEW_SEEDS`. | #4. |
+| `frontend/src/modules/custom-module/GenericModulePage.jsx` | saved-view switcher (server-side `?view=`; per-view counts; description line), the view's columns (incl. assignee/opener names from members), "site creator only" hint, **Manage views** for business admins; F4b's fixed tabs kept as fallback when no views are available. | #4. |
+| `frontend/src/modules/custom-module/ManageViewsPage.jsx` (**added**) + `viewsKit.js` (**added**) + `router/routes.js` (`CUSTOM_MODULE_VIEWS`, `customModuleViewsRoute`) + `router/AppRouter.jsx` (lazy route `/m/:moduleKey/views`) | business admin: list / create / edit / remove views (name, next-step tier, kind, yes/no flags, stages, sites, statuses, audience, columns, order, default, all modules) and **Reset to defaults** (with confirm). | #4. |
+| `frontend/src/modules/custom-module/GenericRecordPage.jsx` | creator-rule note on the next step ("Only the site’s creator can do this step … That’s you." / "it waits for the site’s creator"), "site creator only" on stages, BA override wording for the creator step, `not_site_creator` title, audit entries: "override · not the site’s creator", "site creator", and **"Moved to another release"** with v→v, stage before → after, reason. | #2 + #3 visible in the case. |
+| tests (**added**): `custom-module/__tests__/g3ViewsAndCreator.test.jsx` (9), `admin/workspaces/__tests__/MigrateCasesPanel.test.jsx` (3), `admin/workspaces/__tests__/configuratorCreatorRule.test.js` (2: template + headless round-trip wizard → state → JSON → manifest → inspector toggle → publish diff). | 14 tests; no existing test edited. | |
+
+### Outside `app/`
+
+| File | Change |
+|---|---|
+| `app-stack/smoke-g3.mjs` | **added** — 59-step zero-dependency proof of #2/#3/#4 (incl. direct-SQL probes, each in a rolled-back transaction, that the DB refuses re-pins and forged approval rows). |

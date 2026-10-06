@@ -95,3 +95,18 @@ verbatim (that repo is Python/Operaton; ours is Node/v5 drafts):
 
 No other code is bundled: the configurator logic is the project's own v5 class (`sources/design-artifact`, via
 `building-blocks/lib/load-dc.mjs`), `building-blocks/from-design/validation.mjs` and `web/lib/env.mjs`, imported in place.
+
+## I. Migrate running cases, creator rule, saved views (`app/`, phase G3)
+
+**Ideas adapted from the user's own repository** `github.com/Adityashandilya555/operaton-plat` at
+`fc65499834cfa8d5e47ca2bb5266899117555d36` (owned by the user, who asked for this reuse; no licence file). Read
+only (G2's read-only download + `gh api …/contents`); **no code copied** — that repo drives Operaton over REST in
+Python, ours is the app's own FastAPI runtime + Postgres.
+
+| operaton-plat | Adapted as (G3) |
+|---|---|
+| `matrix.py` `op_migrate_running()` (l.826-847): for each older process-definition version, `/migration/generate` + `/migration/execute` onto the latest; per-version "moved n" / "could not move" | `POST /api/platform/workspaces/{ref}/migrations` — but per case: dry run first, explicit stage mapping, compatibility report, mandatory reason, one locked transaction per site, incompatible sites skipped, journal with the full pre-migration state, audited per case (`release_migration_service.py`, `module_runtime/migrate.py`, migration `20261005_1`). `docs/PLATFORM.md` §3/§5 ("running cases stay on their version unless migrated") is the rule we keep. |
+| task `"assignee": "initiator"` → `operaton:assignee="${initiator}"` (`matrix.py` l.141, 234, 392, 411) on bd_site_details, bd_upload_loi, fin_ca_entry, launch_exec_verdict | stage `restricted_to: "site_creator"`; creator = `sites.submitted_by` OR `sites.assigned_to` (the real app's rule, per G2), business-admin override recorded; enforced in the runtime + the approvals guard (`20261005_2`); authored in the in-app configurator copy. Not ported: `skip_if initiator_in bdSupervisor` (obsolete in the real app). |
+| `catalogue.json` `views` + `sync_views()` (l.628-645, Tasklist filters with per-group READ grants) and `op_add_view()` (l.805-811) | `module_views` (`20261005_3`): named views with filter, columns, audience roles, position, default; seeded per custom module on publish; business admin manages them in the app; applied server-side on top of the caller's scope. |
+
+No new third-party packages (backend or frontend).

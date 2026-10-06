@@ -65,6 +65,7 @@ const FinancialClosureReviewPage = lazy(() => import('../modules/financial_closu
 // F4b: configurator-defined (custom) modules run on one generic page, /m/:moduleKey.
 const GenericModulePage = lazy(() => import('../modules/custom-module/GenericModulePage.jsx'));
 const GenericRecordPage = lazy(() => import('../modules/custom-module/GenericRecordPage.jsx'));
+const ManageViewsPage = lazy(() => import('../modules/custom-module/ManageViewsPage.jsx'));
 
 // In HTTP (non-mock) mode the landing page is the unauthenticated entry. The
 // existing app chrome only renders after a Supabase session is established.
@@ -570,6 +571,12 @@ export default function AppRouter() {
         <Route path={ROUTES.CUSTOM_MODULE_RECORD} element={
           <RequireRole roles={['supervisor', 'executive', 'exec']}>
             <GenericRecordPage/>
+          </RequireRole>
+        }/>
+        {/* G3: saved views of a custom module — the backend lets only a business admin manage them */}
+        <Route path={ROUTES.CUSTOM_MODULE_VIEWS} element={
+          <RequireRole roles={['supervisor', 'executive', 'exec']}>
+            <ManageViewsPage/>
           </RequireRole>
         }/>
 

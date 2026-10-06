@@ -197,3 +197,46 @@ export const COLLECTIONS = [
 
 /** Names of all configurator collections. */
 export const COLLECTION_NAMES = COLLECTIONS.map((c) => c.name);
+
+// ---------------------------------------------------------------------------------------------
+// NocoBase-owned collections (not part of the configurator contract, not in COLLECTIONS, so
+// provision.mjs / reset.mjs / the client never touch them). Written only by NocoBase itself.
+
+/** 64-bit integer (Postgres `bigint`), e.g. for snowflake ids of other rows. */
+export const bigInt = (name) => ({
+  name,
+  interface: 'integer',
+  type: 'bigInt',
+  uiSchema: { type: 'number', title: title(name), 'x-component': 'InputNumber', 'x-component-props': { stringMode: true, step: '1' }, 'x-validator': 'integer' },
+});
+
+/** Date-time with time zone. */
+export const datetime = (name, label = title(name)) => ({
+  name,
+  interface: 'datetime',
+  type: 'date',
+  uiSchema: { type: 'string', title: label, 'x-component': 'DatePicker', 'x-component-props': { showTime: true, dateFormat: 'YYYY-MM-DD', timeFormat: 'HH:mm:ss' } },
+});
+
+/**
+ * Activity log written by the NocoBase workflow "Matrix Configurator · Release published → activity log"
+ * (nocobase/scripts/provision-workflow.mjs) whenever a row is added to `cfg_releases`.
+ * @type {CollectionDef}
+ */
+export const ACTIVITY_COLLECTION = {
+  name: 'cfg_activity',
+  title: 'Configurator · Activity',
+  description: 'Publish activity log. Written by the NocoBase workflow on cfg_releases (after create); not by the configurator.',
+  titleField: 'summary',
+  fields: [
+    string('event'),
+    string('summary'),
+    string('workspace_slug'),
+    string('workspace_name'),
+    integer('version'),
+    text('reason'),
+    string('published_by'),
+    bigInt('release_id'),
+    datetime('published_at', 'Published at'),
+  ],
+};

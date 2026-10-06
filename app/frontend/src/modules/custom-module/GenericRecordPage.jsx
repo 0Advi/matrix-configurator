@@ -278,7 +278,16 @@ export default function GenericRecordPage() {
                       <span style={{ minWidth: 0 }}>
                         <span style={{ fontWeight: 650 }}>{humanAction(a.action, ev.type)}</span>
                         <span style={{ color: 'var(--zm-fg-3)' }}> · {a.actor_name || (ev.actor === 'system' ? 'system' : '—')}{ev.actor_role && ev.actor_role !== 'system' ? ` (${tierLabel(ev.actor_role)})` : ''}</span>
-                        {(pv.override || ev.override) && <span style={{ marginLeft: 6, color: 'var(--zm-copper)', fontWeight: 700 }}>override</span>}
+                        {(pv.override || ev.override) && <span style={{ marginLeft: 6, color: 'var(--zm-copper)', fontWeight: 700 }}>{pv.creator_override ? 'override · not the site’s creator' : 'override'}</span>}
+                        {pv.rule === 'site_creator' && pv.site_creator && <span style={{ marginLeft: 6, color: 'var(--zm-info)', fontWeight: 700 }}>site creator</span>}
+                        {pv.policy === 'release_migration' && (
+                          <div data-testid="migration-entry" style={{ fontSize: 12, color: 'var(--zm-fg-2)', marginTop: 2 }}>
+                            Moved v{pv.from_release?.version ?? '?'} → v{pv.to_release?.version ?? '?'}
+                            {pv.before_stage && pv.after_stage ? ` · stage ${pv.before_stage.order} “${pv.before_stage.name}” → ${pv.after_stage.order} “${pv.after_stage.name}”` : ''}
+                            {pv.reason ? <> · “{pv.reason}”</> : null}
+                            {pv.co_migrated ? ' · moved with its site' : ''}
+                          </div>
+                        )}
                         <div style={{ fontSize: 11.5, color: 'var(--zm-fg-3)' }}>
                           {when(a.at)} · release v{pv.release_version ?? '—'} · {pv.policy || 'runtime'}{ev.seq != null ? ` · #${ev.seq}` : ''}
                         </div>
@@ -300,6 +309,7 @@ function problemTitle(p) {
     case 'wrong_tier': return 'Not your step';
     case 'no_delegation': return 'This case isn’t assigned to you';
     case 'separation_of_duties': return 'Someone else must take this step';
+    case 'not_site_creator': return 'Only the site’s creator can do this step';
     case 'observer_read_only': return 'Read-only access';
     case 'reason_required': return 'A reason is required';
     case 'stage_gate_closed': return 'This stage is locked';
@@ -314,7 +324,7 @@ function humanAction(action, type) {
     case_created: 'Case opened', gate_opened: 'Entry gate opened', submitted: 'Stage submitted', approved: 'Approved',
     auto_approved: 'Auto-approved', rejected: 'Rejected', rejected_forward: 'Rejected (forward)', sent_back: 'Sent back',
     stage_completed: 'Stage completed', module_completed: 'Case completed', parked: 'Parked', assigned: 'Assigned',
-    record_assigned: 'Assigned to an executive',
+    record_assigned: 'Assigned to an executive', release_migrated: 'Moved to another release',
   })[t] || String(t).replace(/_/g, ' ');
 }
 
@@ -343,9 +353,17 @@ function NextStep({ next, record, me, allowed, isReadOnly, mod, approvals = [], 
               {next.kind === 'approve' ? 'awaiting approval by' : 'to be filled in by'} <b>{tierLabel(next.role)}</b>
             </span>
           </div>
+          {next.restricted_to === 'site_creator' && (
+            <div role="note" data-testid="creator-rule" style={{ fontSize: 12.5, marginBottom: 10, padding: '8px 10px', borderRadius: 8, background: 'var(--zm-info-soft, var(--zm-surface-2))', border: '1px solid var(--zm-line)', color: 'var(--zm-fg)' }}>
+              Only the site’s creator can do this step (who created the site in BD, or its BD assignee).
+              {me?.owns_site ? ' That’s you.' : ''}
+            </div>
+          )}
           {allowed.length === 0 && (
             <div style={{ fontSize: 13, color: 'var(--zm-fg-2)', padding: '10px 12px', borderRadius: 9, background: 'var(--zm-surface-2)', border: '1px solid var(--zm-line)' }}>
               {isReadOnly ? 'You have read-only access.'
+                : next.restricted_to === 'site_creator' && !me?.owns_site && me?.role !== 'business_admin'
+                  ? 'You didn’t create this site, so this step isn’t yours — it waits for the site’s creator.'
                 : me?.role === 'executive' && next.role === 'executive' && !record.assigned_to
                   ? 'It’s an executive’s turn, but this case hasn’t been assigned yet — a supervisor assigns it first.'
                   : `It’s the ${tierLabel(next.role).toLowerCase()}’s turn. You’ll be able to act when it reaches your tier.`}
@@ -361,9 +379,9 @@ function NextStep({ next, record, me, allowed, isReadOnly, mod, approvals = [], 
               This step belongs to the {tierLabel(next.role).toLowerCase()} tier; as a {tierLabel(me.role).toLowerCase()} of this stage you may fill it yourself — someone else then has to approve it (separation of duties).
             </div>
           )}
-          {me?.role === 'business_admin' && allowed.length > 0 && next.role !== 'business_admin' && (
+          {me?.role === 'business_admin' && allowed.length > 0 && (next.role !== 'business_admin' || (next.restricted_to === 'site_creator' && !me?.owns_site)) && (
             <div style={{ fontSize: 12, color: 'var(--zm-copper)', marginBottom: 10 }}>
-              You are the business admin: acting on a {tierLabel(next.role).toLowerCase()} step is recorded as an <b>override</b>.
+              You are the business admin: acting on {next.restricted_to === 'site_creator' && !me?.owns_site ? 'a step reserved for the site’s creator' : `a ${tierLabel(next.role).toLowerCase()} step`} is recorded as an <b>override</b>.
             </div>
           )}
           {children}
@@ -388,6 +406,7 @@ function StageRow({ s, current, memberName }) {
           <span style={{ fontWeight: 700, fontSize: 13.5 }}>{s.name}</span>
           <StageState state={s.state}/>
           {s.terminal && <span style={{ fontSize: 11, color: 'var(--zm-fg-3)' }}>last stage</span>}
+          {s.restricted_to === 'site_creator' && <span title="Only the site's creator can do this stage's first step" style={{ fontSize: 11, color: 'var(--zm-info)', fontWeight: 700 }}>site creator only</span>}
         </div>
         <div style={{ fontSize: 12, color: 'var(--zm-fg-3)', marginTop: 3 }}>
           {(s.chain || []).map(tierLabel).join(' → ') || '—'} · completes as “{s.outcome}”

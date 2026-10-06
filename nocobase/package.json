@@ -2,14 +2,15 @@
   "name": "matrix-configurator-nocobase",
   "version": "0.1.0",
   "private": true,
-  "description": "NocoBase platform layer for the Workspace Configurator: zero-dependency client, provisioning and smoke tests.",
+  "description": "NocoBase platform layer for the Workspace Configurator: zero-dependency client, provisioning (collections, admin-UI pages, workflow, ACL) and smoke tests.",
   "type": "module",
   "main": "lib/client.mjs",
   "exports": {
     ".": "./lib/client.mjs",
     "./client": "./lib/client.mjs",
     "./env": "./lib/env.mjs",
-    "./schema": "./lib/schema.mjs"
+    "./schema": "./lib/schema.mjs",
+    "./ui-spec": "./lib/ui-spec.mjs"
   },
   "engines": {
     "node": ">=18"
@@ -18,6 +19,10 @@
     "wait": "node scripts/wait-for-nocobase.mjs",
     "provision": "node scripts/provision.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "reset": "node scripts/reset.mjs"
+    "reset": "node scripts/reset.mjs",
+    "provision:workflow": "node scripts/provision-workflow.mjs",
+    "provision:ui": "node scripts/provision-ui.mjs",
+    "provision:acl": "node scripts/provision-acl.mjs --test-user",
+    "provision:all": "node scripts/provision.mjs && node scripts/provision-workflow.mjs && node scripts/provision-ui.mjs && node scripts/provision-acl.mjs --test-user"
   }
 }

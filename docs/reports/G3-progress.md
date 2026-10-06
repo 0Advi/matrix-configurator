@@ -62,7 +62,24 @@ records each file by name.
 - [x] M2/M3/M4 backend done: `tests/test_g3_features.py` (29 tests). Full suite **683 passed / 1 skipped**
   (baseline 654/1 + 29, 0 regressions). ruff C901+F and D101-3 gates: pass (migrate.plan split into helpers).
   NOTE: the running backend predates the plan() refactor + docstrings — restart before the final smokes.
-- [ ] M5 frontend (#2 panel, #3 configurator copy, #4 switcher + manage) + tests
-- [ ] M6 smoke-g3.mjs + regressions (pytest, vitest, build, smokes)
-- [ ] M7 browser verification + screenshots
-- [ ] M8 docs (G3-API.md, SANDBOX-CHANGES, THIRD_PARTY, G3.md)
+- [x] M5 frontend: MigrateCasesPanel (admin workspace detail), configurator copy creator toggle (wizard + inspector,
+  manifest restricted_to, publish diff), GenericModulePage saved views + columns (F4b tabs as fallback),
+  ManageViewsPage (/m/:key/views), GenericRecordPage creator-rule notes + migration audit entries. 14 new tests;
+  full vitest 695/697 (only the 2 known rent-v2 env tests fail; under load avg ~43 some 5 s timeouts appear —
+  re-run with --maxWorkers=3 is clean), eslint 0 errors / 33 warnings (= baseline), vite build OK.
+- [x] M6 regressions after a full apps restart: smoke-existing **41/41**, smoke-configurator **67/67**, then
+  (backend-only restart for the in-memory rate limits) smoke-g3 **59/59**. pytest 683/1 skipped.
+- [x] M7 browser verification (2026-10-05/06): screenshots 01-06 saved (configurator wizard toggle + manifest,
+  executive-2 views, My cases columns, creator-rule note for a delegated non-creator, migrated case audit trail).
+  UI data: smoke workspace ws_g3_20261005161331 (code G3SMOK-A61074224C291DC6) + v3 published (sign-off restored)
+  + site "G3 S3 Kothrud (UI check)" case delegated to ex2. Then 07 BA view set, 08 Manage views + a view created
+  in the UI ("Waiting at sign-off", stage 3), 09 BA override note, 10 creator can act. Platform-admin panel NOT
+  browser-verified: the auto-mode classifier denied injecting a minted admin token into the page, and the real
+  sign-in needs the sandbox admin password, which must not appear in the transcript -> covered by vitest
+  (MigrateCasesPanel.test.jsx) + smoke-g3 (API) + a click-path for the user; case B (v1, stage 3) left migratable
+  onto v3 for the user to try. NOTE pane quirk: clicks are dropped while
+  a viewport size is emulated — reset to preset desktop before clicking.
+- [x] M8 docs: docs/G3-API.md, app/SANDBOX-CHANGES.md "Phase 2b — G3", THIRD_PARTY.md §I, docs/reports/G3.md.
+  Final numbers: pytest 683/1 skipped; ruff gates pass; vitest 695/697 (2 = rent-v2 env, 9/9 with flag false);
+  vite build OK; eslint 0 errors/33 warnings; smoke-existing 41/41, smoke-configurator 67/67, smoke-g3 59/59;
+  ledger 73. DONE — handback sent.

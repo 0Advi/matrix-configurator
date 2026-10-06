@@ -498,6 +498,7 @@ input:focus,select:focus,textarea:focus{outline:1px solid #6E9BFF;outline-offset
                           <button onClick="{{ a.onClick }}" style="{{ a.style }}">{{ a.label }}</button>
                         </sc-for>
                       </div>
+                      <button data-g3="creator-toggle" title="{{ st.creatorTip }}" onClick="{{ st.onCreator }}" style="{{ st.creatorStyle }}"><span style="{{ st.creatorBox }}">{{ st.creatorCheck }}</span>Only the site’s creator can do this</button>
                       <div style="font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:#6E7382;font-weight:600;margin:8px 0 4px">Ends in outcome · platform set</div>
                       <div style="display:flex;gap:4px;flex-wrap:wrap">
                         <sc-for list="{{ st.outcomes }}" as="o" hint-placeholder-count="8">
@@ -801,6 +802,11 @@ input:focus,select:focus,textarea:focus{outline:1px solid #6E9BFF;outline-offset
                       <span style="{{ a.style }}">{{ a.label }}</span>
                     </sc-for>
                   </div>
+                  <sc-if value="{{ st.creatorEditable }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding-left:24px">
+                      <button data-g3="creator-toggle" title="{{ st.creatorTip }}" onClick="{{ st.onCreator }}" style="{{ st.creatorStyle }}"><span style="{{ st.creatorBox }}">{{ st.creatorCheck }}</span>Only the site’s creator can do this</button>
+                    </div>
+                  </sc-if>
                   <div style="margin-top:8px;padding-left:24px;display:flex;flex-direction:column;gap:4px">
                     <sc-for list="{{ st.fields }}" as="f" hint-placeholder-count="3">
                       <div style="display:grid;grid-template-columns:minmax(0,1fr) 62px 40px;gap:7px;align-items:center;font-size:10.5px">
@@ -1987,6 +1993,22 @@ class Component extends DCLogic {
     { id: 'custom', title: 'Needs custom logic', preview: 'Files an engineering request and parks the module in Pending engineering' }
   ]; }
   wizNewStage(name) { return { id: this.uid('ws'), name: name || 'New stage', approvers: ['supervisor'], outcome: 'approved', fields: [] }; }
+  /* G3 (in-app copy only): per-stage creator rule. v5 state: stage.creatorOnly (boolean); manifest: restricted_to: 'site_creator'. */
+  creatorToggleVals(on) {
+    return {
+      creatorTip: 'Only the person who created the site (or its BD assignee) can do this stage\u2019s first step. A business admin can still act, recorded as an override.',
+      creatorStyle: { display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontSize: 10.5, color: on ? '#F2F3F7' : '#6E7382' },
+      creatorBox: { flex: '0 0 14px', width: 14, height: 14, borderRadius: 4, display: 'grid', placeItems: 'center', fontSize: 9, border: '1px solid ' + (on ? '#35C2C8' : 'rgba(255,255,255,.2)'), background: on ? 'rgba(53,194,200,.2)' : 'transparent', color: '#35C2C8' },
+      creatorCheck: on ? '\u2713' : ''
+    };
+  }
+  stageManifestRule(st) { return st && st.creatorOnly ? { restricted_to: 'site_creator' } : {}; }
+  toggleStageCreator(key, i) {
+    const m = this.state.modules.find(x => x.key === key); if (!m) return;
+    const on = !(m.stages[i] && m.stages[i].creatorOnly);
+    this.patchModule(key, { stages: m.stages.map((x, j) => j === i ? Object.assign({}, x, { creatorOnly: on }) : x) },
+      m.name + ' \u2192 ' + m.stages[i].name + ': ' + (on ? 'only the site\u2019s creator' : 'anyone in the tier'));
+  }
   openWizard(tpl) {
     const spot = this.freeSpot();
     const base = { step: 1, x: spot.x, y: spot.y, band: spot.band, name: '', key: '', keyTouched: false, refusalTouched: false, icon: '◆',
@@ -2043,7 +2065,7 @@ class Component extends DCLogic {
       module: { key: w.key || null, name: w.name || null, type: 'custom', icon: w.icon, route: '/m/' + (w.key || '<module_key>'), runtime: 'generic' },
       tiers: { supervisor: true, executive: w.supervisorOnly ? false : !!w.tiers.executive, business_admin_signoff: !!w.tiers.admin, delegation: !!w.delegation },
       entry_gate: w.gate.conds.length ? { match: w.gate.match, conditions: w.gate.conds.map(c => ({ source: c.src, outcome: c.out })), refusal_message: w.gate.refusal || this.wizAutoRefusal(w) } : null,
-      stages: w.stages.map((s, i) => ({ order: i + 1, name: s.name, outcome: s.outcome, terminal: i === w.stages.length - 1, approvers: s.approvers, fields: s.fields.map(f => ({ key: f.key, label: f.label, kind: f.kind, required: f.required, validation: f.validation || null, affects_outcome: f.affects })) })),
+      stages: w.stages.map((s, i) => Object.assign({ order: i + 1, name: s.name, outcome: s.outcome, terminal: i === w.stages.length - 1, approvers: s.approvers, fields: s.fields.map(f => ({ key: f.key, label: f.label, kind: f.kind, required: f.required, validation: f.validation || null, affects_outcome: f.affects })) }, this.stageManifestRule(s))),
       rollup: w.rollup.strategy === 'custom' ? { strategy: 'custom', engineering_request: 'filed', state: 'pending_engineering' }
         : w.rollup.strategy === 'count_at_least' ? { strategy: 'count_at_least', n: Number(w.rollup.n) || 0, of: Number(w.rollup.of) || 0 }
         : w.rollup.strategy === 'sum_under' ? { strategy: 'sum_under', field: w.rollup.field, limit: w.rollup.limit } : { strategy: w.rollup.strategy },
@@ -2062,7 +2084,7 @@ class Component extends DCLogic {
       tiers: { executive: w.supervisorOnly ? false : !!w.tiers.executive, supervisor: true, admin: !!w.tiers.admin },
       supervisorOnly: !!w.supervisorOnly, delegation: !!w.delegation,
       gate: w.gate.conds.length ? { match: w.gate.match, conds: w.gate.conds.slice(), refusal: w.gate.refusal || this.wizAutoRefusal(w) } : null,
-      stages: w.stages.map(s => ({ id: this.uid('s'), name: s.name, approvers: s.approvers.slice(), outcome: s.outcome, sites: 0, fields: s.fields.map(f => Object.assign({}, f, { id: this.uid('f') })) })),
+      stages: w.stages.map(s => ({ id: this.uid('s'), name: s.name, approvers: s.approvers.slice(), outcome: s.outcome, creatorOnly: !!s.creatorOnly, sites: 0, fields: s.fields.map(f => Object.assign({}, f, { id: this.uid('f') })) })),
       rollup: Object.assign({}, w.rollup), exit: w.exit, pendingEng: w.rollup.strategy === 'custom',
       pages: [['overview', 'Overview'], ['queue', 'Queue'], ['history', 'History'], ['review', 'Checklist review']],
       nav: [{ id: this.uid('ns'), title: w.name, items: [NI(w.icon, 'Overview', 'overview', roles), NI('▤', 'Queue', 'queue', roles, 'queue'), NI('✓', 'Checklist review', 'review', roles, 'awaiting'), NI('↻', 'History', 'history', roles)] }]
@@ -2154,7 +2176,10 @@ class Component extends DCLogic {
           label: this.roleLabel(r), style: chip(s.approvers.indexOf(r) >= 0, this.roleColor(r)),
           onClick: () => this.wizStagePatch(i, { approvers: s.approvers.indexOf(r) >= 0 ? s.approvers.filter(x => x !== r) : s.approvers.concat([r]) })
         })),
-        outcomes: this.OUTCOMES().map(o => ({ label: o, style: chip(s.outcome === o, '#8A96A8'), onClick: () => this.wizStagePatch(i, { outcome: o }) }))
+        outcomes: this.OUTCOMES().map(o => ({ label: o, style: chip(s.outcome === o, '#8A96A8'), onClick: () => this.wizStagePatch(i, { outcome: o }) })),
+        creatorTip: this.creatorToggleVals(!!s.creatorOnly).creatorTip, creatorStyle: this.creatorToggleVals(!!s.creatorOnly).creatorStyle,
+        creatorBox: this.creatorToggleVals(!!s.creatorOnly).creatorBox, creatorCheck: this.creatorToggleVals(!!s.creatorOnly).creatorCheck,
+        onCreator: () => this.wizStagePatch(i, { creatorOnly: !s.creatorOnly })
       })),
       onWizAddStage: () => this.wp({ stages: w.stages.concat([this.wizNewStage('Stage ' + (w.stages.length + 1))]) }),
       wizStageTabs: w.stages.map((s, i) => ({ label: s.name, onClick: () => this.wp({ fieldStage: i }), style: chip(i === Math.min(w.fieldStage, w.stages.length - 1), '#6E9BFF') })),
@@ -2385,7 +2410,11 @@ class Component extends DCLogic {
         outcomeStyle: { fontSize: 9.5, fontFamily: "'IBM Plex Mono',monospace", padding: '2px 6px', borderRadius: 4, background: 'rgba(138,150,168,.14)', color: '#A2A6B4', whiteSpace: 'nowrap', flex: '0 0 auto' },
         approvers: st.approvers.map(r => ({ label: this.roleLabel(r), style: { fontSize: 9.5, padding: '2px 6px', borderRadius: 4, border: '1px solid ' + this.roleColor(r), color: this.roleColor(r), whiteSpace: 'nowrap' } })),
         fields: st.fields.map(f => ({ label: f.label, kind: f.kind, req: f.required ? 'req' : '', reqStyle: { fontSize: 9, fontFamily: "'IBM Plex Mono',monospace", color: f.required ? '#6E9BFF' : 'transparent', textAlign: 'right' } })),
-        sitesNote: st.sites ? st.sites + ' sites here now' : false
+        sitesNote: st.sites ? st.sites + ' sites here now' : false,
+        creatorEditable: custom && !locked,
+        creatorTip: this.creatorToggleVals(!!st.creatorOnly).creatorTip, creatorStyle: this.creatorToggleVals(!!st.creatorOnly).creatorStyle,
+        creatorBox: this.creatorToggleVals(!!st.creatorOnly).creatorBox, creatorCheck: this.creatorToggleVals(!!st.creatorOnly).creatorCheck,
+        onCreator: () => this.toggleStageCreator(m.key, i)
       })),
       rollupSentence: this.rollupSentence(m),
       versionLine: (m.versions.length ? m.versions.map(v => v[1] + ' sites on v' + v[0]).join(' · ') : 'no sites yet · first publish will start v' + s.draftV),
@@ -2575,6 +2604,7 @@ class Component extends DCLogic {
       lm.stages.forEach(ls => {
         const cs = m.stages.find(x => x.name === ls.name); if (!cs) { if (ls.sites) push('stages', m.name + ': stage “' + ls.name + '” removed while ' + ls.sites + ' sites sit in it.', 'Needs a decision below before this can publish.', 'high'); return; }
         if (cs.fields.length !== ls.fields.length) push('fields', m.name + ' → ' + ls.name + ': fields ' + ls.fields.length + ' → ' + cs.fields.length + '.', false, 'low');
+        if (!!cs.creatorOnly !== !!ls.creatorOnly) push('creator rule', m.name + ' \u2192 ' + ls.name + ': ' + (cs.creatorOnly ? 'only the site\u2019s creator can do its first step' : 'anyone in the tier can do its first step again') + '.', 'Cases already running keep the rule of the release they started on (until migrated).', 'low');
         if (cs.approvers.join() !== ls.approvers.join()) push('approvers', m.name + ' → ' + ls.name + ': approvers now ' + (cs.approvers.map(r => this.roleLabel(r)).join(', ') || 'nobody') + '.', cs.approvers.length ? false : 'No tier can sign this stage off — sites entering it will stall.', cs.approvers.length ? 'low' : 'high');
       });
       lm.nav.forEach((lsec, si) => (lsec.items || []).forEach((lit, ii) => {
@@ -2616,7 +2646,7 @@ class Component extends DCLogic {
         state: m.pendingEng ? 'pending_engineering' : m.status,
         tiers: { supervisor: true, executive: !m.supervisorOnly && m.tiers.executive, business_admin_signoff: m.tiers.admin, delegation: m.delegation },
         entry_gate: m.gate ? { match: m.gate.match, conditions: m.gate.conds.map(c => ({ source: c.src, outcome: c.out })), refusal_message: m.gate.refusal } : null,
-        stages: m.stages.map((st, i) => ({ order: i + 1, name: st.name, outcome: st.outcome, terminal: i === m.stages.length - 1, approvers: st.approvers, fields: st.fields.map(f => ({ key: f.key, label: f.label, kind: f.kind, required: f.required, validation: f.validation || null, affects_outcome: !!f.affects })) })),
+        stages: m.stages.map((st, i) => Object.assign({ order: i + 1, name: st.name, outcome: st.outcome, terminal: i === m.stages.length - 1, approvers: st.approvers, fields: st.fields.map(f => ({ key: f.key, label: f.label, kind: f.kind, required: f.required, validation: f.validation || null, affects_outcome: !!f.affects })) }, m.kind === 'custom' ? this.stageManifestRule(st) : {})),
         rollup: m.rollup, exit_signal: m.exit,
         navigation: m.nav.map(sec => ({ section: sec.title, items: sec.items.map(it => ({ label: it.label, icon: it.icon, page: it.page, badge: it.badge || null, roles: it.roles })) }))
       })),

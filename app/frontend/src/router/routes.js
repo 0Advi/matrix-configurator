@@ -63,12 +63,18 @@ export const ROUTES = {
   // F4b: configurator-defined modules (generic runtime; docs/F4-API.md §3)
   CUSTOM_MODULE:          '/m/:moduleKey',
   CUSTOM_MODULE_RECORD:   '/m/:moduleKey/records/:recordId',
+  // G3: business admin's "Manage views" screen of a custom module (docs/G3-API.md §3)
+  CUSTOM_MODULE_VIEWS:    '/m/:moduleKey/views',
 };
 
 export function customModuleRecordRoute(moduleKey, recordId) {
   return ROUTES.CUSTOM_MODULE_RECORD
     .replace(':moduleKey', encodeURIComponent(moduleKey))
     .replace(':recordId', encodeURIComponent(recordId));
+}
+
+export function customModuleViewsRoute(moduleKey) {
+  return ROUTES.CUSTOM_MODULE_VIEWS.replace(':moduleKey', encodeURIComponent(moduleKey));
 }
 
 export function loiTimelineRoute(code) {

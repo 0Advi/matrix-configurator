@@ -89,7 +89,8 @@ writes its outputs to disk and its report to `docs/reports/`.
 | F4b | **done** — lead re-verified: vitest 681/683 (2 = rent-v2 flag tests, pass 9/9 with flag false → env-only, 0 regressions), vite build OK; browser journey end to end (DOM events); 0 backend changes | `docs/reports/F4b.md`, `docs/F4b-UI.md` |
 | G1 | **done** — lead re-verified: 49/49 tests; user's `aditya-test` untouched (updatedAt == createdAt); E2E draft deleted. 27 ops, CLI + MCP server (`agent-configurator/`) | `docs/reports/G1.md` |
 | G2 | **done** — lead re-verified: 16/16 completeness test; patches NOT applied (targets untouched). D01–D33; our flow = closest to real app. REPORT.md blocked by harness (content in handback) — **user decision pending**: save REPORT.md? apply patches 01/02/03? | `docs/reports/G2.md`, `docs/catalogue-crosscheck/` |
-| G3 | in progress — migrate running cases (#2), creator-scoped rule (#3), role-scoped saved views (#4) | `docs/reports/G3-progress.md` |
+| G3 | **done** — lead re-verified: pytest 683/1 (+29), vitest 695/697 (2 env-only), build OK, smoke-existing 41/41, smoke-configurator 67/67, smoke-g3 59/59, ledger 73 (migrations 20261005_1..3) | `docs/reports/G3.md`, `docs/G3-API.md` |
+| N1 | **done** — lead re-verified: provisioners idempotent; NocoBase menu Matrix Configurator → 7 read-only pages; workflow on cfg_releases → cfg_activity; role configurator_viewer (view OK, writes 403) | `docs/reports/N1.md`, `nocobase/README.md` |
 | F5 | pending (after G3) | — |
 | Final verification + handover | pending | — |
 
@@ -104,6 +105,8 @@ predates the repo by ~7h). The user owns that repo, so reusing its code here is 
 | 3 | "Only for sites they created" (creator-scoped) rule in the runtime + configurator | G3 | `app/` | after F4b |
 | 4 | Role-scoped saved views for module pages | G3 | `app/` | after F4b |
 F5 (end-to-end trace + caveats) runs last and covers all of the above.
+
+## User decision 2026-10-06: Operaton = **ideas only** (no engine). Deliverable: `docs/ADOPTION-AUDIT.md` mapping every Operaton + NocoBase concept → implementation → how to see it on localhost.
 
 ## Approved fix queue (user approved 2026-10-05: "queue these fixes and apply them as soon as they are ready")
 Source: `docs/catalogue-crosscheck/proposed-patches/` (G2). **Trigger: as soon as G3 is done** (G3 is editing the

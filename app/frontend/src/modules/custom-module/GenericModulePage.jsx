@@ -17,7 +17,7 @@ import PageHeader, { HeaderTag } from '../shared/page-header/PageHeader.jsx';
 import Icon from '../shared/primitives/Icon.jsx';
 import { useSession } from '../../state/SessionContext.jsx';
 import { useWorkspaceModules } from '../../state/useWorkspaceModules.js';
-import { customModuleRecordRoute } from '../../router/routes.js';
+import { customModuleRecordRoute, customModuleViewsRoute } from '../../router/routes.js';
 import { listRecords, listSitesForCases, listViews, listMembers, openRecord, problemOf, resolveView } from '../../services/api/moduleRuntimeApi.js';
 import { COLUMNS, DEFAULT_COLUMNS, describeFilter } from './viewsKit.js';
 import { Card, SectionTitle, CaseStatus, Button, Notice, Empty, when, tierLabel } from './kit.jsx';
@@ -37,10 +37,6 @@ export function filterCases(items, view) {
   if (view === 'review') return list.filter((r) => r.next_step?.kind === 'approve');
   if (view === 'history') return list.filter((r) => CLOSED.has(r.case_status));
   return list;
-}
-
-export function customModuleViewsRoute(moduleKey) {
-  return `/m/${encodeURIComponent(moduleKey)}/views`;
 }
 
 export default function GenericModulePage() {

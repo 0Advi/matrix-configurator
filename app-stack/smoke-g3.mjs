@@ -18,6 +18,10 @@
 //    the case audit trail carries provenance {from, to, actor, reason, before/after stage, pre_state}
 //    with an intact hash chain -> the migrated case finishes on v2.
 //
+// Rate limits: uses 1x password-reset/complete, 3x password-setup, 3x signup — the backend allows 5 per
+// 300 s per endpoint (in memory), so restart the backend (./stop.sh --apps && ./start.sh) before running it
+// right after smoke-existing + smoke-configurator.
+//
 // Evidence (no tokens / passwords / setup codes): app-stack/run/smoke/g3-last-run.json;
 // test users' passwords: run/smoke/g3-last-run.secrets.json (mode 600).
 
@@ -152,6 +156,7 @@ async function main() {
   r = await call('POST', `/business-admin/pending-supervisors/${supId}/approve`, { token: baTok, body: { module: MOD } });
   expect('supervisor joins the module', r, 204);
   r = await call('POST', '/auth/password-setup', { body: { email: emails.sup, workspace_code: code, new_password: secrets.sup.password } });
+  expect('supervisor sets a first password (rate limit 5/300 s — restart the backend between smoke runs)', r, 200);
   r = await call('POST', '/auth/login', { body: { email: emails.sup, workspace_code: code, password: secrets.sup.password } });
   const supTok = r.data?.access_token;
   r = await call('POST', `/supervisor-codes/me/${MOD}/rotate`, { token: supTok });
@@ -162,7 +167,8 @@ async function main() {
     r = await call('POST', '/auth/signup/executive', { body: { email: emails[k], supervisor_code: invite } });
     execIds[k] = r.data?.user_id;
     r = await call('POST', `/supervisor-codes/me/pending-executives/${execIds[k]}/approve?module=${MOD}`, { token: supTok });
-    await call('POST', '/auth/password-setup', { body: { email: emails[k], workspace_code: code, new_password: secrets[k].password } });
+    r = await call('POST', '/auth/password-setup', { body: { email: emails[k], workspace_code: code, new_password: secrets[k].password } });
+    expect(`executive ${k} sets a first password`, r, 200);
     r = await call('POST', '/auth/login', { body: { email: emails[k], workspace_code: code, password: secrets[k].password } });
     execTok[k] = r.data?.access_token;
   }

@@ -1,6 +1,8 @@
 // Provisioned workspaces (GET /platform/workspaces) with a per-workspace detail
 // (GET /platform/workspaces/{ref}: release history, module registry, business-admin claim).
+// G3: the detail also carries "Migrate running cases" (MigrateCasesPanel.jsx).
 import React from 'react';
+import MigrateCasesPanel from './MigrateCasesPanel.jsx';
 import { platformApi, workspaceLoginUrl } from '../adminApi.js';
 import { C, Button, Pill, Eyebrow, Banner, Spinner, CopyButton, when } from './ui.jsx';
 
@@ -82,7 +84,8 @@ function WorkspaceDetail({ refId, withAuth }) {
   if (d.status === 'error') return <div style={{ padding: '10px 16px', borderTop: `1px solid ${C.line}` }}><Banner>{d.error}</Banner></div>;
   const ws = d.ws;
   return (
-    <div style={{ padding: '14px 16px 18px', borderTop: `1px solid ${C.line}`, background: 'rgba(255,255,255,0.02)', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 22 }}>
+    <div style={{ borderTop: `1px solid ${C.line}`, background: 'rgba(255,255,255,0.02)' }}>
+    <div style={{ padding: '14px 16px 18px', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 22 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <Eyebrow>Release history</Eyebrow>
         {(ws.releases || []).length === 0 && <span style={{ fontSize: 12.5, color: C.faint }}>Nothing published yet.</span>}
@@ -120,6 +123,10 @@ function WorkspaceDetail({ refId, withAuth }) {
           ))}
         </div>
       </div>
+    </div>
+    <div style={{ padding: '0 16px 18px' }}>
+      <MigrateCasesPanel refId={refId} ws={ws} withAuth={withAuth}/>
+    </div>
     </div>
   );
 }
