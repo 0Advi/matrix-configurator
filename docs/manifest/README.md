@@ -12,7 +12,7 @@ else. The runtime has **no built-in module, no fixed role list and no fixed outc
 | `packages/manifest/workspace_manifest/validate.py` | Validator: the cross-reference rules a schema cannot express (R1–R10) |
 | `packages/manifest/workspace_manifest/from_v5.py` | Converter from today's configurator-v5 releases (migration path; sandbox only) |
 | `packages/manifest/examples/acme-retail.manifest.json` | Example: 2 modules × 3 stages, entry + stage gates, approval tiers, custom role, typed fields, saved views, grants |
-| `packages/manifest/tests/` | 74 tests: the example is clean, **each rule has at least one failing fixture** (`fixtures/invalid_cases.json`, 58 cases), the v5 converter reproduces runtime semantics, the Task 4 additions validate |
+| `packages/manifest/tests/` | 78 tests: the example is clean, **each rule has at least one failing fixture** (`fixtures/invalid_cases.json`, 62 cases), the v5 converter reproduces runtime semantics, the Task 4 additions validate |
 
 ```bash
 cd packages/manifest
